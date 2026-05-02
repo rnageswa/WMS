@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/wms/"
+title = "WMS — Warehouse Management System"
+version = "1.0.0"
+id = "artifacts/wms-app"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/wms/" ]
+localPort = 18736
+
+[services.development]
+run = "pnpm --filter @workspace/wms-app run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/wms-app", "run", "build" ]
+publicDir = "artifacts/wms-app/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18736"
+BASE_PATH = "/wms/"

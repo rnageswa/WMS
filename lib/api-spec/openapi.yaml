@@ -3,20 +3,28 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: WMS API specification
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: products
+    description: SKU / product management
+  - name: locations
+    description: Warehouse, zone, and bin management
+  - name: inventory
+    description: Inventory levels and adjustments
+  - name: movements
+    description: Inventory movement audit log
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,13 +32,789 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ─── Products ───────────────────────────────────────────────────────────────
+
+  /products:
+    get:
+      operationId: listProducts
+      tags: [products]
+      summary: List all products
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: isActive
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Product list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Product"
+    post:
+      operationId: createProduct
+      tags: [products]
+      summary: Create a new product SKU
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProductBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "409":
+          description: SKU code or barcode already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /products/{id}:
+    get:
+      operationId: getProduct
+      tags: [products]
+      summary: Get a single product
+      parameters:
+        - $ref: "#/components/parameters/UuidId"
+      responses:
+        "200":
+          description: Product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateProduct
+      tags: [products]
+      summary: Update a product
+      parameters:
+        - $ref: "#/components/parameters/UuidId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProductBody"
+      responses:
+        "200":
+          description: Updated product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deactivateProduct
+      tags: [products]
+      summary: Deactivate a product (soft delete)
+      parameters:
+        - $ref: "#/components/parameters/UuidId"
+      responses:
+        "200":
+          description: Deactivated product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ─── Warehouses ─────────────────────────────────────────────────────────────
+
+  /warehouses:
+    get:
+      operationId: listWarehouses
+      tags: [locations]
+      summary: List all warehouses
+      responses:
+        "200":
+          description: Warehouse list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Warehouse"
+    post:
+      operationId: createWarehouse
+      tags: [locations]
+      summary: Create a warehouse
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWarehouseBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Warehouse"
+
+  /warehouses/{id}:
+    get:
+      operationId: getWarehouse
+      tags: [locations]
+      summary: Get a warehouse with its zones and bins
+      parameters:
+        - $ref: "#/components/parameters/UuidId"
+      responses:
+        "200":
+          description: Warehouse with nested zones and bins
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WarehouseDetail"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateWarehouse
+      tags: [locations]
+      summary: Update a warehouse
+      parameters:
+        - $ref: "#/components/parameters/UuidId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateWarehouseBody"
+      responses:
+        "200":
+          description: Updated warehouse
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Warehouse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ─── Zones ──────────────────────────────────────────────────────────────────
+
+  /warehouses/{id}/zones:
+    get:
+      operationId: listZones
+      tags: [locations]
+      summary: List zones for a warehouse
+      parameters:
+        - $ref: "#/components/parameters/UuidId"
+      responses:
+        "200":
+          description: Zone list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Zone"
+    post:
+      operationId: createZone
+      tags: [locations]
+      summary: Create a zone inside a warehouse
+      parameters:
+        - $ref: "#/components/parameters/UuidId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateZoneBody"
+      responses:
+        "201":
+          description: Created zone
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Zone"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /zones/{id}/bins:
+    get:
+      operationId: listBins
+      tags: [locations]
+      summary: List bins for a zone
+      parameters:
+        - $ref: "#/components/parameters/UuidId"
+      responses:
+        "200":
+          description: Bin list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Bin"
+    post:
+      operationId: createBin
+      tags: [locations]
+      summary: Create a bin inside a zone
+      parameters:
+        - $ref: "#/components/parameters/UuidId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBinBody"
+      responses:
+        "201":
+          description: Created bin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Bin"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Bin code already exists in this zone
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ─── Inventory ──────────────────────────────────────────────────────────────
+
+  /inventory:
+    get:
+      operationId: listInventory
+      tags: [inventory]
+      summary: List inventory levels (filterable)
+      parameters:
+        - name: productId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: binId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: warehouseId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: lowStock
+          in: query
+          description: Return only items at or below reorder threshold
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Inventory item list with product and location details
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/InventoryItem"
+
+  /inventory/adjust:
+    post:
+      operationId: adjustInventory
+      tags: [inventory]
+      summary: Manually adjust inventory quantity for a SKU at a bin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdjustInventoryBody"
+      responses:
+        "200":
+          description: Updated inventory item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventoryItem"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ─── Movements ──────────────────────────────────────────────────────────────
+
+  /movements:
+    get:
+      operationId: listMovements
+      tags: [movements]
+      summary: List inventory movements
+      parameters:
+        - name: productId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: binId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: movementType
+          in: query
+          schema:
+            type: string
+            enum: [adjustment, inbound, outbound]
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        "200":
+          description: Movement list newest-first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/InventoryMovement"
+
+  # ─── Dashboard summary ───────────────────────────────────────────────────────
+
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [inventory]
+      summary: Aggregate counts for dashboard
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+
 components:
+  parameters:
+    UuidId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
   schemas:
     HealthStatus:
       type: object
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required: [message]
+
+    # ── Products ──────────────────────────────────────────────────────────────
+
+    Product:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        skuCode:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        category:
+          type: string
+          nullable: true
+        barcode:
+          type: string
+          nullable: true
+        unitOfMeasure:
+          type: string
+        unitPrice:
+          type: string
+          nullable: true
+        reorderThreshold:
+          type: integer
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - skuCode
+        - name
+        - unitOfMeasure
+        - reorderThreshold
+        - isActive
+        - createdAt
+        - updatedAt
+
+    CreateProductBody:
+      type: object
+      properties:
+        skuCode:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        category:
+          type: string
+          nullable: true
+        barcode:
+          type: string
+          nullable: true
+        unitOfMeasure:
+          type: string
+          default: each
+        unitPrice:
+          type: string
+          nullable: true
+        reorderThreshold:
+          type: integer
+          default: 0
+        isActive:
+          type: boolean
+          default: true
+      required: [skuCode, name, unitOfMeasure]
+
+    UpdateProductBody:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        category:
+          type: string
+          nullable: true
+        barcode:
+          type: string
+          nullable: true
+        unitOfMeasure:
+          type: string
+        unitPrice:
+          type: string
+          nullable: true
+        reorderThreshold:
+          type: integer
+        isActive:
+          type: boolean
+
+    # ── Locations ─────────────────────────────────────────────────────────────
+
+    Warehouse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        address:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, name, isActive, createdAt, updatedAt]
+
+    WarehouseDetail:
+      allOf:
+        - $ref: "#/components/schemas/Warehouse"
+        - type: object
+          properties:
+            zones:
+              type: array
+              items:
+                $ref: "#/components/schemas/ZoneWithBins"
+          required: [zones]
+
+    CreateWarehouseBody:
+      type: object
+      properties:
+        name:
+          type: string
+        address:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+          default: true
+      required: [name]
+
+    UpdateWarehouseBody:
+      type: object
+      properties:
+        name:
+          type: string
+        address:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+
+    Zone:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        warehouseId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        code:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, warehouseId, name, code, createdAt]
+
+    ZoneWithBins:
+      allOf:
+        - $ref: "#/components/schemas/Zone"
+        - type: object
+          properties:
+            bins:
+              type: array
+              items:
+                $ref: "#/components/schemas/Bin"
+          required: [bins]
+
+    CreateZoneBody:
+      type: object
+      properties:
+        name:
+          type: string
+        code:
+          type: string
+      required: [name, code]
+
+    Bin:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        zoneId:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, zoneId, code, createdAt]
+
+    CreateBinBody:
+      type: object
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+          nullable: true
+      required: [code]
+
+    # ── Inventory ─────────────────────────────────────────────────────────────
+
+    InventoryItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        productId:
+          type: string
+          format: uuid
+        binId:
+          type: string
+          format: uuid
+        qtyOnHand:
+          type: integer
+        updatedAt:
+          type: string
+          format: date-time
+        product:
+          $ref: "#/components/schemas/Product"
+        bin:
+          $ref: "#/components/schemas/BinWithLocation"
+      required: [id, productId, binId, qtyOnHand, updatedAt, product, bin]
+
+    BinWithLocation:
+      allOf:
+        - $ref: "#/components/schemas/Bin"
+        - type: object
+          properties:
+            zone:
+              type: object
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                name:
+                  type: string
+                code:
+                  type: string
+                warehouse:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      format: uuid
+                    name:
+                      type: string
+                  required: [id, name]
+              required: [id, name, code, warehouse]
+          required: [zone]
+
+    AdjustInventoryBody:
+      type: object
+      properties:
+        productId:
+          type: string
+          format: uuid
+        binId:
+          type: string
+          format: uuid
+        newQty:
+          type: integer
+          minimum: 0
+        reasonCode:
+          type: string
+      required: [productId, binId, newQty, reasonCode]
+
+    # ── Movements ─────────────────────────────────────────────────────────────
+
+    InventoryMovement:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        productId:
+          type: string
+          format: uuid
+        binId:
+          type: string
+          format: uuid
+        movementType:
+          type: string
+          enum: [adjustment, inbound, outbound]
+        quantity:
+          type: integer
+        reasonCode:
+          type: string
+          nullable: true
+        referenceId:
+          type: string
+          format: uuid
+          nullable: true
+        referenceType:
+          type: string
+          nullable: true
+        createdBy:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        product:
+          $ref: "#/components/schemas/Product"
+        bin:
+          $ref: "#/components/schemas/BinWithLocation"
+      required:
+        - id
+        - productId
+        - binId
+        - movementType
+        - quantity
+        - createdAt
+        - product
+        - bin
+
+    # ── Dashboard ─────────────────────────────────────────────────────────────
+
+    DashboardSummary:
+      type: object
+      properties:
+        totalProducts:
+          type: integer
+        activeProducts:
+          type: integer
+        totalBins:
+          type: integer
+        lowStockCount:
+          type: integer
+        totalMovementsToday:
+          type: integer
+        recentMovements:
+          type: array
+          items:
+            $ref: "#/components/schemas/InventoryMovement"
+      required:
+        - totalProducts
+        - activeProducts
+        - totalBins
+        - lowStockCount
+        - totalMovementsToday
+        - recentMovements
