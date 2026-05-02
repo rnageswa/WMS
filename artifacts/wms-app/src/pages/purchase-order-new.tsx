@@ -1,12 +1,14 @@
 import { useState } from "react";
 import {
   useCreatePurchaseOrder,
+  useCreatePoTemplate,
   useListInventory,
   useListSuppliers,
   useListPoTemplates,
   getPoTemplate,
   getGetPoTemplateQueryKey,
   getListInventoryQueryKey,
+  getListPoTemplatesQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Layout, PageHeader } from "@/components/layout";
@@ -15,6 +17,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -34,6 +43,8 @@ import {
   Copy,
   Sparkles,
   X,
+  BookmarkPlus,
+  CheckCircle2,
 } from "lucide-react";
 
 interface LineForm {
@@ -63,6 +74,11 @@ export default function PurchaseOrderNewPage() {
   // Template pre-fill state
   const [appliedTemplateName, setAppliedTemplateName] = useState<string | null>(null);
   const [loadingTemplate, setLoadingTemplate] = useState(false);
+
+  // Save as template dialog
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState("");
+  const [savedTemplateName, setSavedTemplateName] = useState<string | null>(null);
 
   const { data: suppliers = [] } = useListSuppliers({ isActive: true });
   const { data: templates = [] } = useListPoTemplates();
@@ -96,6 +112,55 @@ export default function PurchaseOrderNewPage() {
       },
     },
   });
+
+  const { mutate: createTemplate, isPending: savingTemplate } = useCreatePoTemplate({
+    mutation: {
+      onSuccess: (data) => {
+        qc.invalidateQueries({ queryKey: getListPoTemplatesQueryKey() });
+        setSavedTemplateName(data.name);
+        setAppliedTemplateName(data.name);
+      },
+      onError: () => {
+        toast({ title: "Failed to save template", variant: "destructive" });
+      },
+    },
+  });
+
+  const openSaveDialog = () => {
+    // Pre-fill name: "<Supplier> Template" or blank
+    const supplierLabel =
+      supplierId && supplierId !== FREE_TEXT
+        ? (suppliers.find((s) => s.id === supplierId)?.name ?? "")
+        : supplierFreeText.trim();
+    setNewTemplateName(
+      supplierLabel ? `${supplierLabel} Template` : appliedTemplateName ?? ""
+    );
+    setSavedTemplateName(null);
+    setSaveDialogOpen(true);
+  };
+
+  const handleSaveAsTemplate = () => {
+    if (!newTemplateName.trim()) return;
+    const validLines = lines.filter((l) => l.productId);
+    if (validLines.length === 0) return;
+
+    const resolvedId = supplierId && supplierId !== FREE_TEXT ? supplierId : null;
+    const resolvedName = supplierId === FREE_TEXT ? supplierFreeText.trim() : undefined;
+
+    createTemplate({
+      data: {
+        name: newTemplateName.trim(),
+        supplierId: resolvedId ?? undefined,
+        supplierName: resolvedName,
+        notes: notes.trim() || undefined,
+        lines: validLines.map((l) => ({
+          productId: l.productId,
+          defaultQty: l.qtyOrdered,
+          defaultUnitCost: l.unitCost ? parseFloat(l.unitCost) : undefined,
+        })),
+      },
+    });
+  };
 
   // ── Template pre-fill ────────────────────────────────────────────────────────
 
@@ -483,7 +548,7 @@ export default function PurchaseOrderNewPage() {
         </Card>
 
         {/* ── Actions ──────────────────────────────────────────────────────── */}
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Button
             onClick={handleSubmit}
             disabled={!canSubmit || isPending}
@@ -499,8 +564,142 @@ export default function PurchaseOrderNewPage() {
           <Button variant="ghost" onClick={() => navigate("/purchase-orders")}>
             Cancel
           </Button>
+
+          {/* Save as Template — shown once at least one line has a product */}
+          {lines.some((l) => l.productId) && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="ml-auto gap-1.5 text-xs border-dashed"
+              onClick={openSaveDialog}
+            >
+              <BookmarkPlus className="w-3.5 h-3.5" />
+              Save as Template
+            </Button>
+          )}
         </div>
       </div>
+
+      {/* ── Save as Template dialog ────────────────────────────────────────── */}
+      <Dialog
+        open={saveDialogOpen}
+        onOpenChange={(open) => {
+          if (!open && !savingTemplate) setSaveDialogOpen(false);
+        }}
+      >
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <BookmarkPlus className="w-4 h-4 text-[#E8622A]" />
+              Save as Template
+            </DialogTitle>
+          </DialogHeader>
+
+          {savedTemplateName ? (
+            /* Success state */
+            <div className="py-4 flex flex-col items-center gap-3 text-center">
+              <div className="w-12 h-12 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center">
+                <CheckCircle2 className="w-6 h-6 text-emerald-600" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold">Template saved!</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  "{savedTemplateName}" is ready for one-click reuse.
+                </p>
+              </div>
+              <div className="flex gap-2 mt-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs h-7"
+                  onClick={() => setSaveDialogOpen(false)}
+                >
+                  Continue editing
+                </Button>
+                <Button
+                  size="sm"
+                  className="text-xs h-7 bg-[#E8622A] hover:bg-[#E8622A]/90 text-white gap-1"
+                  onClick={() => {
+                    setSaveDialogOpen(false);
+                    navigate("/purchase-orders/templates");
+                  }}
+                >
+                  <Copy className="w-3 h-3" /> View templates
+                </Button>
+              </div>
+            </div>
+          ) : (
+            /* Form state */
+            <>
+              <div className="space-y-4 py-1">
+                {/* Summary chip strip */}
+                <div className="flex flex-wrap gap-1.5">
+                  {(supplierId && supplierId !== FREE_TEXT
+                    ? suppliers.find((s) => s.id === supplierId)?.name
+                    : supplierFreeText.trim() || null) && (
+                    <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border/50">
+                      <Truck className="w-2.5 h-2.5 shrink-0" />
+                      {supplierId && supplierId !== FREE_TEXT
+                        ? suppliers.find((s) => s.id === supplierId)?.name
+                        : supplierFreeText.trim()}
+                    </span>
+                  )}
+                  <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border/50">
+                    {lines.filter((l) => l.productId).length}{" "}
+                    {lines.filter((l) => l.productId).length === 1 ? "product" : "products"}
+                  </span>
+                  {notes.trim() && (
+                    <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border/50">
+                      + notes
+                    </span>
+                  )}
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Template Name *</Label>
+                  <Input
+                    autoFocus
+                    placeholder="e.g. Monthly Restock"
+                    value={newTemplateName}
+                    onChange={(e) => setNewTemplateName(e.target.value)}
+                    className="h-9 text-sm"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && newTemplateName.trim()) handleSaveAsTemplate();
+                    }}
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Quantities and costs will be saved as defaults — you can adjust them when creating a PO.
+                  </p>
+                </div>
+              </div>
+
+              <DialogFooter className="gap-2 flex-row justify-end">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSaveDialogOpen(false)}
+                  disabled={savingTemplate}
+                  className="text-xs h-8"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={!newTemplateName.trim() || savingTemplate}
+                  onClick={handleSaveAsTemplate}
+                  className="bg-[#E8622A] hover:bg-[#E8622A]/90 text-white h-8 text-xs gap-1.5"
+                >
+                  {savingTemplate ? (
+                    <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving…</>
+                  ) : (
+                    <><BookmarkPlus className="w-3.5 h-3.5" /> Save Template</>
+                  )}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }
