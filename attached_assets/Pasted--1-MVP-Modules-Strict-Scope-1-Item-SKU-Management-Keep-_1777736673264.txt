@@ -1,0 +1,208 @@
+🧱 1. MVP Modules (Strict Scope)
+1. Item / SKU Management
+
+Keep it simple but solid:
+
+SKU creation
+Basic attributes (name, category, price)
+Barcode support
+Unit of Measure (basic)
+
+👉 Skip for now:
+
+Complex variants
+Serial tracking (add later unless targeting automotive immediately)
+2. Supplier + Purchase Orders
+Create suppliers
+Create & manage Purchase Orders (PO)
+PO status: Draft → Approved → Received
+
+👉 Must-have:
+
+Ability to receive against PO (full or partial)
+
+👉 Skip:
+
+AI supplier scoring
+Contract management
+3. Goods Receipt (Inbound)
+Receive items against PO
+Record quantities
+Assign storage location (bin)
+
+👉 Keep it simple:
+
+Manual entry + barcode scan
+
+👉 Skip:
+
+ASN, dock scheduling
+4. Basic Inventory Management (CORE)
+
+This is your heart of MVP:
+
+Real-time stock levels
+Location-based inventory (bin-level)
+Stock movements:
+Inbound
+Outbound
+Adjustments
+
+👉 Must-have:
+
+Inventory history (audit trail)
+
+👉 Skip:
+
+Batch/expiry (unless required for your domain)
+5. Warehouse Structure (Simple Version)
+Warehouse → Location → Bin
+
+👉 Keep it minimal:
+
+No 3D maps, no optimization yet
+6. Sales Orders / Order Intake
+Create sales orders manually or via API
+Order status tracking
+
+👉 Keep:
+
+Simple order lines (SKU + qty)
+
+👉 Skip:
+
+Complex order orchestration
+7. Picking
+Generate pick list from order
+Mark items as picked
+
+👉 Keep:
+
+Manual or barcode scan
+
+👉 Skip:
+
+Wave picking
+Route optimization
+8. Packing
+Mark items as packed
+Generate basic packing slip
+
+👉 Skip:
+
+Carton optimization
+9. Dispatch / Shipping
+Mark order as shipped
+Basic shipment tracking (manual entry)
+
+👉 Skip:
+
+Carrier integrations (add later)
+10. Basic Reporting (Very Important)
+
+Without this, users don’t trust your system.
+
+Include:
+
+Current stock report
+Low stock alert
+Order status report
+Inventory movement log
+11. User & Role Management
+Admin
+Warehouse operator
+
+👉 Keep it minimal but secure.
+
+⚙️ 2. MVP Feature Summary (Tight List)
+✅ Must Build
+SKU management
+Supplier + PO
+Goods receipt
+Inventory tracking (bin-level)
+Sales order management
+Picking
+Packing
+Dispatch
+Basic reports
+User roles
+❌ Explicitly Exclude (for now)
+
+This is where discipline matters:
+
+AI/ML features
+Advanced forecasting
+Complex warehouse optimization
+Robotics / IoT
+Multi-warehouse (start with one, design for scaling)
+ERP integrations
+Advanced costing models
+🧩 3. MVP Architecture Philosophy
+
+Do NOT over-engineer early.
+
+Start with:
+Modular monolith (not microservices yet)
+REST APIs
+Clean separation:
+Inventory
+Orders
+Procurement
+🗃️ 4. Core Data Entities (Your Backbone)
+
+You’ll need these tables/entities:
+
+Product (SKU)
+Supplier
+PurchaseOrder
+GoodsReceipt
+Inventory
+Location (Warehouse/Bin)
+SalesOrder
+PickingTask
+Shipment
+User
+
+👉 If this model is clean, everything else becomes easier.
+
+🔄 5. MVP User Flow (End-to-End)
+Step 1: Procurement
+Create PO → send to supplier
+Step 2: Receiving
+Receive goods → assign bins → inventory updated
+Step 3: Storage
+Items sit in bins (tracked in system)
+Step 4: Order
+Create sales order
+Step 5: Picking
+Generate pick list → pick items
+Step 6: Packing
+Pack items → confirm
+Step 7: Dispatch
+Mark shipped → reduce inventory
+⏱️ 6. Realistic Build Phases (MVP)
+Phase 1 (2–3 weeks)
+SKU + Inventory + Locations
+Phase 2 (2–3 weeks)
+Procurement + Receiving
+Phase 3 (2–3 weeks)
+Orders + Picking + Packing + Dispatch
+Phase 4 (1–2 weeks)
+Reports + polish + bug fixing
+
+👉 Total: ~8–10 weeks for a solid MVP
+
+⚠️ Common Mistakes to Avoid
+Trying to support every industry on day 1
+Overbuilding UI before backend is stable
+Ignoring inventory accuracy (this kills trust fast)
+Skipping audit logs
+🚀 What Comes After MVP
+
+Once MVP works, THEN add:
+
+Multi-warehouse
+Barcode mobile app
+Advanced picking strategies
+Costing & finance
+AI features
