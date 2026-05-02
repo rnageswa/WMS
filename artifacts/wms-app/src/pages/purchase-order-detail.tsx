@@ -69,9 +69,10 @@ import {
   PackageMinus,
   CopyCheck,
   Clock,
+  AlertTriangle,
 } from "lucide-react";
 import { Link } from "wouter";
-import { formatDistanceToNow, format, isPast, parseISO } from "date-fns";
+import { formatDistanceToNow, format, isPast, parseISO, differenceInCalendarDays } from "date-fns";
 
 type PoStatus = "draft" | "ordered" | "partially_received" | "received" | "cancelled";
 
@@ -424,6 +425,36 @@ export default function PurchaseOrderDetailPage() {
       />
 
       <div className="p-6 max-w-4xl space-y-5">
+
+        {/* Overdue banner */}
+        {(() => {
+          if (!po.expectedDeliveryDate) return null;
+          if (po.status === "received" || po.status === "cancelled") return null;
+          if (!isPast(parseISO(po.expectedDeliveryDate))) return null;
+          const days = differenceInCalendarDays(new Date(), parseISO(po.expectedDeliveryDate));
+          return (
+            <div className="flex items-center gap-3 px-4 py-3 bg-red-50 border border-red-200 rounded-lg">
+              <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <span className="text-sm font-semibold text-red-700">
+                  Delivery overdue by {days} day{days !== 1 ? "s" : ""}
+                </span>
+                <span className="text-sm text-red-500 ml-2">
+                  · Expected {format(parseISO(po.expectedDeliveryDate), "dd MMM yyyy")}
+                </span>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="shrink-0 h-7 text-xs border-red-200 text-red-700 hover:bg-red-100 hover:text-red-800 gap-1.5"
+                onClick={() => { setDateInput(po.expectedDeliveryDate ?? ""); setEditingDate(true); }}
+              >
+                <CalendarDays className="w-3 h-3" />
+                Update date
+              </Button>
+            </div>
+          );
+        })()}
 
         {/* Delivery date + notes info bar */}
         {(po.notes || po.expectedDeliveryDate !== undefined) && (

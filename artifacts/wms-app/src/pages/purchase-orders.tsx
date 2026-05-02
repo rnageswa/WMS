@@ -50,10 +50,11 @@ import {
   Trash2,
   CheckSquare,
   Download,
+  AlertTriangle,
 } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
-import { formatDistanceToNow, format, isPast, parseISO } from "date-fns";
+import { formatDistanceToNow, format, isPast, parseISO, differenceInCalendarDays } from "date-fns";
 
 type PoStatus = "draft" | "ordered" | "partially_received" | "received" | "cancelled";
 
@@ -308,11 +309,18 @@ export default function PurchaseOrdersPage() {
                   {data.map((po) => {
                     const isSelected = selected.has(po.id);
                     const delivDate = (po as any).expectedDeliveryDate as string | null | undefined;
-                    const isOverdue = delivDate && po.status !== "received" && po.status !== "cancelled" && isPast(parseISO(delivDate));
+                    const isOverdue = !!(delivDate && po.status !== "received" && po.status !== "cancelled" && isPast(parseISO(delivDate)));
+                    const daysOverdue = isOverdue ? differenceInCalendarDays(new Date(), parseISO(delivDate!)) : 0;
                     return (
                       <TableRow
                         key={po.id}
-                        className={`cursor-pointer hover:bg-muted/40 ${isSelected ? "bg-orange-50/60 hover:bg-orange-50" : ""}`}
+                        className={`cursor-pointer hover:bg-muted/40 ${
+                          isSelected
+                            ? "bg-orange-50/60 hover:bg-orange-50"
+                            : isOverdue
+                            ? "bg-red-50/40 hover:bg-red-50/60"
+                            : ""
+                        }`}
                         onClick={(e) => {
                           const target = e.target as HTMLElement;
                           if (target.closest('[role="checkbox"]') || target.closest("button")) return;
@@ -333,10 +341,17 @@ export default function PurchaseOrdersPage() {
                         <TableCell className="text-right tabular-nums text-sm">{po.totalQtyOrdered}</TableCell>
                         <TableCell className="text-xs">
                           {delivDate ? (
-                            <span className={isOverdue ? "text-red-600 font-medium" : "text-muted-foreground"}>
-                              {format(parseISO(delivDate), "dd MMM yyyy")}
-                              {isOverdue && <span className="ml-1 text-[10px]">⚠</span>}
-                            </span>
+                            <div className="flex flex-col gap-0.5">
+                              <span className={isOverdue ? "text-red-600 font-medium" : "text-muted-foreground"}>
+                                {format(parseISO(delivDate), "dd MMM yyyy")}
+                              </span>
+                              {isOverdue && (
+                                <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-red-600 bg-red-50 border border-red-200 rounded-full px-1.5 py-0 w-fit leading-4">
+                                  <AlertTriangle className="w-2.5 h-2.5 shrink-0" />
+                                  {daysOverdue}d overdue
+                                </span>
+                              )}
+                            </div>
                           ) : (
                             <span className="text-muted-foreground/40">—</span>
                           )}
