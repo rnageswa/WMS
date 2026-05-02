@@ -1556,7 +1556,7 @@ export const ScanLookupQueryParams = zod.object({
 
 export const ScanLookupResponse = zod.object({
   query: zod.string(),
-  matchType: zod.enum(["bin", "product", "none"]),
+  matchType: zod.enum(["bin", "product", "purchase_order", "grn", "none"]),
   bins: zod.array(
     zod
       .object({
@@ -1691,4 +1691,14 @@ export const ScanLookupResponse = zod.object({
         ),
     }),
   ),
+  purchaseOrder: zod
+    .object({
+      poId: zod.string().uuid(),
+      poNumber: zod.string(),
+      supplierName: zod.string(),
+      supplierId: zod.string().uuid().nullish(),
+      status: zod.string(),
+    })
+    .nullish(),
+  grnRef: zod.string().nullish(),
 });

@@ -7,6 +7,7 @@ import {
   binsTable,
   zonesTable,
   warehousesTable,
+  purchaseOrdersTable,
 } from "@workspace/db/schema";
 import { eq, and, sql, gte, lte, type SQL } from "drizzle-orm";
 import { AdjustInventoryBody } from "@workspace/api-zod";
@@ -1045,7 +1046,46 @@ router.get("/scan", async (req, res) => {
     return;
   }
 
-  // 3. No match
+  // 3. Try matching a PO number (direct) or a GRN reference (GRN-{PONUMBER}-{YYYYMMDD})
+  const grnPrefix = "GRN-";
+  let poNumberToFind: string | null = null;
+  let grnRef: string | null = null;
+
+  if (q.toUpperCase().startsWith(grnPrefix)) {
+    // Extract PO number: GRN-{PONUMBER}-{YYYYMMDD} → strip last "-YYYYMMDD" (8 digits)
+    const withoutGrn = q.slice(grnPrefix.length); // e.g. "PO-26-0001-20260502"
+    const match = withoutGrn.match(/^(.+)-\d{8}$/);
+    poNumberToFind = match ? match[1] : withoutGrn;
+    grnRef = q.toUpperCase();
+  } else {
+    poNumberToFind = q;
+  }
+
+  const [matchedPo] = await db
+    .select()
+    .from(purchaseOrdersTable)
+    .where(sql`lower(${purchaseOrdersTable.poNumber}) = lower(${poNumberToFind})`);
+
+  if (matchedPo) {
+    const matchType = grnRef ? "grn" : "purchase_order";
+    res.json({
+      query: q,
+      matchType,
+      bins: [],
+      inventory: [],
+      purchaseOrder: {
+        poId: matchedPo.id,
+        poNumber: matchedPo.poNumber,
+        supplierName: matchedPo.supplierName,
+        supplierId: matchedPo.supplierId ?? null,
+        status: matchedPo.status,
+      },
+      grnRef: grnRef ?? null,
+    });
+    return;
+  }
+
+  // 4. No match
   res.json({ query: q, matchType: "none", bins: [], inventory: [] });
 });
 

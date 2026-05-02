@@ -527,12 +527,22 @@ export type ScanResultBin = BinWithLocation & {
   inventory: InventoryItem[];
 };
 
+export interface ScanPurchaseOrderResult {
+  poId: string;
+  poNumber: string;
+  supplierName: string;
+  supplierId?: string | null;
+  status: string;
+}
+
 export type ScanResultMatchType =
   (typeof ScanResultMatchType)[keyof typeof ScanResultMatchType];
 
 export const ScanResultMatchType = {
   bin: "bin",
   product: "product",
+  purchase_order: "purchase_order",
+  grn: "grn",
   none: "none",
 } as const;
 
@@ -542,6 +552,8 @@ export interface ScanResult {
   bins: ScanResultBin[];
   product?: Product | null;
   inventory: InventoryItem[];
+  purchaseOrder?: ScanPurchaseOrderResult | null;
+  grnRef?: string | null;
 }
 
 export interface PoTemplateLine {
