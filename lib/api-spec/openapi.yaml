@@ -417,6 +417,34 @@ paths:
               schema:
                 $ref: "#/components/schemas/DashboardSummary"
 
+  # ─── Reports ─────────────────────────────────────────────────────────────────
+
+  /reports/stock-value:
+    get:
+      operationId: getStockValueReport
+      tags: [inventory]
+      summary: Stock value grouped by category with per-product breakdown
+      responses:
+        "200":
+          description: Stock value report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StockValueReport"
+
+  /reports/inventory-csv:
+    get:
+      operationId: getInventoryCsv
+      tags: [inventory]
+      summary: Full inventory as CSV download
+      responses:
+        "200":
+          description: CSV file
+          content:
+            text/csv:
+              schema:
+                type: string
+
   # ─── Receiving ───────────────────────────────────────────────────────────────
 
   /receiving/commit:
@@ -896,6 +924,68 @@ components:
         - createdAt
         - product
         - bin
+
+    # ── Reports ───────────────────────────────────────────────────────────────
+
+    StockValueCategory:
+      type: object
+      properties:
+        category:
+          type: string
+        totalValue:
+          type: number
+        totalUnits:
+          type: integer
+        productCount:
+          type: integer
+        lowStockCount:
+          type: integer
+      required: [category, totalValue, totalUnits, productCount, lowStockCount]
+
+    StockValueProduct:
+      type: object
+      properties:
+        productId:
+          type: string
+          format: uuid
+        skuCode:
+          type: string
+        name:
+          type: string
+        category:
+          type: string
+        totalUnits:
+          type: integer
+        unitPrice:
+          type: number
+          nullable: true
+        totalValue:
+          type: number
+        reorderThreshold:
+          type: integer
+        isLow:
+          type: boolean
+      required: [productId, skuCode, name, category, totalUnits, totalValue, reorderThreshold, isLow]
+
+    StockValueReport:
+      type: object
+      properties:
+        generatedAt:
+          type: string
+          format: date-time
+        totalStockValue:
+          type: number
+        totalUnits:
+          type: integer
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/StockValueCategory"
+        products:
+          type: array
+          items:
+            $ref: "#/components/schemas/StockValueProduct"
+      required: [generatedAt, totalStockValue, totalUnits, categories, products]
 
     # ── Transfer ──────────────────────────────────────────────────────────────
 

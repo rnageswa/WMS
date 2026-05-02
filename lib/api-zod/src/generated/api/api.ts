@@ -519,6 +519,37 @@ export const GetDashboardSummaryResponse = zod.object({
 });
 
 /**
+ * @summary Stock value grouped by category with per-product breakdown
+ */
+export const GetStockValueReportResponse = zod.object({
+  generatedAt: zod.coerce.date(),
+  totalStockValue: zod.number(),
+  totalUnits: zod.number(),
+  categories: zod.array(
+    zod.object({
+      category: zod.string(),
+      totalValue: zod.number(),
+      totalUnits: zod.number(),
+      productCount: zod.number(),
+      lowStockCount: zod.number(),
+    }),
+  ),
+  products: zod.array(
+    zod.object({
+      productId: zod.string().uuid(),
+      skuCode: zod.string(),
+      name: zod.string(),
+      category: zod.string(),
+      totalUnits: zod.number(),
+      unitPrice: zod.number().nullish(),
+      totalValue: zod.number(),
+      reorderThreshold: zod.number(),
+      isLow: zod.boolean(),
+    }),
+  ),
+});
+
+/**
  * @summary Receive a shipment — create inbound movements and update inventory
  */
 

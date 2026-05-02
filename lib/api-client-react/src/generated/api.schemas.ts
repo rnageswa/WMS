@@ -164,6 +164,34 @@ export interface InventoryMovement {
   bin: BinWithLocation;
 }
 
+export interface StockValueCategory {
+  category: string;
+  totalValue: number;
+  totalUnits: number;
+  productCount: number;
+  lowStockCount: number;
+}
+
+export interface StockValueProduct {
+  productId: string;
+  skuCode: string;
+  name: string;
+  category: string;
+  totalUnits: number;
+  unitPrice?: number | null;
+  totalValue: number;
+  reorderThreshold: number;
+  isLow: boolean;
+}
+
+export interface StockValueReport {
+  generatedAt: string;
+  totalStockValue: number;
+  totalUnits: number;
+  categories: StockValueCategory[];
+  products: StockValueProduct[];
+}
+
 export interface CommitTransferLine {
   productId: string;
   fromBinId: string;

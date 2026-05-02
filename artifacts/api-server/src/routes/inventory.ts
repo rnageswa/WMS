@@ -236,6 +236,139 @@ router.get("/movements", async (req, res) => {
   );
 });
 
+// ── GET /reports/stock-value ──────────────────────────────────────────────────
+
+router.get("/reports/stock-value", async (_req, res) => {
+  // Aggregate total units per product across all bins
+  const rows = await db
+    .select({
+      productId: productsTable.id,
+      skuCode: productsTable.skuCode,
+      name: productsTable.name,
+      category: productsTable.category,
+      unitPrice: productsTable.unitPrice,
+      reorderThreshold: productsTable.reorderThreshold,
+      totalUnits: sql<number>`coalesce(sum(${inventoryItemsTable.qtyOnHand}), 0)::int`,
+    })
+    .from(productsTable)
+    .leftJoin(inventoryItemsTable, eq(inventoryItemsTable.productId, productsTable.id))
+    .where(eq(productsTable.isActive, true))
+    .groupBy(
+      productsTable.id,
+      productsTable.skuCode,
+      productsTable.name,
+      productsTable.category,
+      productsTable.unitPrice,
+      productsTable.reorderThreshold,
+    );
+
+  const products = rows.map((r) => {
+    const price = r.unitPrice ? parseFloat(r.unitPrice) : 0;
+    return {
+      productId: r.productId,
+      skuCode: r.skuCode,
+      name: r.name,
+      category: r.category ?? "Uncategorized",
+      totalUnits: r.totalUnits,
+      unitPrice: r.unitPrice ? price : null,
+      totalValue: price * r.totalUnits,
+      reorderThreshold: r.reorderThreshold,
+      isLow: r.totalUnits <= r.reorderThreshold,
+    };
+  });
+
+  // Group by category
+  const catMap = new Map<string, { totalValue: number; totalUnits: number; productCount: number; lowStockCount: number }>();
+  for (const p of products) {
+    const cur = catMap.get(p.category) ?? { totalValue: 0, totalUnits: 0, productCount: 0, lowStockCount: 0 };
+    cur.totalValue += p.totalValue;
+    cur.totalUnits += p.totalUnits;
+    cur.productCount += 1;
+    if (p.isLow) cur.lowStockCount += 1;
+    catMap.set(p.category, cur);
+  }
+
+  const categories = Array.from(catMap.entries())
+    .map(([category, data]) => ({ category, ...data }))
+    .sort((a, b) => b.totalValue - a.totalValue);
+
+  const totalStockValue = products.reduce((s, p) => s + p.totalValue, 0);
+  const totalUnits = products.reduce((s, p) => s + p.totalUnits, 0);
+
+  res.json({
+    generatedAt: new Date().toISOString(),
+    totalStockValue,
+    totalUnits,
+    categories,
+    products: products.sort((a, b) => b.totalValue - a.totalValue),
+  });
+});
+
+// ── GET /reports/inventory-csv ────────────────────────────────────────────────
+
+router.get("/reports/inventory-csv", async (_req, res) => {
+  const rows = await db
+    .select({
+      skuCode: productsTable.skuCode,
+      productName: productsTable.name,
+      category: productsTable.category,
+      unitOfMeasure: productsTable.unitOfMeasure,
+      unitPrice: productsTable.unitPrice,
+      reorderThreshold: productsTable.reorderThreshold,
+      warehouseName: warehousesTable.name,
+      zoneName: zonesTable.name,
+      zoneCode: zonesTable.code,
+      binCode: binsTable.code,
+      binName: binsTable.name,
+      qtyOnHand: inventoryItemsTable.qtyOnHand,
+      updatedAt: inventoryItemsTable.updatedAt,
+    })
+    .from(inventoryItemsTable)
+    .innerJoin(productsTable, eq(inventoryItemsTable.productId, productsTable.id))
+    .innerJoin(binsTable, eq(inventoryItemsTable.binId, binsTable.id))
+    .innerJoin(zonesTable, eq(binsTable.zoneId, zonesTable.id))
+    .innerJoin(warehousesTable, eq(zonesTable.warehouseId, warehousesTable.id))
+    .orderBy(productsTable.skuCode, warehousesTable.name, zonesTable.name, binsTable.code);
+
+  const escape = (v: string | null | undefined) => {
+    const s = v ?? "";
+    if (s.includes(",") || s.includes('"') || s.includes("\n")) return `"${s.replace(/"/g, '""')}"`;
+    return s;
+  };
+
+  const headers = [
+    "SKU", "Product", "Category", "UoM", "Unit Price",
+    "Reorder Threshold", "Warehouse", "Zone", "Zone Code",
+    "Bin Code", "Bin Name", "Qty On Hand", "Last Updated",
+  ];
+
+  const csvLines = [
+    headers.join(","),
+    ...rows.map((r) =>
+      [
+        escape(r.skuCode),
+        escape(r.productName),
+        escape(r.category),
+        escape(r.unitOfMeasure),
+        escape(r.unitPrice),
+        String(r.reorderThreshold),
+        escape(r.warehouseName),
+        escape(r.zoneName),
+        escape(r.zoneCode),
+        escape(r.binCode),
+        escape(r.binName),
+        String(r.qtyOnHand),
+        new Date(r.updatedAt).toISOString(),
+      ].join(",")
+    ),
+  ];
+
+  const date = new Date().toISOString().slice(0, 10);
+  res.setHeader("Content-Type", "text/csv");
+  res.setHeader("Content-Disposition", `attachment; filename="wareiq-inventory-${date}.csv"`);
+  res.send(csvLines.join("\n"));
+});
+
 // ── GET /dashboard/summary ────────────────────────────────────────────────────
 
 router.get("/dashboard/summary", async (_req, res) => {

@@ -15,6 +15,7 @@ import ScanPage from "@/pages/scan";
 import ReceivingPage from "@/pages/receiving";
 import DispatchPage from "@/pages/dispatch";
 import TransferPage from "@/pages/transfer";
+import ReportsPage from "@/pages/reports";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -42,6 +43,7 @@ function Router() {
       <Route path="/receiving" component={ReceivingPage} />
       <Route path="/dispatch" component={DispatchPage} />
       <Route path="/transfer" component={TransferPage} />
+      <Route path="/reports" component={ReportsPage} />
       <Route component={NotFound} />
     </Switch>
   );

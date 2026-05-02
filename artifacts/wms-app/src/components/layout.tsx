@@ -12,6 +12,7 @@ import {
   PackagePlus,
   PackageMinus,
   ArrowLeftRight,
+  BarChart3,
 } from "lucide-react";
 
 const navItems = [
@@ -24,6 +25,7 @@ const navItems = [
   { href: "/scan", label: "Scan", icon: ScanLine },
   { href: "/locations", label: "Locations", icon: MapPin },
   { href: "/movements", label: "Movements", icon: ClipboardList },
+  { href: "/reports", label: "Reports", icon: BarChart3 },
 ];
 
 function NavItem({

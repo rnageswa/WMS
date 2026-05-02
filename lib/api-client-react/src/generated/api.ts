@@ -41,6 +41,7 @@ import type {
   Product,
   ScanLookupParams,
   ScanResult,
+  StockValueReport,
   UpdateProductBody,
   UpdateWarehouseBody,
   Warehouse,
@@ -1592,6 +1593,156 @@ export function useGetDashboardSummary<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetDashboardSummaryQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Stock value grouped by category with per-product breakdown
+ */
+export const getGetStockValueReportUrl = () => {
+  return `/api/reports/stock-value`;
+};
+
+export const getStockValueReport = async (
+  options?: RequestInit,
+): Promise<StockValueReport> => {
+  return customFetch<StockValueReport>(getGetStockValueReportUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetStockValueReportQueryKey = () => {
+  return [`/api/reports/stock-value`] as const;
+};
+
+export const getGetStockValueReportQueryOptions = <
+  TData = Awaited<ReturnType<typeof getStockValueReport>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getStockValueReport>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetStockValueReportQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getStockValueReport>>
+  > = ({ signal }) => getStockValueReport({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getStockValueReport>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetStockValueReportQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getStockValueReport>>
+>;
+export type GetStockValueReportQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Stock value grouped by category with per-product breakdown
+ */
+
+export function useGetStockValueReport<
+  TData = Awaited<ReturnType<typeof getStockValueReport>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getStockValueReport>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetStockValueReportQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Full inventory as CSV download
+ */
+export const getGetInventoryCsvUrl = () => {
+  return `/api/reports/inventory-csv`;
+};
+
+export const getInventoryCsv = async (
+  options?: RequestInit,
+): Promise<string> => {
+  return customFetch<string>(getGetInventoryCsvUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetInventoryCsvQueryKey = () => {
+  return [`/api/reports/inventory-csv`] as const;
+};
+
+export const getGetInventoryCsvQueryOptions = <
+  TData = Awaited<ReturnType<typeof getInventoryCsv>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getInventoryCsv>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetInventoryCsvQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getInventoryCsv>>> = ({
+    signal,
+  }) => getInventoryCsv({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getInventoryCsv>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetInventoryCsvQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getInventoryCsv>>
+>;
+export type GetInventoryCsvQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Full inventory as CSV download
+ */
+
+export function useGetInventoryCsv<
+  TData = Awaited<ReturnType<typeof getInventoryCsv>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getInventoryCsv>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetInventoryCsvQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
