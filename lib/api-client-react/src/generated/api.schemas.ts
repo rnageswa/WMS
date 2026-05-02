@@ -164,6 +164,34 @@ export interface InventoryMovement {
   bin: BinWithLocation;
 }
 
+export interface CommitDispatchLine {
+  productId: string;
+  binId: string;
+  /** @minimum 1 */
+  qty: number;
+}
+
+export interface CommitDispatchBody {
+  reference?: string | null;
+  /** @minItems 1 */
+  lines: CommitDispatchLine[];
+}
+
+export interface DispatchStockError {
+  productId: string;
+  binId: string;
+  requested: number;
+  available: number;
+  productName: string;
+  binCode: string;
+}
+
+export interface CommitDispatchResult {
+  reference?: string | null;
+  linesCommitted: number;
+  movements: InventoryMovement[];
+}
+
 export interface CommitReceiptLine {
   productId: string;
   binId: string;

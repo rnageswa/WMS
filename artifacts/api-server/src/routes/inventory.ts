@@ -297,6 +297,119 @@ router.get("/dashboard/summary", async (_req, res) => {
   });
 });
 
+// ── POST /dispatch/commit ─────────────────────────────────────────────────────
+
+router.post("/dispatch/commit", async (req, res) => {
+  const bodySchema = z.object({
+    reference: z.string().nullable().optional(),
+    lines: z
+      .array(
+        z.object({
+          productId: z.string().uuid(),
+          binId: z.string().uuid(),
+          qty: z.number().int().min(1),
+        })
+      )
+      .min(1),
+  });
+
+  const parsed = bodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ message: "Invalid request body" });
+    return;
+  }
+
+  const { reference, lines } = parsed.data;
+
+  // ── Pre-flight: validate all bin stock levels before touching anything ──────
+  const stockErrors: object[] = [];
+  for (const line of lines) {
+    const { productId, binId, qty } = line;
+    const [inv] = await db
+      .select({
+        qty: inventoryItemsTable.qtyOnHand,
+        productName: productsTable.name,
+        binCode: binsTable.code,
+      })
+      .from(inventoryItemsTable)
+      .innerJoin(productsTable, eq(inventoryItemsTable.productId, productsTable.id))
+      .innerJoin(binsTable, eq(inventoryItemsTable.binId, binsTable.id))
+      .where(and(eq(inventoryItemsTable.productId, productId), eq(inventoryItemsTable.binId, binId)));
+
+    const available = inv?.qty ?? 0;
+    if (available < qty) {
+      stockErrors.push({
+        productId,
+        binId,
+        requested: qty,
+        available,
+        productName: inv?.productName ?? "Unknown",
+        binCode: inv?.binCode ?? "Unknown",
+      });
+    }
+  }
+
+  if (stockErrors.length > 0) {
+    res.status(400).json({
+      message: `Insufficient stock for ${stockErrors.length} line(s)`,
+      stockErrors,
+    });
+    return;
+  }
+
+  // ── Commit: decrement inventory and record outbound movements ───────────────
+  const reasonCode = reference ? `DISPATCH:${reference}` : "DISPATCH";
+  const committedMovements: object[] = [];
+
+  for (const line of lines) {
+    const { productId, binId, qty } = line;
+
+    const [existing] = await db
+      .select()
+      .from(inventoryItemsTable)
+      .where(and(eq(inventoryItemsTable.productId, productId), eq(inventoryItemsTable.binId, binId)));
+
+    await db
+      .update(inventoryItemsTable)
+      .set({ qtyOnHand: existing.qtyOnHand - qty, updatedAt: new Date() })
+      .where(and(eq(inventoryItemsTable.productId, productId), eq(inventoryItemsTable.binId, binId)));
+
+    const [movement] = await db
+      .insert(inventoryMovementsTable)
+      .values({ productId, binId, movementType: "outbound", quantity: -qty, reasonCode })
+      .returning();
+
+    const [enriched] = await db
+      .select({
+        movement: inventoryMovementsTable,
+        product: productsTable,
+        bin: binsTable,
+        zone: { id: zonesTable.id, name: zonesTable.name, code: zonesTable.code },
+        warehouse: { id: warehousesTable.id, name: warehousesTable.name },
+      })
+      .from(inventoryMovementsTable)
+      .innerJoin(productsTable, eq(inventoryMovementsTable.productId, productsTable.id))
+      .innerJoin(binsTable, eq(inventoryMovementsTable.binId, binsTable.id))
+      .innerJoin(zonesTable, eq(binsTable.zoneId, zonesTable.id))
+      .innerJoin(warehousesTable, eq(zonesTable.warehouseId, warehousesTable.id))
+      .where(eq(inventoryMovementsTable.id, movement.id));
+
+    if (enriched) {
+      committedMovements.push({
+        ...enriched.movement,
+        product: enriched.product,
+        bin: { ...enriched.bin, zone: { ...enriched.zone, warehouse: enriched.warehouse } },
+      });
+    }
+  }
+
+  res.json({
+    reference: reference ?? null,
+    linesCommitted: committedMovements.length,
+    movements: committedMovements,
+  });
+});
+
 // ── POST /receiving/commit ────────────────────────────────────────────────────
 
 router.post("/receiving/commit", async (req, res) => {

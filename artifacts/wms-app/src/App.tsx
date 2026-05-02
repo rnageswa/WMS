@@ -13,6 +13,7 @@ import Locations from "@/pages/locations";
 import LocationNew from "@/pages/location-new";
 import ScanPage from "@/pages/scan";
 import ReceivingPage from "@/pages/receiving";
+import DispatchPage from "@/pages/dispatch";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -38,6 +39,7 @@ function Router() {
       <Route path="/locations" component={Locations} />
       <Route path="/scan" component={ScanPage} />
       <Route path="/receiving" component={ReceivingPage} />
+      <Route path="/dispatch" component={DispatchPage} />
       <Route component={NotFound} />
     </Switch>
   );

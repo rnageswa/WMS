@@ -10,6 +10,7 @@ import {
   Warehouse,
   ScanLine,
   PackagePlus,
+  PackageMinus,
 } from "lucide-react";
 
 const navItems = [
@@ -17,6 +18,7 @@ const navItems = [
   { href: "/products", label: "Products", icon: Package },
   { href: "/inventory", label: "Inventory", icon: Boxes },
   { href: "/receiving", label: "Receiving", icon: PackagePlus },
+  { href: "/dispatch", label: "Dispatch", icon: PackageMinus },
   { href: "/scan", label: "Scan", icon: ScanLine },
   { href: "/locations", label: "Locations", icon: MapPin },
   { href: "/movements", label: "Movements", icon: ClipboardList },

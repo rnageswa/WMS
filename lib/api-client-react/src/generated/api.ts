@@ -19,6 +19,8 @@ import type {
 import type {
   AdjustInventoryBody,
   Bin,
+  CommitDispatchBody,
+  CommitDispatchResult,
   CommitReceiptBody,
   CommitReceiptResult,
   CreateBinBody,
@@ -1680,6 +1682,92 @@ export const useCommitReceipt = <
   TContext
 > => {
   return useMutation(getCommitReceiptMutationOptions(options));
+};
+
+/**
+ * @summary Dispatch an order — create outbound movements and decrement inventory
+ */
+export const getCommitDispatchUrl = () => {
+  return `/api/dispatch/commit`;
+};
+
+export const commitDispatch = async (
+  commitDispatchBody: CommitDispatchBody,
+  options?: RequestInit,
+): Promise<CommitDispatchResult> => {
+  return customFetch<CommitDispatchResult>(getCommitDispatchUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(commitDispatchBody),
+  });
+};
+
+export const getCommitDispatchMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof commitDispatch>>,
+    TError,
+    { data: BodyType<CommitDispatchBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof commitDispatch>>,
+  TError,
+  { data: BodyType<CommitDispatchBody> },
+  TContext
+> => {
+  const mutationKey = ["commitDispatch"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof commitDispatch>>,
+    { data: BodyType<CommitDispatchBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return commitDispatch(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CommitDispatchMutationResult = NonNullable<
+  Awaited<ReturnType<typeof commitDispatch>>
+>;
+export type CommitDispatchMutationBody = BodyType<CommitDispatchBody>;
+export type CommitDispatchMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Dispatch an order — create outbound movements and decrement inventory
+ */
+export const useCommitDispatch = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof commitDispatch>>,
+    TError,
+    { data: BodyType<CommitDispatchBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof commitDispatch>>,
+  TError,
+  { data: BodyType<CommitDispatchBody> },
+  TContext
+> => {
+  return useMutation(getCommitDispatchMutationOptions(options));
 };
 
 /**
