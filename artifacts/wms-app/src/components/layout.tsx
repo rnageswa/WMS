@@ -14,6 +14,7 @@ import {
   ArrowLeftRight,
   BarChart3,
   ClipboardCheck,
+  ShoppingCart,
 } from "lucide-react";
 import {
   useGetLowStockAlerts,
@@ -24,6 +25,7 @@ const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard, alertBadge: true },
   { href: "/products", label: "Products", icon: Package },
   { href: "/inventory", label: "Inventory", icon: Boxes },
+  { href: "/purchase-orders", label: "Purchase Orders", icon: ShoppingCart },
   { href: "/receiving", label: "Receiving", icon: PackagePlus },
   { href: "/dispatch", label: "Dispatch", icon: PackageMinus },
   { href: "/transfer", label: "Transfer", icon: ArrowLeftRight },

@@ -459,6 +459,165 @@ export const ListMovementsResponseItem = zod.object({
 export const ListMovementsResponse = zod.array(ListMovementsResponseItem);
 
 /**
+ * @summary List all purchase orders
+ */
+export const ListPurchaseOrdersQueryParams = zod.object({
+  status: zod
+    .enum(["draft", "ordered", "partially_received", "received", "cancelled"])
+    .optional(),
+});
+
+export const ListPurchaseOrdersResponseItem = zod.object({
+  id: zod.string().uuid(),
+  poNumber: zod.string(),
+  supplierName: zod.string(),
+  status: zod.enum([
+    "draft",
+    "ordered",
+    "partially_received",
+    "received",
+    "cancelled",
+  ]),
+  notes: zod.string().nullish(),
+  lineCount: zod.number(),
+  totalQtyOrdered: zod.number(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListPurchaseOrdersResponse = zod.array(
+  ListPurchaseOrdersResponseItem,
+);
+
+/**
+ * @summary Create a new draft purchase order
+ */
+
+export const CreatePurchaseOrderBody = zod.object({
+  supplierName: zod.string().min(1),
+  notes: zod.string().nullish(),
+  lines: zod
+    .array(
+      zod.object({
+        productId: zod.string().uuid(),
+        qtyOrdered: zod.number().min(1),
+        unitCost: zod.number().nullish(),
+      }),
+    )
+    .min(1),
+});
+
+/**
+ * @summary Get a single PO with its lines
+ */
+export const GetPurchaseOrderParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const GetPurchaseOrderResponse = zod
+  .object({
+    id: zod.string().uuid(),
+    poNumber: zod.string(),
+    supplierName: zod.string(),
+    status: zod.enum([
+      "draft",
+      "ordered",
+      "partially_received",
+      "received",
+      "cancelled",
+    ]),
+    notes: zod.string().nullish(),
+    lineCount: zod.number(),
+    totalQtyOrdered: zod.number(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  })
+  .and(
+    zod.object({
+      lines: zod.array(
+        zod.object({
+          id: zod.string().uuid(),
+          productId: zod.string().uuid(),
+          skuCode: zod.string().nullish(),
+          productName: zod.string().nullish(),
+          qtyOrdered: zod.number(),
+          qtyReceived: zod.number(),
+          unitCost: zod.number().nullish(),
+          status: zod.enum(["pending", "partially_received", "received"]),
+        }),
+      ),
+    }),
+  );
+
+/**
+ * @summary Update a PO's status (e.g. draft → ordered, or cancel)
+ */
+export const UpdatePurchaseOrderStatusParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const UpdatePurchaseOrderStatusBody = zod.object({
+  status: zod.enum(["ordered", "cancelled"]),
+});
+
+export const UpdatePurchaseOrderStatusResponse = zod.object({
+  id: zod.string().uuid(),
+  poNumber: zod.string(),
+  supplierName: zod.string(),
+  status: zod.enum([
+    "draft",
+    "ordered",
+    "partially_received",
+    "received",
+    "cancelled",
+  ]),
+  notes: zod.string().nullish(),
+  lineCount: zod.number(),
+  totalQtyOrdered: zod.number(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Receive items against a PO — creates inbound inventory movements
+ */
+export const ReceivePurchaseOrderParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const ReceivePurchaseOrderBody = zod.object({
+  lines: zod
+    .array(
+      zod.object({
+        lineId: zod.string().uuid(),
+        qtyReceived: zod.number().min(1),
+        binId: zod.string().uuid(),
+      }),
+    )
+    .min(1),
+});
+
+export const ReceivePurchaseOrderResponse = zod.object({
+  po: zod.object({
+    id: zod.string().uuid(),
+    poNumber: zod.string(),
+    supplierName: zod.string(),
+    status: zod.enum([
+      "draft",
+      "ordered",
+      "partially_received",
+      "received",
+      "cancelled",
+    ]),
+    notes: zod.string().nullish(),
+    lineCount: zod.number(),
+    totalQtyOrdered: zod.number(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  }),
+  movementsCreated: zod.number(),
+});
+
+/**
  * @summary Products whose total on-hand qty is at or below their reorder threshold
  */
 export const GetLowStockAlertsResponse = zod.object({

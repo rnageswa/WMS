@@ -164,6 +164,96 @@ export interface InventoryMovement {
   bin: BinWithLocation;
 }
 
+export type PoLineStatus = (typeof PoLineStatus)[keyof typeof PoLineStatus];
+
+export const PoLineStatus = {
+  pending: "pending",
+  partially_received: "partially_received",
+  received: "received",
+} as const;
+
+export interface PoLine {
+  id: string;
+  productId: string;
+  skuCode?: string | null;
+  productName?: string | null;
+  qtyOrdered: number;
+  qtyReceived: number;
+  unitCost?: number | null;
+  status: PoLineStatus;
+}
+
+export type PurchaseOrderStatus =
+  (typeof PurchaseOrderStatus)[keyof typeof PurchaseOrderStatus];
+
+export const PurchaseOrderStatus = {
+  draft: "draft",
+  ordered: "ordered",
+  partially_received: "partially_received",
+  received: "received",
+  cancelled: "cancelled",
+} as const;
+
+export interface PurchaseOrder {
+  id: string;
+  poNumber: string;
+  supplierName: string;
+  status: PurchaseOrderStatus;
+  notes?: string | null;
+  lineCount: number;
+  totalQtyOrdered: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type PurchaseOrderDetail = PurchaseOrder & {
+  lines: PoLine[];
+};
+
+export interface CreatePoLineBody {
+  productId: string;
+  /** @minimum 1 */
+  qtyOrdered: number;
+  unitCost?: number | null;
+}
+
+export interface CreatePurchaseOrderBody {
+  /** @minLength 1 */
+  supplierName: string;
+  notes?: string | null;
+  /** @minItems 1 */
+  lines: CreatePoLineBody[];
+}
+
+export type UpdatePoStatusBodyStatus =
+  (typeof UpdatePoStatusBodyStatus)[keyof typeof UpdatePoStatusBodyStatus];
+
+export const UpdatePoStatusBodyStatus = {
+  ordered: "ordered",
+  cancelled: "cancelled",
+} as const;
+
+export interface UpdatePoStatusBody {
+  status: UpdatePoStatusBodyStatus;
+}
+
+export interface ReceivePoLineBody {
+  lineId: string;
+  /** @minimum 1 */
+  qtyReceived: number;
+  binId: string;
+}
+
+export interface ReceivePoBody {
+  /** @minItems 1 */
+  lines: ReceivePoLineBody[];
+}
+
+export interface ReceivePoResult {
+  po: PurchaseOrder;
+  movementsCreated: number;
+}
+
 export type LowStockAlertSeverity =
   (typeof LowStockAlertSeverity)[keyof typeof LowStockAlertSeverity];
 
@@ -400,6 +490,21 @@ export const ListMovementsMovementType = {
   adjustment: "adjustment",
   inbound: "inbound",
   outbound: "outbound",
+} as const;
+
+export type ListPurchaseOrdersParams = {
+  status?: ListPurchaseOrdersStatus;
+};
+
+export type ListPurchaseOrdersStatus =
+  (typeof ListPurchaseOrdersStatus)[keyof typeof ListPurchaseOrdersStatus];
+
+export const ListPurchaseOrdersStatus = {
+  draft: "draft",
+  ordered: "ordered",
+  partially_received: "partially_received",
+  received: "received",
+  cancelled: "cancelled",
 } as const;
 
 export type ScanLookupParams = {

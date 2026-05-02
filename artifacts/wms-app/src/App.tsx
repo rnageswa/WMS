@@ -17,6 +17,9 @@ import DispatchPage from "@/pages/dispatch";
 import TransferPage from "@/pages/transfer";
 import ReportsPage from "@/pages/reports";
 import CycleCountPage from "@/pages/cycle-count";
+import PurchaseOrdersPage from "@/pages/purchase-orders";
+import PurchaseOrderNewPage from "@/pages/purchase-order-new";
+import PurchaseOrderDetailPage from "@/pages/purchase-order-detail";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -46,6 +49,9 @@ function Router() {
       <Route path="/transfer" component={TransferPage} />
       <Route path="/reports" component={ReportsPage} />
       <Route path="/cycle-count" component={CycleCountPage} />
+      <Route path="/purchase-orders/new" component={PurchaseOrderNewPage} />
+      <Route path="/purchase-orders/:id" component={PurchaseOrderDetailPage} />
+      <Route path="/purchase-orders" component={PurchaseOrdersPage} />
       <Route component={NotFound} />
     </Switch>
   );
