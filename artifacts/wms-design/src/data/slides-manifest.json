@@ -86,5 +86,85 @@
     "title": "What Comes After MVP",
     "description": "Post-MVP roadmap: multi-warehouse, mobile app, AI, ERP",
     "speakerNotes": ""
+  },
+  {
+    "id": "f2a3b4c5-d6e7-8901-fabc-012345678901",
+    "position": 12,
+    "filepath": "src/pages/slides/Slide12RequirementsIntro.tsx",
+    "title": "Requirements",
+    "description": "Section divider — user stories and acceptance criteria across all four phases",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a3b4c5d6-e7f8-9012-abcd-123456789012",
+    "position": 13,
+    "filepath": "src/pages/slides/Slide13StoriesSKU.tsx",
+    "title": "User Stories — SKU & Inventory",
+    "description": "Phase 1 user stories: US-01 through US-04",
+    "speakerNotes": ""
+  },
+  {
+    "id": "b4c5d6e7-f8a9-0123-bcde-234567890123",
+    "position": 14,
+    "filepath": "src/pages/slides/Slide14AcceptanceSKU.tsx",
+    "title": "Acceptance Criteria — SKU & Inventory",
+    "description": "Phase 1 Given/When/Then criteria for US-01 through US-04",
+    "speakerNotes": ""
+  },
+  {
+    "id": "c5d6e7f8-a9b0-1234-cdef-345678901234",
+    "position": 15,
+    "filepath": "src/pages/slides/Slide15StoriesProcurement.tsx",
+    "title": "User Stories — Procurement & Receiving",
+    "description": "Phase 2 user stories: US-05 through US-08",
+    "speakerNotes": ""
+  },
+  {
+    "id": "d6e7f8a9-b0c1-2345-defa-456789012345",
+    "position": 16,
+    "filepath": "src/pages/slides/Slide16AcceptanceProcurement.tsx",
+    "title": "Acceptance Criteria — Procurement & Receiving",
+    "description": "Phase 2 Given/When/Then criteria for US-05 through US-08",
+    "speakerNotes": ""
+  },
+  {
+    "id": "e7f8a9b0-c1d2-3456-efab-567890123456",
+    "position": 17,
+    "filepath": "src/pages/slides/Slide17StoriesOrders.tsx",
+    "title": "User Stories — Orders & Fulfillment",
+    "description": "Phase 3 user stories: US-09 through US-12",
+    "speakerNotes": ""
+  },
+  {
+    "id": "f8a9b0c1-d2e3-4567-fabc-678901234567",
+    "position": 18,
+    "filepath": "src/pages/slides/Slide18AcceptanceOrders.tsx",
+    "title": "Acceptance Criteria — Orders & Fulfillment",
+    "description": "Phase 3 Given/When/Then criteria for US-09 through US-12",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a9b0c1d2-e3f4-5678-abcd-789012345678",
+    "position": 19,
+    "filepath": "src/pages/slides/Slide19StoriesReports.tsx",
+    "title": "User Stories — Reports & User Management",
+    "description": "Phase 4 user stories: US-13 through US-16",
+    "speakerNotes": ""
+  },
+  {
+    "id": "b0c1d2e3-f4a5-6789-bcde-890123456789",
+    "position": 20,
+    "filepath": "src/pages/slides/Slide20AcceptanceReports.tsx",
+    "title": "Acceptance Criteria — Reports & Admin",
+    "description": "Phase 4 Given/When/Then criteria for US-13 through US-16",
+    "speakerNotes": ""
+  },
+  {
+    "id": "c1d2e3f4-a5b6-7890-cdef-901234567890",
+    "position": 21,
+    "filepath": "src/pages/slides/Slide21DefinitionOfDone.tsx",
+    "title": "Definition of Done",
+    "description": "Quality gate — criteria every user story must meet before closure",
+    "speakerNotes": ""
   }
 ]
