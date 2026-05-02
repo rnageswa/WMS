@@ -1,0 +1,31 @@
+kind = "slides"
+previewPath = "/"
+title = "WMS Design Blueprint"
+version = "1.0.0"
+id = "artifacts/wms-design"
+router = "path"
+
+[[integratedSkills]]
+name = "slides"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22384
+
+[services.development]
+run = "pnpm --filter @workspace/wms-design run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/wms-design", "run", "build" ]
+publicDir = "artifacts/wms-design/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22384"
+BASE_PATH = "/"
