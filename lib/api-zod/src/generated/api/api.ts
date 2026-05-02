@@ -826,6 +826,22 @@ export const DuplicatePurchaseOrderParams = zod.object({
 });
 
 /**
+ * @summary Get the timeline history events for a PO
+ */
+export const GetPoHistoryParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const GetPoHistoryResponseItem = zod.object({
+  id: zod.string().uuid(),
+  poId: zod.string().uuid(),
+  event: zod.string(),
+  note: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const GetPoHistoryResponse = zod.array(GetPoHistoryResponseItem);
+
+/**
  * @summary Products whose total on-hand qty is at or below their reorder threshold
  */
 export const GetLowStockAlertsResponse = zod.object({

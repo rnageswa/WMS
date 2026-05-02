@@ -598,6 +598,14 @@ export interface CreatePoFromTemplateBody {
   lineOverrides?: CreatePoFromTemplateBodyLineOverridesItem[];
 }
 
+export interface PoHistoryEvent {
+  id: string;
+  poId: string;
+  event: string;
+  note?: string | null;
+  createdAt: string;
+}
+
 export interface ReorderSuggestionItem {
   productId: string;
   skuCode: string;

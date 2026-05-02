@@ -96,8 +96,37 @@ export const poTemplateLinesTable = pgTable(
   (t) => [index("po_template_lines_template_id_idx").on(t.templateId)]
 );
 
+// ── PO Status History ──────────────────────────────────────────────────────────
+
+export const poHistoryEventEnum = [
+  "created",
+  "ordered",
+  "partially_received",
+  "received",
+  "cancelled",
+  "duplicated_from",
+  "stock_received",
+] as const;
+
+export const poStatusHistoryTable = pgTable(
+  "po_status_history",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    poId: uuid("po_id")
+      .notNull()
+      .references(() => purchaseOrdersTable.id, { onDelete: "cascade" }),
+    event: text("event")
+      .$type<(typeof poHistoryEventEnum)[number]>()
+      .notNull(),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("po_status_history_po_id_idx").on(t.poId)]
+);
+
 export type Supplier = typeof suppliersTable.$inferSelect;
 export type PurchaseOrder = typeof purchaseOrdersTable.$inferSelect;
 export type PurchaseOrderLine = typeof purchaseOrderLinesTable.$inferSelect;
 export type PoTemplate = typeof poTemplatesTable.$inferSelect;
 export type PoTemplateLine = typeof poTemplateLinesTable.$inferSelect;
+export type PoStatusHistory = typeof poStatusHistoryTable.$inferSelect;

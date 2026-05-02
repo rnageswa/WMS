@@ -10,6 +10,7 @@ import {
   suppliersTable,
   poTemplatesTable,
   poTemplateLinesTable,
+  poStatusHistoryTable,
 } from "@workspace/db/schema";
 import { eq, inArray, sql, ne, and, desc } from "drizzle-orm";
 import { z } from "zod";
@@ -732,6 +733,12 @@ router.post("/purchase-orders", async (req, res) => {
       productName: prodMap.get(l.productId)?.name ?? null,
     }));
 
+    await db.insert(poStatusHistoryTable).values({
+      poId: po.id,
+      event: "created",
+      note: "Purchase order created",
+    });
+
     res.status(201).json(await formatPo(po, linesWithInfo as any));
   } catch (err: any) {
     if (err?.code === "23505") {
@@ -779,6 +786,12 @@ router.post("/purchase-orders/:id/duplicate", async (req, res) => {
     );
   }
 
+  await db.insert(poStatusHistoryTable).values({
+    poId: newPo.id,
+    event: "duplicated_from",
+    note: `Duplicated from ${original.poNumber}`,
+  });
+
   res.status(201).json(newPo);
 });
 
@@ -810,6 +823,23 @@ router.get("/purchase-orders/:id", async (req, res) => {
   res.json(await formatPo(po, lines as any));
 });
 
+// ── GET /purchase-orders/:id/history ─────────────────────────────────────────
+
+router.get("/purchase-orders/:id/history", async (req, res) => {
+  const po = await db.query.purchaseOrdersTable.findFirst({
+    where: eq(purchaseOrdersTable.id, req.params.id),
+  });
+  if (!po) { res.status(404).json({ error: "Not found" }); return; }
+
+  const history = await db
+    .select()
+    .from(poStatusHistoryTable)
+    .where(eq(poStatusHistoryTable.poId, po.id))
+    .orderBy(poStatusHistoryTable.createdAt);
+
+  res.json(history);
+});
+
 // ── PATCH /purchase-orders/:id/status ────────────────────────────────────────
 
 const UpdateStatusZ = z.object({ status: z.enum(["ordered", "cancelled"]) });
@@ -834,6 +864,16 @@ router.patch("/purchase-orders/:id/status", async (req, res) => {
     .set({ status: body.data.status, updatedAt: new Date() })
     .where(eq(purchaseOrdersTable.id, req.params.id))
     .returning();
+
+  const statusLabel: Record<string, string> = {
+    ordered: "Marked as ordered",
+    cancelled: "Purchase order cancelled",
+  };
+  await db.insert(poStatusHistoryTable).values({
+    poId: updated.id,
+    event: body.data.status,
+    note: statusLabel[body.data.status] ?? body.data.status,
+  });
 
   const lines = await db
     .select({
@@ -970,6 +1010,21 @@ router.post("/purchase-orders/:id/receive", async (req, res) => {
     .from(purchaseOrderLinesTable)
     .leftJoin(productsTable, eq(purchaseOrderLinesTable.productId, productsTable.id))
     .where(eq(purchaseOrderLinesTable.poId, po.id));
+
+  // Record receive history
+  const updatedPoStatus = updatedPo!.status;
+  const receiveHistoryEvent =
+    updatedPoStatus === "received"
+      ? "received"
+      : "partially_received";
+  await db.insert(poStatusHistoryTable).values({
+    poId: po.id,
+    event: receiveHistoryEvent,
+    note:
+      receiveHistoryEvent === "received"
+        ? `All items fully received (${movementsCreated} line${movementsCreated !== 1 ? "s" : ""})`
+        : `Partially received (${movementsCreated} line${movementsCreated !== 1 ? "s" : ""})`,
+  });
 
   res.json({
     po: await formatPo(updatedPo!, updatedLines as any),

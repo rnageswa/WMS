@@ -7,10 +7,12 @@ import {
   useReceivePurchaseOrder,
   useSendPurchaseOrderEmail,
   useDuplicatePurchaseOrder,
+  useGetPoHistory,
   useListWarehouses,
   useListZones,
   useListBins,
   getGetPurchaseOrderQueryKey,
+  getGetPoHistoryQueryKey,
   getListPurchaseOrdersQueryKey,
   getGetDashboardSummaryQueryKey,
   getGetLowStockAlertsQueryKey,
@@ -61,11 +63,55 @@ import {
   CalendarDays,
   Pencil,
   Copy,
+  FilePlus2,
+  Ban,
+  PackageCheck,
+  PackageMinus,
+  CopyCheck,
+  Clock,
 } from "lucide-react";
 import { Link } from "wouter";
 import { formatDistanceToNow, format, isPast, parseISO } from "date-fns";
 
 type PoStatus = "draft" | "ordered" | "partially_received" | "received" | "cancelled";
+
+// ── Timeline helpers ──────────────────────────────────────────────────────────
+
+function eventLabel(event: string): string {
+  const labels: Record<string, string> = {
+    created: "Purchase order created",
+    ordered: "Marked as ordered",
+    partially_received: "Partially received",
+    received: "Fully received",
+    cancelled: "Purchase order cancelled",
+    duplicated_from: "Duplicated from another PO",
+    stock_received: "Stock received",
+  };
+  return labels[event] ?? event;
+}
+
+function eventMeta(event: string): {
+  icon: React.ElementType;
+  color: string;
+  bg: string;
+} {
+  switch (event) {
+    case "created":
+      return { icon: FilePlus2, color: "text-blue-600", bg: "bg-blue-100" };
+    case "ordered":
+      return { icon: Send, color: "text-orange-600", bg: "bg-orange-100" };
+    case "partially_received":
+      return { icon: PackageMinus, color: "text-amber-600", bg: "bg-amber-100" };
+    case "received":
+      return { icon: PackageCheck, color: "text-green-600", bg: "bg-green-100" };
+    case "cancelled":
+      return { icon: Ban, color: "text-red-600", bg: "bg-red-100" };
+    case "duplicated_from":
+      return { icon: CopyCheck, color: "text-purple-600", bg: "bg-purple-100" };
+    default:
+      return { icon: Clock, color: "text-muted-foreground", bg: "bg-muted" };
+  }
+}
 
 const STATUS_META: Record<PoStatus, { label: string; cls: string }> = {
   draft:              { label: "Draft",              cls: "bg-muted text-muted-foreground border-border" },
@@ -238,6 +284,13 @@ export default function PurchaseOrderDetailPage() {
         navigate(`/purchase-orders/${(data as any).id}`);
       },
       onError: () => toast({ title: "Failed to duplicate PO", variant: "destructive" }),
+    },
+  });
+
+  const { data: history = [] } = useGetPoHistory(id!, {
+    query: {
+      queryKey: getGetPoHistoryQueryKey(id!),
+      enabled: !!id,
     },
   });
 
@@ -585,6 +638,40 @@ export default function PurchaseOrderDetailPage() {
             <CheckCircle2 className="w-4 h-4 shrink-0" />
             All lines fully received. Updated {formatDistanceToNow(new Date(po.updatedAt), { addSuffix: true })}.
           </div>
+        )}
+
+        {/* History Timeline */}
+        {history.length > 0 && (
+          <Card className="border-border/60">
+            <CardHeader className="pb-2 pt-4 px-5">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                Activity Timeline
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-5 pb-5">
+              <ol className="relative border-l border-border/60 space-y-0">
+                {(history as any[]).map((evt, i) => {
+                  const isLast = i === history.length - 1;
+                  const { icon: Icon, color, bg } = eventMeta(evt.event);
+                  return (
+                    <li key={evt.id} className={`ml-4 ${isLast ? "pb-0" : "pb-5"}`}>
+                      <span className={`absolute -left-[13px] flex items-center justify-center w-6 h-6 rounded-full ring-4 ring-background ${bg}`}>
+                        <Icon className={`w-3 h-3 ${color}`} />
+                      </span>
+                      <div className="flex flex-col gap-0.5">
+                        <p className="text-sm font-medium text-foreground leading-tight">{evt.note ?? eventLabel(evt.event)}</p>
+                        <time className="text-[11px] text-muted-foreground">
+                          {format(new Date(evt.createdAt), "dd MMM yyyy, HH:mm")}
+                          <span className="ml-1.5 text-muted-foreground/60">({formatDistanceToNow(new Date(evt.createdAt), { addSuffix: true })})</span>
+                        </time>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
+            </CardContent>
+          </Card>
         )}
 
         <Button variant="ghost" size="sm" asChild className="gap-1.5 text-muted-foreground">

@@ -760,6 +760,34 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /purchase-orders/{id}/history:
+    get:
+      operationId: getPoHistory
+      tags: [inventory]
+      summary: Get the timeline history events for a PO
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Ordered list of history events (oldest first)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PoHistoryEvent"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   # ─── Alerts ──────────────────────────────────────────────────────────────────
 
   /alerts/low-stock:
@@ -2375,6 +2403,25 @@ components:
                 type: number
                 nullable: true
             required: [lineId, qty]
+
+    PoHistoryEvent:
+      type: object
+      required: [id, poId, event, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        poId:
+          type: string
+          format: uuid
+        event:
+          type: string
+        note:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
 
     # ── Reorder Suggestions ───────────────────────────────────────────────────
 

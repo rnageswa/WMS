@@ -47,6 +47,7 @@ import type {
   LowStockAlertList,
   NotFoundResponse,
   PoAgingSummary,
+  PoHistoryEvent,
   PoTemplate,
   PoTemplateWithLines,
   Product,
@@ -2686,6 +2687,93 @@ export const useDuplicatePurchaseOrder = <
 > => {
   return useMutation(getDuplicatePurchaseOrderMutationOptions(options));
 };
+
+/**
+ * @summary Get the timeline history events for a PO
+ */
+export const getGetPoHistoryUrl = (id: string) => {
+  return `/api/purchase-orders/${id}/history`;
+};
+
+export const getPoHistory = async (
+  id: string,
+  options?: RequestInit,
+): Promise<PoHistoryEvent[]> => {
+  return customFetch<PoHistoryEvent[]>(getGetPoHistoryUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetPoHistoryQueryKey = (id: string) => {
+  return [`/api/purchase-orders/${id}/history`] as const;
+};
+
+export const getGetPoHistoryQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPoHistory>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPoHistory>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetPoHistoryQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getPoHistory>>> = ({
+    signal,
+  }) => getPoHistory(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPoHistory>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPoHistoryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPoHistory>>
+>;
+export type GetPoHistoryQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get the timeline history events for a PO
+ */
+
+export function useGetPoHistory<
+  TData = Awaited<ReturnType<typeof getPoHistory>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPoHistory>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPoHistoryQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Products whose total on-hand qty is at or below their reorder threshold
