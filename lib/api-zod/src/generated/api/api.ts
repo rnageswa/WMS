@@ -550,6 +550,93 @@ export const GetStockValueReportResponse = zod.object({
 });
 
 /**
+ * @summary Submit a cycle count — creates adjustment movements for discrepancies
+ */
+export const submitCycleCountBodyLinesItemPhysicalQtyMin = 0;
+
+export const SubmitCycleCountBody = zod.object({
+  reference: zod.string().nullish(),
+  lines: zod
+    .array(
+      zod.object({
+        inventoryItemId: zod.string().uuid(),
+        physicalQty: zod
+          .number()
+          .min(submitCycleCountBodyLinesItemPhysicalQtyMin),
+      }),
+    )
+    .min(1),
+});
+
+export const SubmitCycleCountResponse = zod.object({
+  reference: zod.string().nullish(),
+  linesScanned: zod.number(),
+  adjustmentCount: zod.number(),
+  discrepancies: zod.array(
+    zod.object({
+      inventoryItemId: zod.string().uuid(),
+      productId: zod.string().uuid(),
+      binId: zod.string().uuid(),
+      productName: zod.string().nullish(),
+      skuCode: zod.string().nullish(),
+      binCode: zod.string().nullish(),
+      systemQty: zod.number(),
+      physicalQty: zod.number(),
+      variance: zod.number(),
+    }),
+  ),
+  movements: zod.array(
+    zod.object({
+      id: zod.string().uuid(),
+      productId: zod.string().uuid(),
+      binId: zod.string().uuid(),
+      movementType: zod.enum(["adjustment", "inbound", "outbound"]),
+      quantity: zod.number(),
+      reasonCode: zod.string().nullish(),
+      referenceId: zod.string().uuid().nullish(),
+      referenceType: zod.string().nullish(),
+      createdBy: zod.string().nullish(),
+      createdAt: zod.coerce.date(),
+      product: zod.object({
+        id: zod.string().uuid(),
+        skuCode: zod.string(),
+        name: zod.string(),
+        description: zod.string().nullish(),
+        category: zod.string().nullish(),
+        barcode: zod.string().nullish(),
+        unitOfMeasure: zod.string(),
+        unitPrice: zod.string().nullish(),
+        reorderThreshold: zod.number(),
+        isActive: zod.boolean(),
+        createdAt: zod.coerce.date(),
+        updatedAt: zod.coerce.date(),
+      }),
+      bin: zod
+        .object({
+          id: zod.string().uuid(),
+          zoneId: zod.string().uuid(),
+          code: zod.string(),
+          name: zod.string().nullish(),
+          createdAt: zod.coerce.date(),
+        })
+        .and(
+          zod.object({
+            zone: zod.object({
+              id: zod.string().uuid(),
+              name: zod.string(),
+              code: zod.string(),
+              warehouse: zod.object({
+                id: zod.string().uuid(),
+                name: zod.string(),
+              }),
+            }),
+          }),
+        ),
+    }),
+  ),
+});
+
+/**
  * @summary Receive a shipment — create inbound movements and update inventory
  */
 

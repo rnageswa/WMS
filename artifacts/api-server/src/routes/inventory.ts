@@ -236,6 +236,113 @@ router.get("/movements", async (req, res) => {
   );
 });
 
+// ── POST /cycle-counts/submit ─────────────────────────────────────────────────
+
+const CycleCountLineZ = z.object({
+  inventoryItemId: z.string().uuid(),
+  physicalQty: z.number().int().min(0),
+});
+
+const SubmitCycleCountBodyZ = z.object({
+  reference: z.string().optional().nullable(),
+  lines: z.array(CycleCountLineZ).min(1),
+});
+
+router.post("/cycle-counts/submit", async (req, res) => {
+  const body = SubmitCycleCountBodyZ.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: "Validation error", details: body.error.flatten() });
+    return;
+  }
+  const { reference, lines } = body.data;
+
+  // Fetch current inventory items + their product/bin info
+  const itemIds = lines.map((l) => l.inventoryItemId);
+  const items = await db
+    .select({
+      id: inventoryItemsTable.id,
+      productId: inventoryItemsTable.productId,
+      binId: inventoryItemsTable.binId,
+      qtyOnHand: inventoryItemsTable.qtyOnHand,
+      productName: productsTable.name,
+      skuCode: productsTable.skuCode,
+      binCode: binsTable.code,
+    })
+    .from(inventoryItemsTable)
+    .innerJoin(productsTable, eq(inventoryItemsTable.productId, productsTable.id))
+    .innerJoin(binsTable, eq(inventoryItemsTable.binId, binsTable.id))
+    .where(sql`${inventoryItemsTable.id} = ANY(${sql`ARRAY[${sql.raw(itemIds.map((id) => `'${id}'::uuid`).join(","))}]`})`);
+
+  const itemMap = new Map(items.map((i) => [i.id, i]));
+
+  // Build discrepancies
+  const discrepancies: {
+    inventoryItemId: string;
+    productId: string;
+    binId: string;
+    productName: string | null;
+    skuCode: string | null;
+    binCode: string | null;
+    systemQty: number;
+    physicalQty: number;
+    variance: number;
+  }[] = [];
+
+  for (const line of lines) {
+    const item = itemMap.get(line.inventoryItemId);
+    if (!item) continue;
+    if (item.qtyOnHand !== line.physicalQty) {
+      discrepancies.push({
+        inventoryItemId: item.id,
+        productId: item.productId,
+        binId: item.binId,
+        productName: item.productName,
+        skuCode: item.skuCode,
+        binCode: item.binCode,
+        systemQty: item.qtyOnHand,
+        physicalQty: line.physicalQty,
+        variance: line.physicalQty - item.qtyOnHand,
+      });
+    }
+  }
+
+  // Apply adjustments in a transaction
+  const createdMovements: unknown[] = [];
+
+  if (discrepancies.length > 0) {
+    await db.transaction(async (tx) => {
+      for (const d of discrepancies) {
+        // Update inventory
+        await tx
+          .update(inventoryItemsTable)
+          .set({ qtyOnHand: d.physicalQty, updatedAt: new Date() })
+          .where(eq(inventoryItemsTable.id, d.inventoryItemId));
+
+        // Record movement
+        const [movement] = await tx
+          .insert(inventoryMovementsTable)
+          .values({
+            type: "ADJUSTMENT",
+            productId: d.productId,
+            binId: d.binId,
+            qty: d.variance,
+            reason: reference ? `CYCLE-COUNT ${reference}` : "CYCLE-COUNT",
+          })
+          .returning();
+        createdMovements.push(movement);
+      }
+    });
+  }
+
+  res.json({
+    reference: reference ?? null,
+    linesScanned: lines.length,
+    adjustmentCount: discrepancies.length,
+    discrepancies,
+    movements: createdMovements,
+  });
+});
+
 // ── GET /reports/stock-value ──────────────────────────────────────────────────
 
 router.get("/reports/stock-value", async (_req, res) => {

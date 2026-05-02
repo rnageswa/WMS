@@ -164,6 +164,38 @@ export interface InventoryMovement {
   bin: BinWithLocation;
 }
 
+export interface CycleCountLine {
+  inventoryItemId: string;
+  /** @minimum 0 */
+  physicalQty: number;
+}
+
+export interface SubmitCycleCountBody {
+  reference?: string | null;
+  /** @minItems 1 */
+  lines: CycleCountLine[];
+}
+
+export interface CycleCountDiscrepancy {
+  inventoryItemId: string;
+  productId: string;
+  binId: string;
+  productName?: string | null;
+  skuCode?: string | null;
+  binCode?: string | null;
+  systemQty: number;
+  physicalQty: number;
+  variance: number;
+}
+
+export interface CycleCountResult {
+  reference?: string | null;
+  linesScanned: number;
+  adjustmentCount: number;
+  discrepancies: CycleCountDiscrepancy[];
+  movements: InventoryMovement[];
+}
+
 export interface StockValueCategory {
   category: string;
   totalValue: number;

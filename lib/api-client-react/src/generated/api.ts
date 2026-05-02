@@ -29,6 +29,7 @@ import type {
   CreateProductBody,
   CreateWarehouseBody,
   CreateZoneBody,
+  CycleCountResult,
   DashboardSummary,
   ErrorResponse,
   HealthStatus,
@@ -42,6 +43,7 @@ import type {
   ScanLookupParams,
   ScanResult,
   StockValueReport,
+  SubmitCycleCountBody,
   UpdateProductBody,
   UpdateWarehouseBody,
   Warehouse,
@@ -1750,6 +1752,92 @@ export function useGetInventoryCsv<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Submit a cycle count — creates adjustment movements for discrepancies
+ */
+export const getSubmitCycleCountUrl = () => {
+  return `/api/cycle-counts/submit`;
+};
+
+export const submitCycleCount = async (
+  submitCycleCountBody: SubmitCycleCountBody,
+  options?: RequestInit,
+): Promise<CycleCountResult> => {
+  return customFetch<CycleCountResult>(getSubmitCycleCountUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(submitCycleCountBody),
+  });
+};
+
+export const getSubmitCycleCountMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitCycleCount>>,
+    TError,
+    { data: BodyType<SubmitCycleCountBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof submitCycleCount>>,
+  TError,
+  { data: BodyType<SubmitCycleCountBody> },
+  TContext
+> => {
+  const mutationKey = ["submitCycleCount"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof submitCycleCount>>,
+    { data: BodyType<SubmitCycleCountBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return submitCycleCount(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SubmitCycleCountMutationResult = NonNullable<
+  Awaited<ReturnType<typeof submitCycleCount>>
+>;
+export type SubmitCycleCountMutationBody = BodyType<SubmitCycleCountBody>;
+export type SubmitCycleCountMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Submit a cycle count — creates adjustment movements for discrepancies
+ */
+export const useSubmitCycleCount = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitCycleCount>>,
+    TError,
+    { data: BodyType<SubmitCycleCountBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof submitCycleCount>>,
+  TError,
+  { data: BodyType<SubmitCycleCountBody> },
+  TContext
+> => {
+  return useMutation(getSubmitCycleCountMutationOptions(options));
+};
 
 /**
  * @summary Receive a shipment — create inbound movements and update inventory

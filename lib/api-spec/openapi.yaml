@@ -445,6 +445,33 @@ paths:
               schema:
                 type: string
 
+  # ─── Cycle Count ─────────────────────────────────────────────────────────────
+
+  /cycle-counts/submit:
+    post:
+      operationId: submitCycleCount
+      tags: [inventory]
+      summary: Submit a cycle count — creates adjustment movements for discrepancies
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitCycleCountBody"
+      responses:
+        "200":
+          description: Cycle count submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CycleCountResult"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   # ─── Receiving ───────────────────────────────────────────────────────────────
 
   /receiving/commit:
@@ -924,6 +951,81 @@ components:
         - createdAt
         - product
         - bin
+
+    # ── Cycle Count ───────────────────────────────────────────────────────────
+
+    CycleCountLine:
+      type: object
+      properties:
+        inventoryItemId:
+          type: string
+          format: uuid
+        physicalQty:
+          type: integer
+          minimum: 0
+      required: [inventoryItemId, physicalQty]
+
+    SubmitCycleCountBody:
+      type: object
+      properties:
+        reference:
+          type: string
+          nullable: true
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/CycleCountLine"
+          minItems: 1
+      required: [lines]
+
+    CycleCountDiscrepancy:
+      type: object
+      properties:
+        inventoryItemId:
+          type: string
+          format: uuid
+        productId:
+          type: string
+          format: uuid
+        binId:
+          type: string
+          format: uuid
+        productName:
+          type: string
+          nullable: true
+        skuCode:
+          type: string
+          nullable: true
+        binCode:
+          type: string
+          nullable: true
+        systemQty:
+          type: integer
+        physicalQty:
+          type: integer
+        variance:
+          type: integer
+      required: [inventoryItemId, productId, binId, systemQty, physicalQty, variance]
+
+    CycleCountResult:
+      type: object
+      properties:
+        reference:
+          type: string
+          nullable: true
+        linesScanned:
+          type: integer
+        adjustmentCount:
+          type: integer
+        discrepancies:
+          type: array
+          items:
+            $ref: "#/components/schemas/CycleCountDiscrepancy"
+        movements:
+          type: array
+          items:
+            $ref: "#/components/schemas/InventoryMovement"
+      required: [linesScanned, adjustmentCount, discrepancies, movements]
 
     # ── Reports ───────────────────────────────────────────────────────────────
 
