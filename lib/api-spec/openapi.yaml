@@ -444,6 +444,33 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  # ─── Transfer ────────────────────────────────────────────────────────────────
+
+  /transfer/commit:
+    post:
+      operationId: commitTransfer
+      tags: [inventory]
+      summary: Transfer stock between bins — atomic outbound + inbound movements
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CommitTransferBody"
+      responses:
+        "200":
+          description: Transfer committed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommitTransferResult"
+        "400":
+          description: Validation error or insufficient stock
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   # ─── Dispatch ────────────────────────────────────────────────────────────────
 
   /dispatch/commit:
@@ -869,6 +896,71 @@ components:
         - createdAt
         - product
         - bin
+
+    # ── Transfer ──────────────────────────────────────────────────────────────
+
+    CommitTransferLine:
+      type: object
+      properties:
+        productId:
+          type: string
+          format: uuid
+        fromBinId:
+          type: string
+          format: uuid
+        toBinId:
+          type: string
+          format: uuid
+        qty:
+          type: integer
+          minimum: 1
+      required: [productId, fromBinId, toBinId, qty]
+
+    CommitTransferBody:
+      type: object
+      properties:
+        reference:
+          type: string
+          nullable: true
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/CommitTransferLine"
+          minItems: 1
+      required: [lines]
+
+    TransferStockError:
+      type: object
+      properties:
+        productId:
+          type: string
+          format: uuid
+        fromBinId:
+          type: string
+          format: uuid
+        requested:
+          type: integer
+        available:
+          type: integer
+        productName:
+          type: string
+        binCode:
+          type: string
+      required: [productId, fromBinId, requested, available, productName, binCode]
+
+    CommitTransferResult:
+      type: object
+      properties:
+        reference:
+          type: string
+          nullable: true
+        linesCommitted:
+          type: integer
+        movements:
+          type: array
+          items:
+            $ref: "#/components/schemas/InventoryMovement"
+      required: [linesCommitted, movements]
 
     # ── Dispatch ──────────────────────────────────────────────────────────────
 

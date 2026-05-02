@@ -23,6 +23,8 @@ import type {
   CommitDispatchResult,
   CommitReceiptBody,
   CommitReceiptResult,
+  CommitTransferBody,
+  CommitTransferResult,
   CreateBinBody,
   CreateProductBody,
   CreateWarehouseBody,
@@ -1682,6 +1684,92 @@ export const useCommitReceipt = <
   TContext
 > => {
   return useMutation(getCommitReceiptMutationOptions(options));
+};
+
+/**
+ * @summary Transfer stock between bins — atomic outbound + inbound movements
+ */
+export const getCommitTransferUrl = () => {
+  return `/api/transfer/commit`;
+};
+
+export const commitTransfer = async (
+  commitTransferBody: CommitTransferBody,
+  options?: RequestInit,
+): Promise<CommitTransferResult> => {
+  return customFetch<CommitTransferResult>(getCommitTransferUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(commitTransferBody),
+  });
+};
+
+export const getCommitTransferMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof commitTransfer>>,
+    TError,
+    { data: BodyType<CommitTransferBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof commitTransfer>>,
+  TError,
+  { data: BodyType<CommitTransferBody> },
+  TContext
+> => {
+  const mutationKey = ["commitTransfer"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof commitTransfer>>,
+    { data: BodyType<CommitTransferBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return commitTransfer(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CommitTransferMutationResult = NonNullable<
+  Awaited<ReturnType<typeof commitTransfer>>
+>;
+export type CommitTransferMutationBody = BodyType<CommitTransferBody>;
+export type CommitTransferMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Transfer stock between bins — atomic outbound + inbound movements
+ */
+export const useCommitTransfer = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof commitTransfer>>,
+    TError,
+    { data: BodyType<CommitTransferBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof commitTransfer>>,
+  TError,
+  { data: BodyType<CommitTransferBody> },
+  TContext
+> => {
+  return useMutation(getCommitTransferMutationOptions(options));
 };
 
 /**

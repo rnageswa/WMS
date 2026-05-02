@@ -590,6 +590,78 @@ export const CommitReceiptResponse = zod.object({
 });
 
 /**
+ * @summary Transfer stock between bins — atomic outbound + inbound movements
+ */
+
+export const CommitTransferBody = zod.object({
+  reference: zod.string().nullish(),
+  lines: zod
+    .array(
+      zod.object({
+        productId: zod.string().uuid(),
+        fromBinId: zod.string().uuid(),
+        toBinId: zod.string().uuid(),
+        qty: zod.number().min(1),
+      }),
+    )
+    .min(1),
+});
+
+export const CommitTransferResponse = zod.object({
+  reference: zod.string().nullish(),
+  linesCommitted: zod.number(),
+  movements: zod.array(
+    zod.object({
+      id: zod.string().uuid(),
+      productId: zod.string().uuid(),
+      binId: zod.string().uuid(),
+      movementType: zod.enum(["adjustment", "inbound", "outbound"]),
+      quantity: zod.number(),
+      reasonCode: zod.string().nullish(),
+      referenceId: zod.string().uuid().nullish(),
+      referenceType: zod.string().nullish(),
+      createdBy: zod.string().nullish(),
+      createdAt: zod.coerce.date(),
+      product: zod.object({
+        id: zod.string().uuid(),
+        skuCode: zod.string(),
+        name: zod.string(),
+        description: zod.string().nullish(),
+        category: zod.string().nullish(),
+        barcode: zod.string().nullish(),
+        unitOfMeasure: zod.string(),
+        unitPrice: zod.string().nullish(),
+        reorderThreshold: zod.number(),
+        isActive: zod.boolean(),
+        createdAt: zod.coerce.date(),
+        updatedAt: zod.coerce.date(),
+      }),
+      bin: zod
+        .object({
+          id: zod.string().uuid(),
+          zoneId: zod.string().uuid(),
+          code: zod.string(),
+          name: zod.string().nullish(),
+          createdAt: zod.coerce.date(),
+        })
+        .and(
+          zod.object({
+            zone: zod.object({
+              id: zod.string().uuid(),
+              name: zod.string(),
+              code: zod.string(),
+              warehouse: zod.object({
+                id: zod.string().uuid(),
+                name: zod.string(),
+              }),
+            }),
+          }),
+        ),
+    }),
+  ),
+});
+
+/**
  * @summary Dispatch an order — create outbound movements and decrement inventory
  */
 

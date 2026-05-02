@@ -164,6 +164,35 @@ export interface InventoryMovement {
   bin: BinWithLocation;
 }
 
+export interface CommitTransferLine {
+  productId: string;
+  fromBinId: string;
+  toBinId: string;
+  /** @minimum 1 */
+  qty: number;
+}
+
+export interface CommitTransferBody {
+  reference?: string | null;
+  /** @minItems 1 */
+  lines: CommitTransferLine[];
+}
+
+export interface TransferStockError {
+  productId: string;
+  fromBinId: string;
+  requested: number;
+  available: number;
+  productName: string;
+  binCode: string;
+}
+
+export interface CommitTransferResult {
+  reference?: string | null;
+  linesCommitted: number;
+  movements: InventoryMovement[];
+}
+
 export interface CommitDispatchLine {
   productId: string;
   binId: string;

@@ -297,6 +297,137 @@ router.get("/dashboard/summary", async (_req, res) => {
   });
 });
 
+// ── POST /transfer/commit ─────────────────────────────────────────────────────
+
+router.post("/transfer/commit", async (req, res) => {
+  const bodySchema = z.object({
+    reference: z.string().nullable().optional(),
+    lines: z
+      .array(
+        z.object({
+          productId: z.string().uuid(),
+          fromBinId: z.string().uuid(),
+          toBinId: z.string().uuid(),
+          qty: z.number().int().min(1),
+        })
+      )
+      .min(1),
+  });
+
+  const parsed = bodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ message: "Invalid request body" });
+    return;
+  }
+
+  const { reference, lines } = parsed.data;
+
+  // Validate same-bin transfers and stock levels upfront before touching anything
+  const stockErrors: object[] = [];
+  for (const line of lines) {
+    if (line.fromBinId === line.toBinId) {
+      res.status(400).json({ message: "Source and destination bin must be different" });
+      return;
+    }
+    const [inv] = await db
+      .select({ qty: inventoryItemsTable.qtyOnHand, productName: productsTable.name, binCode: binsTable.code })
+      .from(inventoryItemsTable)
+      .innerJoin(productsTable, eq(inventoryItemsTable.productId, productsTable.id))
+      .innerJoin(binsTable, eq(inventoryItemsTable.binId, binsTable.id))
+      .where(and(eq(inventoryItemsTable.productId, line.productId), eq(inventoryItemsTable.binId, line.fromBinId)));
+
+    const available = inv?.qty ?? 0;
+    if (available < line.qty) {
+      stockErrors.push({
+        productId: line.productId,
+        fromBinId: line.fromBinId,
+        requested: line.qty,
+        available,
+        productName: inv?.productName ?? "Unknown",
+        binCode: inv?.binCode ?? "Unknown",
+      });
+    }
+  }
+
+  if (stockErrors.length > 0) {
+    res.status(400).json({ message: `Insufficient stock for ${stockErrors.length} line(s)`, stockErrors });
+    return;
+  }
+
+  const reasonCode = reference ? `TRANSFER:${reference}` : "TRANSFER";
+  const committedMovements: object[] = [];
+
+  const enrichMovement = async (movementId: string) => {
+    const [row] = await db
+      .select({
+        movement: inventoryMovementsTable,
+        product: productsTable,
+        bin: binsTable,
+        zone: { id: zonesTable.id, name: zonesTable.name, code: zonesTable.code },
+        warehouse: { id: warehousesTable.id, name: warehousesTable.name },
+      })
+      .from(inventoryMovementsTable)
+      .innerJoin(productsTable, eq(inventoryMovementsTable.productId, productsTable.id))
+      .innerJoin(binsTable, eq(inventoryMovementsTable.binId, binsTable.id))
+      .innerJoin(zonesTable, eq(binsTable.zoneId, zonesTable.id))
+      .innerJoin(warehousesTable, eq(zonesTable.warehouseId, warehousesTable.id))
+      .where(eq(inventoryMovementsTable.id, movementId));
+    if (!row) return null;
+    return { ...row.movement, product: row.product, bin: { ...row.bin, zone: { ...row.zone, warehouse: row.warehouse } } };
+  };
+
+  for (const line of lines) {
+    const { productId, fromBinId, toBinId, qty } = line;
+
+    // Decrement source
+    const [fromInv] = await db
+      .select()
+      .from(inventoryItemsTable)
+      .where(and(eq(inventoryItemsTable.productId, productId), eq(inventoryItemsTable.binId, fromBinId)));
+    await db
+      .update(inventoryItemsTable)
+      .set({ qtyOnHand: fromInv.qtyOnHand - qty, updatedAt: new Date() })
+      .where(and(eq(inventoryItemsTable.productId, productId), eq(inventoryItemsTable.binId, fromBinId)));
+
+    // Upsert destination
+    const [toInv] = await db
+      .select()
+      .from(inventoryItemsTable)
+      .where(and(eq(inventoryItemsTable.productId, productId), eq(inventoryItemsTable.binId, toBinId)));
+    if (toInv) {
+      await db
+        .update(inventoryItemsTable)
+        .set({ qtyOnHand: toInv.qtyOnHand + qty, updatedAt: new Date() })
+        .where(and(eq(inventoryItemsTable.productId, productId), eq(inventoryItemsTable.binId, toBinId)));
+    } else {
+      await db.insert(inventoryItemsTable).values({ productId, binId: toBinId, qtyOnHand: qty });
+    }
+
+    // Two movements: outbound from source, inbound to destination
+    const [outMovement] = await db
+      .insert(inventoryMovementsTable)
+      .values({ productId, binId: fromBinId, movementType: "outbound", quantity: -qty, reasonCode })
+      .returning();
+    const [inMovement] = await db
+      .insert(inventoryMovementsTable)
+      .values({ productId, binId: toBinId, movementType: "inbound", quantity: qty, reasonCode })
+      .returning();
+
+    const [outEnriched, inEnriched] = await Promise.all([
+      enrichMovement(outMovement.id),
+      enrichMovement(inMovement.id),
+    ]);
+    if (outEnriched) committedMovements.push(outEnriched);
+    if (inEnriched) committedMovements.push(inEnriched);
+  }
+
+  res.json({
+    reference: reference ?? null,
+    linesCommitted: lines.length,
+    movements: committedMovements,
+  });
+});
+
 // ── POST /dispatch/commit ─────────────────────────────────────────────────────
 
 router.post("/dispatch/commit", async (req, res) => {
