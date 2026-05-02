@@ -3,6 +3,8 @@ import { Link, useLocation } from "wouter";
 import {
   useGetReorderSuggestions,
   useCreatePurchaseOrder,
+  useSendPurchaseOrderEmail,
+  useListSuppliers,
 } from "@workspace/api-client-react";
 import { Layout, PageHeader } from "@/components/layout";
 import { Button } from "@/components/ui/button";
@@ -10,7 +12,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -23,16 +33,20 @@ import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft,
   Truck,
-  PackagePlus,
   Zap,
   CheckCircle,
+  CheckCircle2,
   AlertTriangle,
   ShoppingCart,
   Clock,
   HelpCircle,
+  Mail,
+  MailCheck,
+  ArrowRight,
+  Loader2,
 } from "lucide-react";
 
-// ── Types ────────────────────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 interface SuggestionItem {
   productId: string;
@@ -54,13 +68,19 @@ interface SuggestionGroup {
   items: SuggestionItem[];
 }
 
-// State per item: selected + editable qty
 interface ItemState {
   selected: boolean;
   qty: number;
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+interface CreatedPoInfo {
+  id: string;
+  poNumber: string;
+  supplierId: string | null;
+  supplierName: string | null;
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 const fmtCurrency = (n: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 }).format(n);
@@ -69,7 +89,93 @@ function groupKey(g: SuggestionGroup) {
   return g.supplierId ?? g.supplierName ?? "__none__";
 }
 
-// ── Per-group card ────────────────────────────────────────────────────────────
+// ── Post-creation email dialog ────────────────────────────────────────────────
+
+function EmailPoDialog({
+  info,
+  defaultEmail,
+  onSend,
+  onSkip,
+  sending,
+}: {
+  info: CreatedPoInfo;
+  defaultEmail: string;
+  onSend: (email: string) => void;
+  onSkip: () => void;
+  sending: boolean;
+}) {
+  const [email, setEmail] = useState(defaultEmail);
+  const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+
+  return (
+    <Dialog open onOpenChange={(open) => { if (!open && !sending) onSkip(); }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-10 h-10 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center shrink-0">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+            </div>
+            <div>
+              <DialogTitle className="text-base">Draft PO Created</DialogTitle>
+              <p className="text-xs text-muted-foreground mt-0.5 font-mono">{info.poNumber}</p>
+            </div>
+          </div>
+        </DialogHeader>
+
+        <div className="space-y-4 py-1">
+          <p className="text-sm text-muted-foreground">
+            Would you like to email this purchase order to{" "}
+            <span className="font-medium text-foreground">{info.supplierName ?? "the supplier"}</span>{" "}
+            right now?
+          </p>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Supplier email</Label>
+            <div className="relative">
+              <Mail className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+              <Input
+                type="email"
+                placeholder="supplier@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="pl-8 h-9 text-sm"
+                disabled={sending}
+                autoFocus
+              />
+            </div>
+            {!defaultEmail && (
+              <p className="text-[11px] text-amber-600 flex items-center gap-1">
+                <AlertTriangle className="w-3 h-3 shrink-0" />
+                No email on file for this supplier — enter one manually.
+              </p>
+            )}
+          </div>
+        </div>
+
+        <DialogFooter className="gap-2 flex-row justify-end">
+          <Button variant="ghost" size="sm" onClick={onSkip} disabled={sending} className="text-xs h-8">
+            Skip — View PO
+            <ArrowRight className="w-3 h-3 ml-1" />
+          </Button>
+          <Button
+            size="sm"
+            disabled={!valid || sending}
+            onClick={() => onSend(email.trim())}
+            className="bg-[#E8622A] hover:bg-[#E8622A]/90 text-white h-8 text-xs gap-1.5"
+          >
+            {sending ? (
+              <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Sending…</>
+            ) : (
+              <><MailCheck className="w-3.5 h-3.5" /> Send Email &amp; View PO</>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Per-supplier group card ───────────────────────────────────────────────────
 
 function SupplierGroupCard({
   group,
@@ -88,15 +194,14 @@ function SupplierGroupCard({
   onCreatePo: () => void;
   creating: boolean;
 }) {
-  const selectedItems = group.items.filter((item) => itemStates.get(item.productId)?.selected);
+  const selectedItems = group.items.filter((item) => itemStates.get(item.productId)?.selected !== false);
   const allSelected = selectedItems.length === group.items.length;
   const someSelected = selectedItems.length > 0;
   const hasSupplier = !!(group.supplierId || group.supplierName);
 
   const totalEstCost = selectedItems.reduce((sum, item) => {
     const qty = itemStates.get(item.productId)?.qty ?? item.suggestedQty;
-    const cost = item.lastUnitCost ?? 0;
-    return sum + qty * cost;
+    return sum + qty * (item.lastUnitCost ?? 0);
   }, 0);
 
   const supplierLabel = group.supplierName ?? "Unknown Supplier";
@@ -251,15 +356,46 @@ export default function ReorderSuggestionsPage() {
   const suggestions = data as { generatedAt: string; totalItems: number; groups: SuggestionGroup[] } | undefined;
   const groups = suggestions?.groups ?? [];
 
-  // Per-group item state: Map<groupKey, Map<productId, ItemState>>
+  // Suppliers list — for email pre-fill
+  const { data: suppliers = [] } = useListSuppliers({ isActive: undefined });
+
+  // Per-group item state
   const [groupStates, setGroupStates] = useState<Map<string, Map<string, ItemState>>>(new Map());
   const [creatingGroup, setCreatingGroup] = useState<string | null>(null);
 
+  // Post-creation email dialog state
+  const [createdPoInfo, setCreatedPoInfo] = useState<CreatedPoInfo | null>(null);
+  const [sendingEmail, setSendingEmail] = useState(false);
+
+  const { mutate: sendEmail } = useSendPurchaseOrderEmail({
+    mutation: {
+      onSuccess: (result) => {
+        setSendingEmail(false);
+        toast({ title: `PO emailed to ${result.to}` });
+        const id = createdPoInfo?.id;
+        setCreatedPoInfo(null);
+        if (id) navigate(`/purchase-orders/${id}`);
+      },
+      onError: () => {
+        setSendingEmail(false);
+        toast({ title: "Email failed — check the address and try again", variant: "destructive" });
+      },
+    },
+  });
+
   const { mutate: createPo } = useCreatePurchaseOrder({
     mutation: {
-      onSuccess: (data, _, context: any) => {
-        toast({ title: `Draft PO ${data.poNumber} created` });
-        navigate(`/purchase-orders/${data.id}`);
+      onSuccess: (data, variables) => {
+        setCreatingGroup(null);
+        // Find supplier email
+        const supplierId = (variables.data as any).supplierId ?? null;
+        const supplierName = (variables.data as any).supplierName ?? data.supplierName ?? null;
+        setCreatedPoInfo({
+          id: data.id,
+          poNumber: data.poNumber,
+          supplierId,
+          supplierName,
+        });
       },
       onError: () => {
         setCreatingGroup(null);
@@ -268,7 +404,14 @@ export default function ReorderSuggestionsPage() {
     },
   });
 
-  // Initialise group state lazily
+  // Resolve supplier email from suppliers list
+  const getSupplierEmail = (supplierId: string | null): string => {
+    if (!supplierId) return "";
+    const s = suppliers.find((s) => s.id === supplierId);
+    return (s as any)?.email ?? "";
+  };
+
+  // Item state helpers
   function getGroupItemStates(group: SuggestionGroup): Map<string, ItemState> {
     const key = groupKey(group);
     if (!groupStates.has(key)) {
@@ -276,7 +419,6 @@ export default function ReorderSuggestionsPage() {
       for (const item of group.items) {
         m.set(item.productId, { selected: true, qty: item.suggestedQty });
       }
-      // Store lazily (will trigger re-render only when state is mutated via setGroupStates)
       return m;
     }
     return groupStates.get(key)!;
@@ -409,7 +551,7 @@ export default function ReorderSuggestionsPage() {
               </span>
               <span className="text-amber-700">·</span>
               <span className="text-amber-700 text-xs">
-                Grouped by last-used supplier. Adjust quantities before creating POs.
+                Grouped by last-used supplier. Adjust quantities, then create draft POs and optionally email them.
               </span>
               <span className="ml-auto text-xs text-amber-700 font-medium">
                 {totalSelected} item{totalSelected !== 1 ? "s" : ""} selected
@@ -437,12 +579,31 @@ export default function ReorderSuggestionsPage() {
             {/* Help note */}
             <p className="text-[11px] text-muted-foreground flex items-start gap-1.5 px-1">
               <Zap className="w-3.5 h-3.5 shrink-0 mt-0.5 text-[#E8622A]" />
-              Suggested quantities are calculated as <strong>2× reorder threshold − current stock</strong> to build a healthy buffer.
-              Unit costs are pre-filled from the most recent purchase order for each product.
+              Suggested quantities are calculated as{" "}
+              <strong>2× reorder threshold − current stock</strong> to build a healthy buffer.
+              Unit costs and supplier email are pre-filled from the most recent purchase order for each product.
             </p>
           </>
         )}
       </div>
+
+      {/* Post-creation: email dialog */}
+      {createdPoInfo && (
+        <EmailPoDialog
+          info={createdPoInfo}
+          defaultEmail={getSupplierEmail(createdPoInfo.supplierId)}
+          sending={sendingEmail}
+          onSend={(email) => {
+            setSendingEmail(true);
+            sendEmail({ id: createdPoInfo.id, data: { to: email } });
+          }}
+          onSkip={() => {
+            const id = createdPoInfo.id;
+            setCreatedPoInfo(null);
+            navigate(`/purchase-orders/${id}`);
+          }}
+        />
+      )}
     </Layout>
   );
 }
