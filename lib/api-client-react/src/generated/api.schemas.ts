@@ -544,6 +544,60 @@ export interface ScanResult {
   inventory: InventoryItem[];
 }
 
+export interface PoTemplateLine {
+  id: string;
+  templateId: string;
+  productId: string;
+  skuCode: string | null;
+  productName: string | null;
+  defaultQty: number;
+  defaultUnitCost: number | null;
+}
+
+export interface PoTemplate {
+  id: string;
+  name: string;
+  supplierId: string | null;
+  supplierName: string | null;
+  notes: string | null;
+  lineCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type PoTemplateWithLines = PoTemplate & {
+  lines: PoTemplateLine[];
+};
+
+export interface CreatePoTemplateLineBody {
+  productId: string;
+  /** @minimum 1 */
+  defaultQty: number;
+  defaultUnitCost?: number | null;
+}
+
+export interface CreatePoTemplateBody {
+  /** @minLength 1 */
+  name: string;
+  supplierId?: string | null;
+  supplierName?: string | null;
+  notes?: string | null;
+  /** @minItems 1 */
+  lines: CreatePoTemplateLineBody[];
+}
+
+export type CreatePoFromTemplateBodyLineOverridesItem = {
+  lineId: string;
+  /** @minimum 1 */
+  qty: number;
+  unitCost?: number | null;
+};
+
+export interface CreatePoFromTemplateBody {
+  expectedDeliveryDate?: string | null;
+  lineOverrides?: CreatePoFromTemplateBodyLineOverridesItem[];
+}
+
 export interface ReorderSuggestionItem {
   productId: string;
   skuCode: string;

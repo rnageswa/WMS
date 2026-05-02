@@ -68,6 +68,36 @@ export const purchaseOrderLinesTable = pgTable(
   (t) => [index("po_lines_po_id_idx").on(t.poId)],
 );
 
+// ── PO Templates ───────────────────────────────────────────────────────────────
+
+export const poTemplatesTable = pgTable("po_templates", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  supplierId: uuid("supplier_id").references(() => suppliersTable.id, { onDelete: "set null" }),
+  supplierName: text("supplier_name"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const poTemplateLinesTable = pgTable(
+  "po_template_lines",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    templateId: uuid("template_id")
+      .notNull()
+      .references(() => poTemplatesTable.id, { onDelete: "cascade" }),
+    productId: uuid("product_id")
+      .notNull()
+      .references(() => productsTable.id, { onDelete: "restrict" }),
+    defaultQty: integer("default_qty").notNull().default(1),
+    defaultUnitCost: numeric("default_unit_cost", { precision: 12, scale: 4 }),
+  },
+  (t) => [index("po_template_lines_template_id_idx").on(t.templateId)]
+);
+
 export type Supplier = typeof suppliersTable.$inferSelect;
 export type PurchaseOrder = typeof purchaseOrdersTable.$inferSelect;
 export type PurchaseOrderLine = typeof purchaseOrderLinesTable.$inferSelect;
+export type PoTemplate = typeof poTemplatesTable.$inferSelect;
+export type PoTemplateLine = typeof poTemplateLinesTable.$inferSelect;

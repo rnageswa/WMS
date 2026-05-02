@@ -26,6 +26,8 @@ import type {
   CommitTransferBody,
   CommitTransferResult,
   CreateBinBody,
+  CreatePoFromTemplateBody,
+  CreatePoTemplateBody,
   CreateProductBody,
   CreatePurchaseOrderBody,
   CreateSupplierBody,
@@ -45,6 +47,8 @@ import type {
   LowStockAlertList,
   NotFoundResponse,
   PoAgingSummary,
+  PoTemplate,
+  PoTemplateWithLines,
   Product,
   PurchaseOrder,
   PurchaseOrderDetail,
@@ -2823,6 +2827,513 @@ export function useGetStockValueReport<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary List all purchase order templates
+ */
+export const getListPoTemplatesUrl = () => {
+  return `/api/po-templates`;
+};
+
+export const listPoTemplates = async (
+  options?: RequestInit,
+): Promise<PoTemplate[]> => {
+  return customFetch<PoTemplate[]>(getListPoTemplatesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListPoTemplatesQueryKey = () => {
+  return [`/api/po-templates`] as const;
+};
+
+export const getListPoTemplatesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listPoTemplates>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listPoTemplates>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListPoTemplatesQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listPoTemplates>>> = ({
+    signal,
+  }) => listPoTemplates({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listPoTemplates>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListPoTemplatesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPoTemplates>>
+>;
+export type ListPoTemplatesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all purchase order templates
+ */
+
+export function useListPoTemplates<
+  TData = Awaited<ReturnType<typeof listPoTemplates>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listPoTemplates>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListPoTemplatesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a new PO template
+ */
+export const getCreatePoTemplateUrl = () => {
+  return `/api/po-templates`;
+};
+
+export const createPoTemplate = async (
+  createPoTemplateBody: CreatePoTemplateBody,
+  options?: RequestInit,
+): Promise<PoTemplateWithLines> => {
+  return customFetch<PoTemplateWithLines>(getCreatePoTemplateUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createPoTemplateBody),
+  });
+};
+
+export const getCreatePoTemplateMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createPoTemplate>>,
+    TError,
+    { data: BodyType<CreatePoTemplateBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createPoTemplate>>,
+  TError,
+  { data: BodyType<CreatePoTemplateBody> },
+  TContext
+> => {
+  const mutationKey = ["createPoTemplate"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createPoTemplate>>,
+    { data: BodyType<CreatePoTemplateBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createPoTemplate(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreatePoTemplateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createPoTemplate>>
+>;
+export type CreatePoTemplateMutationBody = BodyType<CreatePoTemplateBody>;
+export type CreatePoTemplateMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Create a new PO template
+ */
+export const useCreatePoTemplate = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createPoTemplate>>,
+    TError,
+    { data: BodyType<CreatePoTemplateBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createPoTemplate>>,
+  TError,
+  { data: BodyType<CreatePoTemplateBody> },
+  TContext
+> => {
+  return useMutation(getCreatePoTemplateMutationOptions(options));
+};
+
+/**
+ * @summary Get a PO template with all lines
+ */
+export const getGetPoTemplateUrl = (id: string) => {
+  return `/api/po-templates/${id}`;
+};
+
+export const getPoTemplate = async (
+  id: string,
+  options?: RequestInit,
+): Promise<PoTemplateWithLines> => {
+  return customFetch<PoTemplateWithLines>(getGetPoTemplateUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetPoTemplateQueryKey = (id: string) => {
+  return [`/api/po-templates/${id}`] as const;
+};
+
+export const getGetPoTemplateQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPoTemplate>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPoTemplate>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetPoTemplateQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getPoTemplate>>> = ({
+    signal,
+  }) => getPoTemplate(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPoTemplate>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPoTemplateQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPoTemplate>>
+>;
+export type GetPoTemplateQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get a PO template with all lines
+ */
+
+export function useGetPoTemplate<
+  TData = Awaited<ReturnType<typeof getPoTemplate>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPoTemplate>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPoTemplateQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update a PO template (replaces all lines)
+ */
+export const getUpdatePoTemplateUrl = (id: string) => {
+  return `/api/po-templates/${id}`;
+};
+
+export const updatePoTemplate = async (
+  id: string,
+  createPoTemplateBody: CreatePoTemplateBody,
+  options?: RequestInit,
+): Promise<PoTemplateWithLines> => {
+  return customFetch<PoTemplateWithLines>(getUpdatePoTemplateUrl(id), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createPoTemplateBody),
+  });
+};
+
+export const getUpdatePoTemplateMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updatePoTemplate>>,
+    TError,
+    { id: string; data: BodyType<CreatePoTemplateBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updatePoTemplate>>,
+  TError,
+  { id: string; data: BodyType<CreatePoTemplateBody> },
+  TContext
+> => {
+  const mutationKey = ["updatePoTemplate"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updatePoTemplate>>,
+    { id: string; data: BodyType<CreatePoTemplateBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updatePoTemplate(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdatePoTemplateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updatePoTemplate>>
+>;
+export type UpdatePoTemplateMutationBody = BodyType<CreatePoTemplateBody>;
+export type UpdatePoTemplateMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Update a PO template (replaces all lines)
+ */
+export const useUpdatePoTemplate = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updatePoTemplate>>,
+    TError,
+    { id: string; data: BodyType<CreatePoTemplateBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updatePoTemplate>>,
+  TError,
+  { id: string; data: BodyType<CreatePoTemplateBody> },
+  TContext
+> => {
+  return useMutation(getUpdatePoTemplateMutationOptions(options));
+};
+
+/**
+ * @summary Delete a PO template
+ */
+export const getDeletePoTemplateUrl = (id: string) => {
+  return `/api/po-templates/${id}`;
+};
+
+export const deletePoTemplate = async (
+  id: string,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeletePoTemplateUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeletePoTemplateMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deletePoTemplate>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deletePoTemplate>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["deletePoTemplate"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deletePoTemplate>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deletePoTemplate(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeletePoTemplateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deletePoTemplate>>
+>;
+
+export type DeletePoTemplateMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Delete a PO template
+ */
+export const useDeletePoTemplate = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deletePoTemplate>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deletePoTemplate>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getDeletePoTemplateMutationOptions(options));
+};
+
+/**
+ * @summary Instantiate a draft PO from a template
+ */
+export const getCreatePoFromTemplateUrl = (id: string) => {
+  return `/api/po-templates/${id}/create-po`;
+};
+
+export const createPoFromTemplate = async (
+  id: string,
+  createPoFromTemplateBody?: CreatePoFromTemplateBody,
+  options?: RequestInit,
+): Promise<PurchaseOrder> => {
+  return customFetch<PurchaseOrder>(getCreatePoFromTemplateUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createPoFromTemplateBody),
+  });
+};
+
+export const getCreatePoFromTemplateMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createPoFromTemplate>>,
+    TError,
+    { id: string; data: BodyType<CreatePoFromTemplateBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createPoFromTemplate>>,
+  TError,
+  { id: string; data: BodyType<CreatePoFromTemplateBody> },
+  TContext
+> => {
+  const mutationKey = ["createPoFromTemplate"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createPoFromTemplate>>,
+    { id: string; data: BodyType<CreatePoFromTemplateBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return createPoFromTemplate(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreatePoFromTemplateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createPoFromTemplate>>
+>;
+export type CreatePoFromTemplateMutationBody =
+  BodyType<CreatePoFromTemplateBody>;
+export type CreatePoFromTemplateMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Instantiate a draft PO from a template
+ */
+export const useCreatePoFromTemplate = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createPoFromTemplate>>,
+    TError,
+    { id: string; data: BodyType<CreatePoFromTemplateBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createPoFromTemplate>>,
+  TError,
+  { id: string; data: BodyType<CreatePoFromTemplateBody> },
+  TContext
+> => {
+  return useMutation(getCreatePoFromTemplateMutationOptions(options));
+};
 
 /**
  * @summary Products below reorder threshold, grouped by last-used supplier for fast PO creation

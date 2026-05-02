@@ -20,6 +20,9 @@ import CycleCountPage from "@/pages/cycle-count";
 import PurchaseOrdersPage from "@/pages/purchase-orders";
 import PurchaseOrderNewPage from "@/pages/purchase-order-new";
 import ReorderSuggestionsPage from "@/pages/purchase-order-reorder";
+import PoTemplatesPage from "@/pages/po-templates";
+import PoTemplateNewPage from "@/pages/po-template-new";
+import PoTemplateDetailPage from "@/pages/po-template-detail";
 import PurchaseOrderDetailPage from "@/pages/purchase-order-detail";
 import SuppliersPage from "@/pages/suppliers";
 import SupplierDetailPage from "@/pages/supplier-detail";
@@ -53,6 +56,9 @@ function Router() {
       <Route path="/reports" component={ReportsPage} />
       <Route path="/cycle-count" component={CycleCountPage} />
       <Route path="/purchase-orders/reorder" component={ReorderSuggestionsPage} />
+      <Route path="/purchase-orders/templates/new" component={PoTemplateNewPage} />
+      <Route path="/purchase-orders/templates/:id" component={PoTemplateDetailPage} />
+      <Route path="/purchase-orders/templates" component={PoTemplatesPage} />
       <Route path="/purchase-orders/new" component={PurchaseOrderNewPage} />
       <Route path="/purchase-orders/:id" component={PurchaseOrderDetailPage} />
       <Route path="/purchase-orders" component={PurchaseOrdersPage} />

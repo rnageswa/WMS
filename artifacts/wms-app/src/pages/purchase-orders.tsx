@@ -25,6 +25,7 @@ import {
   ShoppingCart,
   ChevronRight,
   CalendarDays,
+  Copy,
 } from "lucide-react";
 import { Link } from "wouter";
 import { formatDistanceToNow, format, isPast, parseISO } from "date-fns";
@@ -61,11 +62,18 @@ export default function PurchaseOrdersPage() {
         title="Purchase Orders"
         subtitle="Track supplier orders and receive stock against them"
         action={
-          <Button asChild size="sm" className="gap-1.5 bg-[#E8622A] hover:bg-[#E8622A]/90 text-white">
-            <Link href="/purchase-orders/new">
-              <Plus className="w-3.5 h-3.5" /> New PO
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button asChild variant="outline" size="sm" className="gap-1.5">
+              <Link href="/purchase-orders/templates">
+                <Copy className="w-3.5 h-3.5" /> Templates
+              </Link>
+            </Button>
+            <Button asChild size="sm" className="gap-1.5 bg-[#E8622A] hover:bg-[#E8622A]/90 text-white">
+              <Link href="/purchase-orders/new">
+                <Plus className="w-3.5 h-3.5" /> New PO
+              </Link>
+            </Button>
+          </div>
         }
       />
 

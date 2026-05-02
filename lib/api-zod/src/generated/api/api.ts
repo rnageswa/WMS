@@ -939,6 +939,152 @@ export const GetStockValueReportResponse = zod.object({
 });
 
 /**
+ * @summary List all purchase order templates
+ */
+export const ListPoTemplatesResponseItem = zod.object({
+  id: zod.string(),
+  name: zod.string(),
+  supplierId: zod.string().nullable(),
+  supplierName: zod.string().nullable(),
+  notes: zod.string().nullable(),
+  lineCount: zod.number(),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+});
+export const ListPoTemplatesResponse = zod.array(ListPoTemplatesResponseItem);
+
+/**
+ * @summary Create a new PO template
+ */
+
+export const CreatePoTemplateBody = zod.object({
+  name: zod.string().min(1),
+  supplierId: zod.string().uuid().nullish(),
+  supplierName: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  lines: zod
+    .array(
+      zod.object({
+        productId: zod.string().uuid(),
+        defaultQty: zod.number().min(1),
+        defaultUnitCost: zod.number().nullish(),
+      }),
+    )
+    .min(1),
+});
+
+/**
+ * @summary Get a PO template with all lines
+ */
+export const GetPoTemplateParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const GetPoTemplateResponse = zod
+  .object({
+    id: zod.string(),
+    name: zod.string(),
+    supplierId: zod.string().nullable(),
+    supplierName: zod.string().nullable(),
+    notes: zod.string().nullable(),
+    lineCount: zod.number(),
+    createdAt: zod.string(),
+    updatedAt: zod.string(),
+  })
+  .and(
+    zod.object({
+      lines: zod.array(
+        zod.object({
+          id: zod.string(),
+          templateId: zod.string(),
+          productId: zod.string(),
+          skuCode: zod.string().nullable(),
+          productName: zod.string().nullable(),
+          defaultQty: zod.number(),
+          defaultUnitCost: zod.number().nullable(),
+        }),
+      ),
+    }),
+  );
+
+/**
+ * @summary Update a PO template (replaces all lines)
+ */
+export const UpdatePoTemplateParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const UpdatePoTemplateBody = zod.object({
+  name: zod.string().min(1),
+  supplierId: zod.string().uuid().nullish(),
+  supplierName: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  lines: zod
+    .array(
+      zod.object({
+        productId: zod.string().uuid(),
+        defaultQty: zod.number().min(1),
+        defaultUnitCost: zod.number().nullish(),
+      }),
+    )
+    .min(1),
+});
+
+export const UpdatePoTemplateResponse = zod
+  .object({
+    id: zod.string(),
+    name: zod.string(),
+    supplierId: zod.string().nullable(),
+    supplierName: zod.string().nullable(),
+    notes: zod.string().nullable(),
+    lineCount: zod.number(),
+    createdAt: zod.string(),
+    updatedAt: zod.string(),
+  })
+  .and(
+    zod.object({
+      lines: zod.array(
+        zod.object({
+          id: zod.string(),
+          templateId: zod.string(),
+          productId: zod.string(),
+          skuCode: zod.string().nullable(),
+          productName: zod.string().nullable(),
+          defaultQty: zod.number(),
+          defaultUnitCost: zod.number().nullable(),
+        }),
+      ),
+    }),
+  );
+
+/**
+ * @summary Delete a PO template
+ */
+export const DeletePoTemplateParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+/**
+ * @summary Instantiate a draft PO from a template
+ */
+export const CreatePoFromTemplateParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const CreatePoFromTemplateBody = zod.object({
+  expectedDeliveryDate: zod.string().nullish(),
+  lineOverrides: zod
+    .array(
+      zod.object({
+        lineId: zod.string(),
+        qty: zod.number().min(1),
+        unitCost: zod.number().nullish(),
+      }),
+    )
+    .optional(),
+});
+
+/**
  * @summary Products below reorder threshold, grouped by last-used supplier for fast PO creation
  */
 export const GetReorderSuggestionsResponse = zod.object({

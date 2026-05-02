@@ -8,6 +8,8 @@ import {
   inventoryMovementsTable,
   binsTable,
   suppliersTable,
+  poTemplatesTable,
+  poTemplateLinesTable,
 } from "@workspace/db/schema";
 import { eq, inArray, sql, ne, and, desc } from "drizzle-orm";
 import { z } from "zod";
@@ -50,6 +52,249 @@ async function formatPo(po: typeof purchaseOrdersTable.$inferSelect, lines: (typ
     })),
   };
 }
+
+// ── GET /po-templates ─────────────────────────────────────────────────────────
+
+router.get("/po-templates", async (_req, res) => {
+  const templates = await db.select().from(poTemplatesTable).orderBy(desc(poTemplatesTable.createdAt));
+  if (templates.length === 0) { res.json([]); return; }
+
+  const tplIds = templates.map((t) => t.id);
+  const lineCounts = await db
+    .select({
+      templateId: poTemplateLinesTable.templateId,
+      count: sql<number>`count(*)`,
+    })
+    .from(poTemplateLinesTable)
+    .where(inArray(poTemplateLinesTable.templateId, tplIds))
+    .groupBy(poTemplateLinesTable.templateId);
+
+  const countMap = new Map(lineCounts.map((r) => [r.templateId, Number(r.count)]));
+  res.json(templates.map((t) => ({ ...t, lineCount: countMap.get(t.id) ?? 0 })));
+});
+
+// ── POST /po-templates ────────────────────────────────────────────────────────
+
+const CreatePoTemplateLineZ = z.object({
+  productId: z.string().uuid(),
+  defaultQty: z.number().int().min(1),
+  defaultUnitCost: z.number().positive().optional().nullable(),
+});
+
+const CreatePoTemplateBodyZ = z.object({
+  name: z.string().min(1),
+  supplierId: z.string().uuid().optional().nullable(),
+  supplierName: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+  lines: z.array(CreatePoTemplateLineZ).min(1),
+});
+
+async function upsertTemplateLines(
+  templateId: string,
+  lines: z.infer<typeof CreatePoTemplateLineZ>[]
+) {
+  await db.delete(poTemplateLinesTable).where(eq(poTemplateLinesTable.templateId, templateId));
+  const inserted = await db
+    .insert(poTemplateLinesTable)
+    .values(
+      lines.map((l) => ({
+        templateId,
+        productId: l.productId,
+        defaultQty: l.defaultQty,
+        defaultUnitCost: l.defaultUnitCost != null ? String(l.defaultUnitCost) : null,
+      }))
+    )
+    .returning();
+  return inserted;
+}
+
+async function enrichTemplateLines(templateId: string) {
+  return db
+    .select({
+      id: poTemplateLinesTable.id,
+      templateId: poTemplateLinesTable.templateId,
+      productId: poTemplateLinesTable.productId,
+      defaultQty: poTemplateLinesTable.defaultQty,
+      defaultUnitCost: poTemplateLinesTable.defaultUnitCost,
+      skuCode: productsTable.skuCode,
+      productName: productsTable.name,
+    })
+    .from(poTemplateLinesTable)
+    .leftJoin(productsTable, eq(poTemplateLinesTable.productId, productsTable.id))
+    .where(eq(poTemplateLinesTable.templateId, templateId));
+}
+
+router.post("/po-templates", async (req, res) => {
+  const body = CreatePoTemplateBodyZ.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: "Validation error", details: body.error.flatten() });
+    return;
+  }
+
+  let resolvedSupplierId = body.data.supplierId ?? null;
+  let resolvedSupplierName = body.data.supplierName ?? null;
+
+  if (resolvedSupplierId) {
+    const supplier = await db.query.suppliersTable.findFirst({ where: eq(suppliersTable.id, resolvedSupplierId) });
+    if (!supplier) { res.status(400).json({ error: "Supplier not found" }); return; }
+    resolvedSupplierName = supplier.name;
+  }
+
+  const [template] = await db
+    .insert(poTemplatesTable)
+    .values({ name: body.data.name, supplierId: resolvedSupplierId, supplierName: resolvedSupplierName, notes: body.data.notes ?? null })
+    .returning();
+
+  const lines = await upsertTemplateLines(template.id, body.data.lines);
+  const enriched = await enrichTemplateLines(template.id);
+
+  res.status(201).json({
+    ...template,
+    lineCount: lines.length,
+    lines: enriched.map((l) => ({
+      ...l,
+      defaultUnitCost: l.defaultUnitCost ? parseFloat(l.defaultUnitCost) : null,
+    })),
+  });
+});
+
+// ── GET /po-templates/:id ─────────────────────────────────────────────────────
+
+router.get("/po-templates/:id", async (req, res) => {
+  const template = await db.query.poTemplatesTable.findFirst({
+    where: eq(poTemplatesTable.id, req.params.id),
+  });
+  if (!template) { res.status(404).json({ error: "Not found" }); return; }
+
+  const enriched = await enrichTemplateLines(template.id);
+  res.json({
+    ...template,
+    lineCount: enriched.length,
+    lines: enriched.map((l) => ({
+      ...l,
+      defaultUnitCost: l.defaultUnitCost ? parseFloat(l.defaultUnitCost) : null,
+    })),
+  });
+});
+
+// ── PUT /po-templates/:id ─────────────────────────────────────────────────────
+
+router.put("/po-templates/:id", async (req, res) => {
+  const body = CreatePoTemplateBodyZ.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: "Validation error", details: body.error.flatten() });
+    return;
+  }
+
+  const existing = await db.query.poTemplatesTable.findFirst({ where: eq(poTemplatesTable.id, req.params.id) });
+  if (!existing) { res.status(404).json({ error: "Not found" }); return; }
+
+  let resolvedSupplierId = body.data.supplierId ?? null;
+  let resolvedSupplierName = body.data.supplierName ?? null;
+
+  if (resolvedSupplierId) {
+    const supplier = await db.query.suppliersTable.findFirst({ where: eq(suppliersTable.id, resolvedSupplierId) });
+    if (!supplier) { res.status(400).json({ error: "Supplier not found" }); return; }
+    resolvedSupplierName = supplier.name;
+  }
+
+  const [updated] = await db
+    .update(poTemplatesTable)
+    .set({ name: body.data.name, supplierId: resolvedSupplierId, supplierName: resolvedSupplierName, notes: body.data.notes ?? null, updatedAt: new Date() })
+    .where(eq(poTemplatesTable.id, req.params.id))
+    .returning();
+
+  await upsertTemplateLines(updated.id, body.data.lines);
+  const enriched = await enrichTemplateLines(updated.id);
+
+  res.json({
+    ...updated,
+    lineCount: enriched.length,
+    lines: enriched.map((l) => ({
+      ...l,
+      defaultUnitCost: l.defaultUnitCost ? parseFloat(l.defaultUnitCost) : null,
+    })),
+  });
+});
+
+// ── DELETE /po-templates/:id ──────────────────────────────────────────────────
+
+router.delete("/po-templates/:id", async (req, res) => {
+  const existing = await db.query.poTemplatesTable.findFirst({ where: eq(poTemplatesTable.id, req.params.id) });
+  if (!existing) { res.status(404).json({ error: "Not found" }); return; }
+  await db.delete(poTemplatesTable).where(eq(poTemplatesTable.id, req.params.id));
+  res.status(204).send();
+});
+
+// ── POST /po-templates/:id/create-po ─────────────────────────────────────────
+
+const CreatePoFromTemplateZ = z.object({
+  expectedDeliveryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+  lineOverrides: z
+    .array(
+      z.object({
+        lineId: z.string().uuid(),
+        qty: z.number().int().min(1),
+        unitCost: z.number().positive().optional().nullable(),
+      })
+    )
+    .optional(),
+});
+
+router.post("/po-templates/:id/create-po", async (req, res) => {
+  const body = CreatePoFromTemplateZ.safeParse(req.body ?? {});
+  if (!body.success) {
+    res.status(400).json({ error: "Validation error", details: body.error.flatten() });
+    return;
+  }
+
+  const template = await db.query.poTemplatesTable.findFirst({ where: eq(poTemplatesTable.id, req.params.id) });
+  if (!template) { res.status(404).json({ error: "Template not found" }); return; }
+
+  const tplLines = await db.select().from(poTemplateLinesTable).where(eq(poTemplateLinesTable.templateId, template.id));
+  if (tplLines.length === 0) {
+    res.status(400).json({ error: "Template has no lines" });
+    return;
+  }
+
+  const overrideMap = new Map((body.data.lineOverrides ?? []).map((o) => [o.lineId, o]));
+
+  let resolvedSupplierName = template.supplierName ?? "";
+  if (template.supplierId) {
+    const supplier = await db.query.suppliersTable.findFirst({ where: eq(suppliersTable.id, template.supplierId) });
+    if (supplier) resolvedSupplierName = supplier.name;
+  }
+  if (!resolvedSupplierName) {
+    res.status(400).json({ error: "Template has no supplier set" });
+    return;
+  }
+
+  const poNumber = generatePoNumber();
+  const [po] = await db
+    .insert(purchaseOrdersTable)
+    .values({
+      poNumber,
+      supplierId: template.supplierId,
+      supplierName: resolvedSupplierName,
+      notes: template.notes,
+      expectedDeliveryDate: body.data.expectedDeliveryDate ?? null,
+    })
+    .returning();
+
+  const lineValues = tplLines.map((l) => {
+    const override = overrideMap.get(l.id);
+    const qty = override?.qty ?? l.defaultQty;
+    const cost = override?.unitCost !== undefined
+      ? (override.unitCost != null ? String(override.unitCost) : null)
+      : l.defaultUnitCost ?? null;
+    return { poId: po.id, productId: l.productId, qtyOrdered: qty, unitCost: cost };
+  });
+
+  await db.insert(purchaseOrderLinesTable).values(lineValues);
+
+  const fullPo = await db.query.purchaseOrdersTable.findFirst({ where: eq(purchaseOrdersTable.id, po.id) });
+  res.status(201).json(fullPo);
+});
 
 // ── GET /reorder-suggestions ──────────────────────────────────────────────────
 
