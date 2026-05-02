@@ -70,6 +70,7 @@ import {
   CopyCheck,
   Clock,
   AlertTriangle,
+  Printer,
 } from "lucide-react";
 import { Link } from "wouter";
 import { formatDistanceToNow, format, isPast, parseISO, differenceInCalendarDays } from "date-fns";
@@ -403,6 +404,11 @@ export default function PurchaseOrderDetailPage() {
             >
               {duplicating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Copy className="w-3 h-3" />}
               Duplicate
+            </Button>
+            <Button asChild size="sm" variant="outline" className="gap-1.5 h-8 text-xs">
+              <Link href={`/purchase-orders/${id}/print`}>
+                <Printer className="w-3 h-3" /> Print PO
+              </Link>
             </Button>
             {canReceive && !receiving && (
               <Button size="sm" onClick={openReceive} className="gap-1.5 h-8 text-xs bg-[#E8622A] hover:bg-[#E8622A]/90 text-white">
