@@ -36,6 +36,7 @@ import {
   Layers,
   Grid3X3,
   Loader2,
+  Tag,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 
@@ -208,12 +209,20 @@ export default function Locations() {
         title="Locations"
         subtitle="Warehouse / Zone / Bin hierarchy"
         action={
-          <Link href="/locations/new">
-            <Button size="sm" data-testid="button-new-warehouse">
-              <Plus className="w-4 h-4 mr-1.5" />
-              New Warehouse
-            </Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link href="/locations/labels">
+              <Button size="sm" variant="outline">
+                <Tag className="w-4 h-4 mr-1.5" />
+                Print Labels
+              </Button>
+            </Link>
+            <Link href="/locations/new">
+              <Button size="sm" data-testid="button-new-warehouse">
+                <Plus className="w-4 h-4 mr-1.5" />
+                New Warehouse
+              </Button>
+            </Link>
+          </div>
         }
       />
 

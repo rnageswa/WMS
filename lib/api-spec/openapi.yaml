@@ -253,6 +253,32 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /bins:
+    get:
+      operationId: listAllBins
+      tags: [locations]
+      summary: List all bins across all warehouses, enriched with zone and warehouse
+      parameters:
+        - name: warehouseId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: zoneId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: All bins with location context
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BinWithLocation"
+
   /zones/{id}/bins:
     get:
       operationId: listBins

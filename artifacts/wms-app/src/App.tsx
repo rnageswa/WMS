@@ -11,6 +11,7 @@ import InventoryAdjust from "@/pages/inventory-adjust";
 import Movements from "@/pages/movements";
 import Locations from "@/pages/locations";
 import LocationNew from "@/pages/location-new";
+import LocationLabelsPage from "@/pages/location-labels";
 import ScanPage from "@/pages/scan";
 import ReceivingPage from "@/pages/receiving";
 import DispatchPage from "@/pages/dispatch";
@@ -50,6 +51,7 @@ function Router() {
       <Route path="/inventory/adjust" component={InventoryAdjust} />
       <Route path="/inventory" component={Inventory} />
       <Route path="/movements" component={Movements} />
+      <Route path="/locations/labels" component={LocationLabelsPage} />
       <Route path="/locations/new" component={LocationNew} />
       <Route path="/locations" component={Locations} />
       <Route path="/scan" component={ScanPage} />

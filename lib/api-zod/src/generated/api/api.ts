@@ -257,6 +257,38 @@ export const CreateZoneBody = zod.object({
 });
 
 /**
+ * @summary List all bins across all warehouses, enriched with zone and warehouse
+ */
+export const ListAllBinsQueryParams = zod.object({
+  warehouseId: zod.coerce.string().uuid().optional(),
+  zoneId: zod.coerce.string().uuid().optional(),
+});
+
+export const ListAllBinsResponseItem = zod
+  .object({
+    id: zod.string().uuid(),
+    zoneId: zod.string().uuid(),
+    code: zod.string(),
+    name: zod.string().nullish(),
+    isActive: zod.boolean(),
+    createdAt: zod.coerce.date(),
+  })
+  .and(
+    zod.object({
+      zone: zod.object({
+        id: zod.string().uuid(),
+        name: zod.string(),
+        code: zod.string(),
+        warehouse: zod.object({
+          id: zod.string().uuid(),
+          name: zod.string(),
+        }),
+      }),
+    }),
+  );
+export const ListAllBinsResponse = zod.array(ListAllBinsResponseItem);
+
+/**
  * @summary List bins for a zone
  */
 export const ListBinsParams = zod.object({

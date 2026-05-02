@@ -724,6 +724,11 @@ export type ListProductsParams = {
   isActive?: boolean;
 };
 
+export type ListAllBinsParams = {
+  warehouseId?: string;
+  zoneId?: string;
+};
+
 export type ListInventoryParams = {
   productId?: string;
   binId?: string;

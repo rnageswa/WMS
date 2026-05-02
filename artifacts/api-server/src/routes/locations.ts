@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { warehousesTable, zonesTable, binsTable } from "@workspace/db/schema";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, and } from "drizzle-orm";
 import {
   CreateWarehouseBody,
   UpdateWarehouseBody,
@@ -10,6 +10,36 @@ import {
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
+
+// ── GET /bins — all bins with zone+warehouse enrichment ────────────────────
+
+router.get("/bins", async (req, res) => {
+  const warehouseId = req.query.warehouseId as string | undefined;
+  const zoneId = req.query.zoneId as string | undefined;
+
+  const conditions = [];
+  if (zoneId) conditions.push(eq(binsTable.zoneId, zoneId));
+  if (warehouseId) conditions.push(eq(zonesTable.warehouseId, warehouseId));
+
+  const rows = await db
+    .select({
+      bin: binsTable,
+      zone: { id: zonesTable.id, name: zonesTable.name, code: zonesTable.code },
+      warehouse: { id: warehousesTable.id, name: warehousesTable.name },
+    })
+    .from(binsTable)
+    .innerJoin(zonesTable, eq(binsTable.zoneId, zonesTable.id))
+    .innerJoin(warehousesTable, eq(zonesTable.warehouseId, warehousesTable.id))
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(warehousesTable.name, zonesTable.code, binsTable.code);
+
+  res.json(
+    rows.map((r) => ({
+      ...r.bin,
+      zone: { ...r.zone, warehouse: r.warehouse },
+    }))
+  );
+});
 
 // ── Warehouses ──────────────────────────────────────────────────────────────
 

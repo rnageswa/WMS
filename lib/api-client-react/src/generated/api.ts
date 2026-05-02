@@ -19,6 +19,7 @@ import type {
 import type {
   AdjustInventoryBody,
   Bin,
+  BinWithLocation,
   BulkCancelPurchaseOrders200,
   BulkCancelPurchaseOrdersBody,
   BulkDeletePurchaseOrders200,
@@ -44,6 +45,7 @@ import type {
   HealthStatus,
   InventoryItem,
   InventoryMovement,
+  ListAllBinsParams,
   ListInventoryParams,
   ListMovementsParams,
   ListProductsParams,
@@ -1108,6 +1110,100 @@ export const useCreateZone = <
 > => {
   return useMutation(getCreateZoneMutationOptions(options));
 };
+
+/**
+ * @summary List all bins across all warehouses, enriched with zone and warehouse
+ */
+export const getListAllBinsUrl = (params?: ListAllBinsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/bins?${stringifiedParams}`
+    : `/api/bins`;
+};
+
+export const listAllBins = async (
+  params?: ListAllBinsParams,
+  options?: RequestInit,
+): Promise<BinWithLocation[]> => {
+  return customFetch<BinWithLocation[]>(getListAllBinsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListAllBinsQueryKey = (params?: ListAllBinsParams) => {
+  return [`/api/bins`, ...(params ? [params] : [])] as const;
+};
+
+export const getListAllBinsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAllBins>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAllBinsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAllBins>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListAllBinsQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listAllBins>>> = ({
+    signal,
+  }) => listAllBins(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAllBins>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAllBinsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAllBins>>
+>;
+export type ListAllBinsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all bins across all warehouses, enriched with zone and warehouse
+ */
+
+export function useListAllBins<
+  TData = Awaited<ReturnType<typeof listAllBins>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAllBinsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAllBins>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAllBinsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary List bins for a zone
