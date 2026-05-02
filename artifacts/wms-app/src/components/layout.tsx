@@ -16,6 +16,7 @@ import {
   ClipboardCheck,
   ShoppingCart,
   Truck,
+  Zap,
 } from "lucide-react";
 import {
   useGetLowStockAlerts,
@@ -28,6 +29,7 @@ const navItems = [
   { href: "/inventory", label: "Inventory", icon: Boxes },
   { href: "/suppliers", label: "Suppliers", icon: Truck },
   { href: "/purchase-orders", label: "Purchase Orders", icon: ShoppingCart },
+  { href: "/purchase-orders/reorder", label: "Reorder", icon: Zap, alertBadge: true },
   { href: "/receiving", label: "Receiving", icon: PackagePlus },
   { href: "/dispatch", label: "Dispatch", icon: PackageMinus },
   { href: "/transfer", label: "Transfer", icon: ArrowLeftRight },
