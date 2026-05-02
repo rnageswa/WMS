@@ -164,6 +164,39 @@ export interface InventoryMovement {
   bin: BinWithLocation;
 }
 
+export type LowStockAlertSeverity =
+  (typeof LowStockAlertSeverity)[keyof typeof LowStockAlertSeverity];
+
+export const LowStockAlertSeverity = {
+  critical: "critical",
+  warning: "warning",
+} as const;
+
+export type LowStockAlertWarehouseSummaryItem = {
+  warehouseName: string;
+  qty: number;
+};
+
+export interface LowStockAlert {
+  productId: string;
+  skuCode: string;
+  name: string;
+  category?: string | null;
+  reorderThreshold: number;
+  totalQty: number;
+  shortfall: number;
+  severity: LowStockAlertSeverity;
+  warehouseSummary: LowStockAlertWarehouseSummaryItem[];
+}
+
+export interface LowStockAlertList {
+  generatedAt: string;
+  totalAlerts: number;
+  criticalCount: number;
+  warningCount: number;
+  alerts: LowStockAlert[];
+}
+
 export interface CycleCountLine {
   inventoryItemId: string;
   /** @minimum 0 */

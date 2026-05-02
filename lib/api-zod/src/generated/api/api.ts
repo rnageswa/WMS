@@ -459,6 +459,34 @@ export const ListMovementsResponseItem = zod.object({
 export const ListMovementsResponse = zod.array(ListMovementsResponseItem);
 
 /**
+ * @summary Products whose total on-hand qty is at or below their reorder threshold
+ */
+export const GetLowStockAlertsResponse = zod.object({
+  generatedAt: zod.coerce.date(),
+  totalAlerts: zod.number(),
+  criticalCount: zod.number(),
+  warningCount: zod.number(),
+  alerts: zod.array(
+    zod.object({
+      productId: zod.string().uuid(),
+      skuCode: zod.string(),
+      name: zod.string(),
+      category: zod.string().nullish(),
+      reorderThreshold: zod.number(),
+      totalQty: zod.number(),
+      shortfall: zod.number(),
+      severity: zod.enum(["critical", "warning"]),
+      warehouseSummary: zod.array(
+        zod.object({
+          warehouseName: zod.string(),
+          qty: zod.number(),
+        }),
+      ),
+    }),
+  ),
+});
+
+/**
  * @summary Aggregate counts for dashboard
  */
 export const GetDashboardSummaryResponse = zod.object({

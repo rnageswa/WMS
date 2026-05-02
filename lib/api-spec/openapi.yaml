@@ -402,6 +402,21 @@ paths:
                 items:
                   $ref: "#/components/schemas/InventoryMovement"
 
+  # ─── Alerts ──────────────────────────────────────────────────────────────────
+
+  /alerts/low-stock:
+    get:
+      operationId: getLowStockAlerts
+      tags: [inventory]
+      summary: Products whose total on-hand qty is at or below their reorder threshold
+      responses:
+        "200":
+          description: Low-stock alert list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LowStockAlertList"
+
   # ─── Dashboard summary ───────────────────────────────────────────────────────
 
   /dashboard/summary:
@@ -951,6 +966,60 @@ components:
         - createdAt
         - product
         - bin
+
+    # ── Alerts ────────────────────────────────────────────────────────────────
+
+    LowStockAlert:
+      type: object
+      properties:
+        productId:
+          type: string
+          format: uuid
+        skuCode:
+          type: string
+        name:
+          type: string
+        category:
+          type: string
+          nullable: true
+        reorderThreshold:
+          type: integer
+        totalQty:
+          type: integer
+        shortfall:
+          type: integer
+        severity:
+          type: string
+          enum: [critical, warning]
+        warehouseSummary:
+          type: array
+          items:
+            type: object
+            properties:
+              warehouseName:
+                type: string
+              qty:
+                type: integer
+            required: [warehouseName, qty]
+      required: [productId, skuCode, name, reorderThreshold, totalQty, shortfall, severity, warehouseSummary]
+
+    LowStockAlertList:
+      type: object
+      properties:
+        generatedAt:
+          type: string
+          format: date-time
+        totalAlerts:
+          type: integer
+        criticalCount:
+          type: integer
+        warningCount:
+          type: integer
+        alerts:
+          type: array
+          items:
+            $ref: "#/components/schemas/LowStockAlert"
+      required: [generatedAt, totalAlerts, criticalCount, warningCount, alerts]
 
     # ── Cycle Count ───────────────────────────────────────────────────────────
 

@@ -236,6 +236,92 @@ router.get("/movements", async (req, res) => {
   );
 });
 
+// ── GET /alerts/low-stock ─────────────────────────────────────────────────────
+
+router.get("/alerts/low-stock", async (_req, res) => {
+  // Aggregate total qty per product + per-warehouse breakdown
+  const rows = await db
+    .select({
+      productId: productsTable.id,
+      skuCode: productsTable.skuCode,
+      name: productsTable.name,
+      category: productsTable.category,
+      reorderThreshold: productsTable.reorderThreshold,
+      warehouseName: warehousesTable.name,
+      warehouseQty: sql<number>`coalesce(sum(${inventoryItemsTable.qtyOnHand}), 0)::int`,
+    })
+    .from(productsTable)
+    .leftJoin(inventoryItemsTable, eq(inventoryItemsTable.productId, productsTable.id))
+    .leftJoin(binsTable, eq(inventoryItemsTable.binId, binsTable.id))
+    .leftJoin(zonesTable, eq(binsTable.zoneId, zonesTable.id))
+    .leftJoin(warehousesTable, eq(zonesTable.warehouseId, warehousesTable.id))
+    .where(eq(productsTable.isActive, true))
+    .groupBy(
+      productsTable.id,
+      productsTable.skuCode,
+      productsTable.name,
+      productsTable.category,
+      productsTable.reorderThreshold,
+      warehousesTable.name,
+    );
+
+  // Aggregate by product
+  const productMap = new Map<string, {
+    productId: string;
+    skuCode: string;
+    name: string;
+    category: string | null;
+    reorderThreshold: number;
+    totalQty: number;
+    warehouseBreakdown: Map<string, number>;
+  }>();
+
+  for (const row of rows) {
+    const existing = productMap.get(row.productId) ?? {
+      productId: row.productId,
+      skuCode: row.skuCode,
+      name: row.name,
+      category: row.category,
+      reorderThreshold: row.reorderThreshold,
+      totalQty: 0,
+      warehouseBreakdown: new Map(),
+    };
+    existing.totalQty += row.warehouseQty;
+    if (row.warehouseName) {
+      existing.warehouseBreakdown.set(
+        row.warehouseName,
+        (existing.warehouseBreakdown.get(row.warehouseName) ?? 0) + row.warehouseQty,
+      );
+    }
+    productMap.set(row.productId, existing);
+  }
+
+  // Filter to low-stock only and build result
+  const alerts = Array.from(productMap.values())
+    .filter((p) => p.totalQty <= p.reorderThreshold)
+    .map((p) => ({
+      productId: p.productId,
+      skuCode: p.skuCode,
+      name: p.name,
+      category: p.category,
+      reorderThreshold: p.reorderThreshold,
+      totalQty: p.totalQty,
+      shortfall: p.reorderThreshold - p.totalQty,
+      // critical = zero stock; warning = at or below threshold but >0
+      severity: p.totalQty === 0 ? "critical" : "warning",
+      warehouseSummary: Array.from(p.warehouseBreakdown.entries()).map(([warehouseName, qty]) => ({ warehouseName, qty })),
+    }))
+    .sort((a, b) => b.shortfall - a.shortfall);
+
+  res.json({
+    generatedAt: new Date().toISOString(),
+    totalAlerts: alerts.length,
+    criticalCount: alerts.filter((a) => a.severity === "critical").length,
+    warningCount: alerts.filter((a) => a.severity === "warning").length,
+    alerts,
+  });
+});
+
 // ── POST /cycle-counts/submit ─────────────────────────────────────────────────
 
 const CycleCountLineZ = z.object({

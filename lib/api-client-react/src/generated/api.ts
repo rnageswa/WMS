@@ -38,6 +38,7 @@ import type {
   ListInventoryParams,
   ListMovementsParams,
   ListProductsParams,
+  LowStockAlertList,
   NotFoundResponse,
   Product,
   ScanLookupParams,
@@ -1520,6 +1521,81 @@ export function useListMovements<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getListMovementsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Products whose total on-hand qty is at or below their reorder threshold
+ */
+export const getGetLowStockAlertsUrl = () => {
+  return `/api/alerts/low-stock`;
+};
+
+export const getLowStockAlerts = async (
+  options?: RequestInit,
+): Promise<LowStockAlertList> => {
+  return customFetch<LowStockAlertList>(getGetLowStockAlertsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetLowStockAlertsQueryKey = () => {
+  return [`/api/alerts/low-stock`] as const;
+};
+
+export const getGetLowStockAlertsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getLowStockAlerts>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getLowStockAlerts>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetLowStockAlertsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getLowStockAlerts>>
+  > = ({ signal }) => getLowStockAlerts({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getLowStockAlerts>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetLowStockAlertsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getLowStockAlerts>>
+>;
+export type GetLowStockAlertsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Products whose total on-hand qty is at or below their reorder threshold
+ */
+
+export function useGetLowStockAlerts<
+  TData = Awaited<ReturnType<typeof getLowStockAlerts>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getLowStockAlerts>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetLowStockAlertsQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
