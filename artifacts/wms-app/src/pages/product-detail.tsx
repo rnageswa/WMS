@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "wouter";
 import {
   useGetProduct,
@@ -18,7 +19,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ArrowLeft, AlertTriangle } from "lucide-react";
+import { ArrowLeft, AlertTriangle, Printer, Tag, QrCode } from "lucide-react";
+import LabelPrint from "@/components/label-print";
+import { QRCodeSVG } from "qrcode.react";
+import Barcode from "react-barcode";
 
 interface Props {
   params: { id: string };
@@ -26,6 +30,7 @@ interface Props {
 
 export default function ProductDetail({ params }: Props) {
   const { id } = params;
+  const [printOpen, setPrintOpen] = useState(false);
 
   const { data: product, isLoading: loadingProduct } = useGetProduct(id, {
     query: { enabled: !!id, queryKey: getGetProductQueryKey(id) },
@@ -50,17 +55,31 @@ export default function ProductDetail({ params }: Props) {
         title={product?.name ?? "Product Detail"}
         subtitle={product?.skuCode}
         action={
-          <Link href="/products">
-            <Button variant="ghost" size="sm">
-              <ArrowLeft className="w-4 h-4 mr-1.5" />
-              Back to Products
-            </Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            {product && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 h-8 text-xs"
+                onClick={() => setPrintOpen(true)}
+              >
+                <Printer className="w-3.5 h-3.5" />
+                Print Labels
+              </Button>
+            )}
+            <Link href="/products">
+              <Button variant="ghost" size="sm">
+                <ArrowLeft className="w-4 h-4 mr-1.5" />
+                Back to Products
+              </Button>
+            </Link>
+          </div>
         }
       />
 
       <div className="p-6 space-y-6 max-w-4xl">
         <div className="grid grid-cols-2 gap-6">
+          {/* Product Info */}
           <Card className="border-border/60">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold">Product Info</CardTitle>
@@ -96,6 +115,7 @@ export default function ProductDetail({ params }: Props) {
             </CardContent>
           </Card>
 
+          {/* Stock Summary */}
           <Card className="border-border/60">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold">Stock Summary</CardTitle>
@@ -124,6 +144,93 @@ export default function ProductDetail({ params }: Props) {
           </Card>
         </div>
 
+        {/* Label preview card */}
+        {product && (
+          <Card className="border-border/60">
+            <CardHeader className="pb-3 pt-4 px-5 flex flex-row items-center justify-between space-y-0">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <Tag className="w-4 h-4 text-muted-foreground" />
+                Product Label
+              </CardTitle>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 gap-1.5 text-xs"
+                onClick={() => setPrintOpen(true)}
+              >
+                <Printer className="w-3 h-3" /> Print Labels
+              </Button>
+            </CardHeader>
+            <CardContent className="px-5 pb-5">
+              <div className="flex items-center gap-8">
+                {/* Label visual preview */}
+                <div
+                  className="border border-dashed border-border/70 rounded-lg bg-white p-3 shrink-0"
+                  style={{ width: 260 }}
+                >
+                  {/* Header */}
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold leading-snug text-gray-900 truncate">
+                        {product.name}
+                      </p>
+                      <p className="text-[9px] text-gray-500 mt-0.5">
+                        {[product.category, product.unitOfMeasure].filter(Boolean).join(" · ")}
+                      </p>
+                    </div>
+                    <QRCodeSVG value={product.skuCode} size={42} level="M" className="shrink-0" />
+                  </div>
+                  {/* Barcode */}
+                  <div className="flex justify-center mt-1">
+                    <Barcode
+                      value={product.skuCode}
+                      width={1.1}
+                      height={28}
+                      fontSize={7}
+                      margin={0}
+                      displayValue={true}
+                      background="transparent"
+                      lineColor="#000"
+                    />
+                  </div>
+                  {/* Footer */}
+                  <div className="flex justify-between mt-1.5">
+                    <span className="text-[7px] text-gray-300 uppercase tracking-widest">WareIQ</span>
+                    <span className="text-[7px] text-gray-300 font-mono">{id.slice(0, 8).toUpperCase()}</span>
+                  </div>
+                </div>
+
+                {/* Info panel */}
+                <div className="space-y-3 text-sm">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <QrCode className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span className="text-muted-foreground text-xs">QR code encodes</span>
+                      <code className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono">{product.skuCode}</code>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Tag className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span className="text-muted-foreground text-xs">Code 128 barcode</span>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed max-w-xs">
+                    Scan with any barcode reader or mobile scanner. Compatible with standard label printers (100×50mm, Zebra, DYMO, and others).
+                  </p>
+                  <Button
+                    onClick={() => setPrintOpen(true)}
+                    className="gap-1.5 bg-[#E8622A] hover:bg-[#E8622A]/90 text-white text-xs h-8"
+                    size="sm"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    Print Labels…
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Inventory Positions */}
         <Card className="border-border/60">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold">Inventory Positions</CardTitle>
@@ -168,6 +275,21 @@ export default function ProductDetail({ params }: Props) {
           </CardContent>
         </Card>
       </div>
+
+      {/* Label print dialog */}
+      {product && (
+        <LabelPrint
+          open={printOpen}
+          onClose={() => setPrintOpen(false)}
+          label={{
+            productId: product.id,
+            skuCode: product.skuCode,
+            productName: product.name,
+            category: product.category,
+            unitOfMeasure: product.unitOfMeasure,
+          }}
+        />
+      )}
     </Layout>
   );
 }

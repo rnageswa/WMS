@@ -73,5 +73,9 @@
     "vite": "catalog:",
     "wouter": "^3.3.5",
     "zod": "catalog:"
+  },
+  "dependencies": {
+    "qrcode.react": "^4.2.0",
+    "react-barcode": "^1.6.1"
   }
 }
