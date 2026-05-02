@@ -45,7 +45,7 @@ export default function PurchaseOrderNewPage() {
 
   const { data: suppliers = [] } = useListSuppliers({ isActive: true });
   const { data: inventoryItems = [] } = useListInventory(
-    { productId: undefined, binId: undefined, warehouseId: undefined, lowStockOnly: false },
+    { productId: undefined, binId: undefined, warehouseId: undefined, lowStock: false },
     { query: { queryKey: getListInventoryQueryKey() } }
   );
 

@@ -73,6 +73,7 @@ export interface Bin {
   zoneId: string;
   code: string;
   name?: string | null;
+  isActive: boolean;
   createdAt: string;
 }
 
@@ -317,6 +318,16 @@ export interface ReceivePoBody {
 export interface ReceivePoResult {
   po: PurchaseOrder;
   movementsCreated: number;
+}
+
+export interface SendPoEmailBody {
+  to: string;
+}
+
+export interface SendPoEmailResult {
+  emailId: string;
+  to: string;
+  poNumber: string;
 }
 
 export type LowStockAlertSeverity =

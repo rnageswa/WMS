@@ -106,9 +106,10 @@ function BinSelect({ zoneId, value, onChange, productId = "", showStock = false,
   const { data: bins = [] } = useListBins(zoneId, {
     query: { enabled: !!zoneId, queryKey: getListBinsQueryKey(zoneId) },
   });
+  const invParams = { productId: productId || undefined, binId: undefined, warehouseId: undefined, lowStock: false } as const;
   const { data: inventory = [] } = useListInventory(
-    { productId: productId || undefined, binId: undefined, warehouseId: undefined, lowStockOnly: false },
-    { query: { enabled: showStock && !!productId } }
+    invParams,
+    { query: { enabled: showStock && !!productId, queryKey: getListInventoryQueryKey(invParams) } }
   );
   const stockByBin = Object.fromEntries(inventory.map((i) => [(i as any).bin?.id ?? "", i.qtyOnHand]));
 
@@ -138,9 +139,10 @@ function BinSelect({ zoneId, value, onChange, productId = "", showStock = false,
 // ── Live available stock badge ───────────────────────────────────────────────
 
 function AvailableBadge({ productId, binId, qty }: { productId: string; binId: string; qty: number }) {
+  const badgeParams = { productId: productId || undefined, binId: undefined, warehouseId: undefined, lowStock: false } as const;
   const { data: inventory = [] } = useListInventory(
-    { productId: productId || undefined, binId: undefined, warehouseId: undefined, lowStockOnly: false },
-    { query: { enabled: !!productId && !!binId } }
+    badgeParams,
+    { query: { enabled: !!productId && !!binId, queryKey: getListInventoryQueryKey(badgeParams) } }
   );
   if (!productId || !binId) return null;
   const row = inventory.find((i) => (i as any).bin?.id === binId);

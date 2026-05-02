@@ -11,6 +11,7 @@ import {
 } from "@workspace/db/schema";
 import { eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
+import { sendPoEmail } from "../lib/email";
 
 const router: IRouter = Router();
 
@@ -369,6 +370,55 @@ router.post("/purchase-orders/:id/receive", async (req, res) => {
     po: await formatPo(updatedPo!, updatedLines as any),
     movementsCreated,
   });
+});
+
+// ── POST /purchase-orders/:id/email ──────────────────────────────────────────
+
+const SendPoEmailZ = z.object({
+  to: z.string().email(),
+});
+
+router.post("/purchase-orders/:id/email", async (req, res) => {
+  const body = SendPoEmailZ.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: "Validation error", details: body.error.flatten() });
+    return;
+  }
+
+  const po = await db.query.purchaseOrdersTable.findFirst({
+    where: eq(purchaseOrdersTable.id, req.params.id),
+  });
+  if (!po) { res.status(404).json({ error: "Not found" }); return; }
+  if (po.status === "cancelled") {
+    res.status(400).json({ error: "Cannot email a cancelled PO" });
+    return;
+  }
+
+  const lines = await db
+    .select({
+      skuCode: productsTable.skuCode,
+      productName: productsTable.name,
+      qtyOrdered: purchaseOrderLinesTable.qtyOrdered,
+      unitCost: purchaseOrderLinesTable.unitCost,
+    })
+    .from(purchaseOrderLinesTable)
+    .leftJoin(productsTable, eq(purchaseOrderLinesTable.productId, productsTable.id))
+    .where(eq(purchaseOrderLinesTable.poId, po.id));
+
+  const result = await sendPoEmail({
+    to: body.data.to,
+    poNumber: po.poNumber,
+    supplierName: po.supplierName,
+    notes: po.notes,
+    lines: lines.map((l) => ({
+      skuCode: l.skuCode ?? null,
+      productName: l.productName ?? null,
+      qtyOrdered: l.qtyOrdered,
+      unitCost: l.unitCost ? parseFloat(l.unitCost) : null,
+    })),
+  });
+
+  res.json({ emailId: result.id, to: body.data.to, poNumber: po.poNumber });
 });
 
 export { router as purchasingRouter };

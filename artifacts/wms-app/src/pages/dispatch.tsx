@@ -123,9 +123,10 @@ function LineBinsSelect({
   const { data: bins = [] } = useListBins(zoneId, {
     query: { enabled: !!zoneId, queryKey: getListBinsQueryKey(zoneId) },
   });
+  const inventoryParams = { binId: undefined, productId: productId || undefined, warehouseId: undefined, lowStock: false } as const;
   const { data: inventory = [] } = useListInventory(
-    { binId: undefined, productId: productId || undefined, warehouseId: undefined, lowStockOnly: false },
-    { query: { enabled: !!productId } }
+    inventoryParams,
+    { query: { enabled: !!productId, queryKey: getListInventoryQueryKey(inventoryParams) } }
   );
   const stockByBin = Object.fromEntries(inventory.map((i) => [(i as any).bin?.id ?? "", i.qtyOnHand]));
 
@@ -154,9 +155,10 @@ function LineBinsSelect({
 
 // Available stock for a given product+bin
 function useAvailableStock(productId: string, binId: string): number {
+  const stockParams = { productId: productId || undefined, binId: undefined, warehouseId: undefined, lowStock: false } as const;
   const { data: inventory = [] } = useListInventory(
-    { productId: productId || undefined, binId: undefined, warehouseId: undefined, lowStockOnly: false },
-    { query: { enabled: !!productId && !!binId } }
+    stockParams,
+    { query: { enabled: !!productId && !!binId, queryKey: getListInventoryQueryKey(stockParams) } }
   );
   const row = inventory.find((i) => (i as any).bin?.id === binId);
   return row?.qtyOnHand ?? 0;

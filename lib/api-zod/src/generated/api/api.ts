@@ -196,6 +196,7 @@ export const GetWarehouseResponse = zod
                   zoneId: zod.string().uuid(),
                   code: zod.string(),
                   name: zod.string().nullish(),
+                  isActive: zod.boolean(),
                   createdAt: zod.coerce.date(),
                 }),
               ),
@@ -267,6 +268,7 @@ export const ListBinsResponseItem = zod.object({
   zoneId: zod.string().uuid(),
   code: zod.string(),
   name: zod.string().nullish(),
+  isActive: zod.boolean(),
   createdAt: zod.coerce.date(),
 });
 export const ListBinsResponse = zod.array(ListBinsResponseItem);
@@ -322,6 +324,7 @@ export const ListInventoryResponseItem = zod.object({
       zoneId: zod.string().uuid(),
       code: zod.string(),
       name: zod.string().nullish(),
+      isActive: zod.boolean(),
       createdAt: zod.coerce.date(),
     })
     .and(
@@ -378,6 +381,7 @@ export const AdjustInventoryResponse = zod.object({
       zoneId: zod.string().uuid(),
       code: zod.string(),
       name: zod.string().nullish(),
+      isActive: zod.boolean(),
       createdAt: zod.coerce.date(),
     })
     .and(
@@ -440,6 +444,7 @@ export const ListMovementsResponseItem = zod.object({
       zoneId: zod.string().uuid(),
       code: zod.string(),
       name: zod.string().nullish(),
+      isActive: zod.boolean(),
       createdAt: zod.coerce.date(),
     })
     .and(
@@ -699,6 +704,23 @@ export const UpdatePurchaseOrderStatusResponse = zod.object({
 });
 
 /**
+ * @summary Send the PO as a formatted email to the supplier
+ */
+export const SendPurchaseOrderEmailParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const SendPurchaseOrderEmailBody = zod.object({
+  to: zod.string().email(),
+});
+
+export const SendPurchaseOrderEmailResponse = zod.object({
+  emailId: zod.string(),
+  to: zod.string(),
+  poNumber: zod.string(),
+});
+
+/**
  * @summary Receive items against a PO — creates inbound inventory movements
  */
 export const ReceivePurchaseOrderParams = zod.object({
@@ -808,6 +830,7 @@ export const GetDashboardSummaryResponse = zod.object({
           zoneId: zod.string().uuid(),
           code: zod.string(),
           name: zod.string().nullish(),
+          isActive: zod.boolean(),
           createdAt: zod.coerce.date(),
         })
         .and(
@@ -926,6 +949,7 @@ export const SubmitCycleCountResponse = zod.object({
           zoneId: zod.string().uuid(),
           code: zod.string(),
           name: zod.string().nullish(),
+          isActive: zod.boolean(),
           createdAt: zod.coerce.date(),
         })
         .and(
@@ -997,6 +1021,7 @@ export const CommitReceiptResponse = zod.object({
           zoneId: zod.string().uuid(),
           code: zod.string(),
           name: zod.string().nullish(),
+          isActive: zod.boolean(),
           createdAt: zod.coerce.date(),
         })
         .and(
@@ -1069,6 +1094,7 @@ export const CommitTransferResponse = zod.object({
           zoneId: zod.string().uuid(),
           code: zod.string(),
           name: zod.string().nullish(),
+          isActive: zod.boolean(),
           createdAt: zod.coerce.date(),
         })
         .and(
@@ -1140,6 +1166,7 @@ export const CommitDispatchResponse = zod.object({
           zoneId: zod.string().uuid(),
           code: zod.string(),
           name: zod.string().nullish(),
+          isActive: zod.boolean(),
           createdAt: zod.coerce.date(),
         })
         .and(
@@ -1176,6 +1203,7 @@ export const ScanLookupResponse = zod.object({
         zoneId: zod.string().uuid(),
         code: zod.string(),
         name: zod.string().nullish(),
+        isActive: zod.boolean(),
         createdAt: zod.coerce.date(),
       })
       .and(
@@ -1220,6 +1248,7 @@ export const ScanLookupResponse = zod.object({
                   zoneId: zod.string().uuid(),
                   code: zod.string(),
                   name: zod.string().nullish(),
+                  isActive: zod.boolean(),
                   createdAt: zod.coerce.date(),
                 })
                 .and(
@@ -1283,6 +1312,7 @@ export const ScanLookupResponse = zod.object({
           zoneId: zod.string().uuid(),
           code: zod.string(),
           name: zod.string().nullish(),
+          isActive: zod.boolean(),
           createdAt: zod.coerce.date(),
         })
         .and(

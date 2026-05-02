@@ -88,8 +88,8 @@ export default function CycleCountPage() {
 
   // Load inventory for the selected scope
   const { data: inventory = [], isLoading: loadingInv } = useListInventory(
-    { warehouseId: warehouseId || undefined, productId: undefined, lowStockOnly: false },
-    { query: { enabled: step === "count" } }
+    { warehouseId: warehouseId || undefined, productId: undefined, lowStock: false },
+    { query: { enabled: step === "count", queryKey: getListInventoryQueryKey({ warehouseId: warehouseId || undefined, productId: undefined, lowStock: false }) } }
   );
 
   const { mutate: submit, isPending } = useSubmitCycleCount({

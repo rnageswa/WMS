@@ -51,6 +51,8 @@ import type {
   ReceivePoResult,
   ScanLookupParams,
   ScanResult,
+  SendPoEmailBody,
+  SendPoEmailResult,
   StockValueReport,
   SubmitCycleCountBody,
   Supplier,
@@ -2251,6 +2253,93 @@ export const useUpdatePurchaseOrderStatus = <
   TContext
 > => {
   return useMutation(getUpdatePurchaseOrderStatusMutationOptions(options));
+};
+
+/**
+ * @summary Send the PO as a formatted email to the supplier
+ */
+export const getSendPurchaseOrderEmailUrl = (id: string) => {
+  return `/api/purchase-orders/${id}/email`;
+};
+
+export const sendPurchaseOrderEmail = async (
+  id: string,
+  sendPoEmailBody: SendPoEmailBody,
+  options?: RequestInit,
+): Promise<SendPoEmailResult> => {
+  return customFetch<SendPoEmailResult>(getSendPurchaseOrderEmailUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(sendPoEmailBody),
+  });
+};
+
+export const getSendPurchaseOrderEmailMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendPurchaseOrderEmail>>,
+    TError,
+    { id: string; data: BodyType<SendPoEmailBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof sendPurchaseOrderEmail>>,
+  TError,
+  { id: string; data: BodyType<SendPoEmailBody> },
+  TContext
+> => {
+  const mutationKey = ["sendPurchaseOrderEmail"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof sendPurchaseOrderEmail>>,
+    { id: string; data: BodyType<SendPoEmailBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return sendPurchaseOrderEmail(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SendPurchaseOrderEmailMutationResult = NonNullable<
+  Awaited<ReturnType<typeof sendPurchaseOrderEmail>>
+>;
+export type SendPurchaseOrderEmailMutationBody = BodyType<SendPoEmailBody>;
+export type SendPurchaseOrderEmailMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Send the PO as a formatted email to the supplier
+ */
+export const useSendPurchaseOrderEmail = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendPurchaseOrderEmail>>,
+    TError,
+    { id: string; data: BodyType<SendPoEmailBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof sendPurchaseOrderEmail>>,
+  TError,
+  { id: string; data: BodyType<SendPoEmailBody> },
+  TContext
+> => {
+  return useMutation(getSendPurchaseOrderEmailMutationOptions(options));
 };
 
 /**

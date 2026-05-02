@@ -4,6 +4,7 @@ import {
   useGetPurchaseOrder,
   useUpdatePurchaseOrderStatus,
   useReceivePurchaseOrder,
+  useSendPurchaseOrderEmail,
   useListWarehouses,
   useListZones,
   useListBins,
@@ -28,6 +29,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -46,6 +55,7 @@ import {
   Send,
   RotateCcw,
   TrendingUp,
+  Mail,
 } from "lucide-react";
 import { Link } from "wouter";
 import { formatDistanceToNow, format } from "date-fns";
@@ -149,10 +159,12 @@ export default function PurchaseOrderDetailPage() {
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  // Whether the receive form is open
   const [receiving, setReceiving] = useState(false);
-  // Per-line receive entries
   const [receiveEntries, setReceiveEntries] = useState<Record<string, ReceiveLine>>({});
+
+  // Email dialog state
+  const [emailOpen, setEmailOpen] = useState(false);
+  const [emailTo, setEmailTo] = useState("");
 
   const { data: po, isLoading } = useGetPurchaseOrder(id!, {
     query: {
@@ -181,11 +193,29 @@ export default function PurchaseOrderDetailPage() {
         invalidate();
         setReceiving(false);
         setReceiveEntries({});
-        toast({ title: `Received ${data.movementsCreated} movement${data.movementsCreated !== 1 ? "s" : ""} created` });
+        toast({ title: `Received — ${data.movementsCreated} movement${data.movementsCreated !== 1 ? "s" : ""} created` });
       },
       onError: () => toast({ title: "Failed to receive stock", variant: "destructive" }),
     },
   });
+
+  const { mutate: sendEmail, isPending: sendingEmail } = useSendPurchaseOrderEmail({
+    mutation: {
+      onSuccess: (data) => {
+        setEmailOpen(false);
+        setEmailTo("");
+        toast({ title: `PO emailed to ${data.to}` });
+      },
+      onError: () => toast({ title: "Failed to send email", variant: "destructive" }),
+    },
+  });
+
+  // Pre-fill email from supplier if available
+  const openEmailDialog = () => {
+    const supplierEmail = (po as any)?.supplierEmail ?? "";
+    setEmailTo(supplierEmail);
+    setEmailOpen(true);
+  };
 
   const openReceive = () => {
     if (!po) return;
@@ -220,6 +250,7 @@ export default function PurchaseOrderDetailPage() {
   const canReceive = po && ["draft", "ordered", "partially_received"].includes(po.status);
   const canOrder  = po?.status === "draft";
   const canCancel = po && ["draft", "ordered"].includes(po.status);
+  const canEmail  = po && po.status !== "cancelled";
 
   if (isLoading) {
     return (
@@ -254,7 +285,7 @@ export default function PurchaseOrderDetailPage() {
         title={po.poNumber}
         subtitle={`${po.supplierName} · ${format(new Date(po.createdAt), "dd MMM yyyy")}`}
         action={
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <StatusBadge status={po.status} />
             {canOrder && (
               <Button
@@ -266,6 +297,16 @@ export default function PurchaseOrderDetailPage() {
               >
                 {updatingStatus ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
                 Mark as Ordered
+              </Button>
+            )}
+            {canEmail && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5 h-8 text-xs"
+                onClick={openEmailDialog}
+              >
+                <Mail className="w-3 h-3" /> Email PO
               </Button>
             )}
             {canReceive && !receiving && (
@@ -413,6 +454,44 @@ export default function PurchaseOrderDetailPage() {
           <Link href="/purchase-orders"><ArrowLeft className="w-3.5 h-3.5" /> Back to Purchase Orders</Link>
         </Button>
       </div>
+
+      {/* Email dialog */}
+      <Dialog open={emailOpen} onOpenChange={setEmailOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="w-4 h-4 text-muted-foreground" />
+              Email Purchase Order
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-2 space-y-3">
+            <p className="text-sm text-muted-foreground">
+              A formatted PDF-style email for <span className="font-medium text-foreground">{po?.poNumber}</span> will be sent to the address below.
+            </p>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Recipient email *</Label>
+              <Input
+                autoFocus
+                type="email"
+                placeholder="supplier@example.com"
+                value={emailTo}
+                onChange={(e) => setEmailTo(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEmailOpen(false)}>Cancel</Button>
+            <Button
+              disabled={!emailTo.trim() || sendingEmail}
+              onClick={() => sendEmail({ id: id!, data: { to: emailTo.trim() } })}
+              className="gap-1.5 bg-[#E8622A] hover:bg-[#E8622A]/90 text-white"
+            >
+              {sendingEmail ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Mail className="w-3.5 h-3.5" />}
+              {sendingEmail ? "Sending…" : "Send Email"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }
