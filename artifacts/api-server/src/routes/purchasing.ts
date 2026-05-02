@@ -109,6 +109,125 @@ router.get("/purchase-orders/aging", async (_req, res) => {
   });
 });
 
+// ── GET /reports/supplier-performance ────────────────────────────────────────
+
+router.get("/reports/supplier-performance", async (_req, res) => {
+  const allPos = await db.query.purchaseOrdersTable.findMany({
+    orderBy: (t, { desc }) => [desc(t.createdAt)],
+  });
+
+  if (allPos.length === 0) {
+    res.json({ generatedAt: new Date().toISOString(), suppliers: [] });
+    return;
+  }
+
+  const poIds = allPos.map((p) => p.id);
+  const lines = await db
+    .select({
+      poId: purchaseOrderLinesTable.poId,
+      qtyOrdered: purchaseOrderLinesTable.qtyOrdered,
+      qtyReceived: purchaseOrderLinesTable.qtyReceived,
+      unitCost: purchaseOrderLinesTable.unitCost,
+      lineStatus: purchaseOrderLinesTable.status,
+    })
+    .from(purchaseOrderLinesTable)
+    .where(inArray(purchaseOrderLinesTable.poId, poIds));
+
+  const linesByPo = new Map<string, typeof lines>();
+  for (const l of lines) {
+    const arr = linesByPo.get(l.poId) ?? [];
+    arr.push(l);
+    linesByPo.set(l.poId, arr);
+  }
+
+  // Group POs by supplier (prefer supplierId key if available, else supplierName)
+  const supplierMap = new Map<string, {
+    supplierId: string | null;
+    supplierName: string;
+    orders: typeof allPos;
+  }>();
+
+  for (const po of allPos) {
+    const key = po.supplierId ?? `__name__${po.supplierName}`;
+    if (!supplierMap.has(key)) {
+      supplierMap.set(key, { supplierId: po.supplierId, supplierName: po.supplierName, orders: [] });
+    }
+    supplierMap.get(key)!.orders.push(po);
+  }
+
+  const msPerDay = 86_400_000;
+
+  const result = Array.from(supplierMap.values()).map(({ supplierId, supplierName, orders }) => {
+    const totalOrders = orders.length;
+    const receivedOrders = orders.filter((p) => p.status === "received");
+    const cancelledCount = orders.filter((p) => p.status === "cancelled").length;
+    const openCount = totalOrders - receivedOrders.length - cancelledCount;
+
+    // On-time delivery: received POs where updatedAt date ≤ expectedDeliveryDate
+    const receivedWithDate = receivedOrders.filter((p) => !!p.expectedDeliveryDate);
+    const onTimeCount = receivedWithDate.filter((p) => {
+      const recvDay = new Date(p.updatedAt); recvDay.setHours(0, 0, 0, 0);
+      const expDay = new Date(p.expectedDeliveryDate!); expDay.setHours(0, 0, 0, 0);
+      return recvDay <= expDay;
+    }).length;
+    const onTimeRate = receivedWithDate.length > 0
+      ? Math.round((onTimeCount / receivedWithDate.length) * 100)
+      : null;
+
+    // Avg lead time (createdAt → updatedAt for received POs)
+    let avgLeadTimeDays: number | null = null;
+    if (receivedOrders.length > 0) {
+      const totalDays = receivedOrders.reduce(
+        (s, p) => s + (p.updatedAt.getTime() - p.createdAt.getTime()) / msPerDay, 0
+      );
+      avgLeadTimeDays = Math.round(totalDays / receivedOrders.length);
+    }
+
+    // Fill rate: across non-cancelled POs
+    const nonCancelledLines = orders
+      .filter((p) => p.status !== "cancelled")
+      .flatMap((p) => linesByPo.get(p.id) ?? []);
+    const totalItemsOrdered = nonCancelledLines.reduce((s, l) => s + l.qtyOrdered, 0);
+    const totalItemsReceived = nonCancelledLines.reduce((s, l) => s + l.qtyReceived, 0);
+    const fillRate = totalItemsOrdered > 0
+      ? Math.round((totalItemsReceived / totalItemsOrdered) * 100)
+      : null;
+
+    // Total spend (unit_cost × qty_ordered)
+    const totalSpendRaw = nonCancelledLines.reduce((s, l) => {
+      return l.unitCost ? s + parseFloat(l.unitCost) * l.qtyOrdered : s;
+    }, 0);
+    const totalSpend = totalSpendRaw > 0 ? totalSpendRaw : null;
+
+    // Last order date
+    const lastOrderDate = orders.reduce((latest, p) => {
+      const d = p.createdAt.toISOString().slice(0, 10);
+      return d > (latest ?? "") ? d : latest;
+    }, null as string | null);
+
+    return {
+      supplierId,
+      supplierName,
+      totalOrders,
+      receivedOrders: receivedOrders.length,
+      cancelledOrders: cancelledCount,
+      openOrders: openCount,
+      onTimeOrders: onTimeCount,
+      ordersWithDate: receivedWithDate.length,
+      onTimeRate,
+      avgLeadTimeDays,
+      totalItemsOrdered,
+      totalItemsReceived,
+      fillRate,
+      totalSpend,
+      lastOrderDate,
+    };
+  });
+
+  result.sort((a, b) => b.totalOrders - a.totalOrders);
+  res.json({ generatedAt: new Date().toISOString(), suppliers: result });
+});
+
 // ── GET /purchase-orders ──────────────────────────────────────────────────────
 
 router.get("/purchase-orders", async (req, res) => {

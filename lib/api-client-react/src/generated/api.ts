@@ -58,6 +58,7 @@ import type {
   SubmitCycleCountBody,
   Supplier,
   SupplierDetail,
+  SupplierPerformanceReport,
   UpdatePoDeliveryDateBody,
   UpdatePoStatusBody,
   UpdateProductBody,
@@ -2814,6 +2815,86 @@ export function useGetStockValueReport<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetStockValueReportQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Supplier performance metrics derived from purchase order history
+ */
+export const getGetSupplierPerformanceReportUrl = () => {
+  return `/api/reports/supplier-performance`;
+};
+
+export const getSupplierPerformanceReport = async (
+  options?: RequestInit,
+): Promise<SupplierPerformanceReport> => {
+  return customFetch<SupplierPerformanceReport>(
+    getGetSupplierPerformanceReportUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetSupplierPerformanceReportQueryKey = () => {
+  return [`/api/reports/supplier-performance`] as const;
+};
+
+export const getGetSupplierPerformanceReportQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSupplierPerformanceReport>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getSupplierPerformanceReport>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetSupplierPerformanceReportQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getSupplierPerformanceReport>>
+  > = ({ signal }) =>
+    getSupplierPerformanceReport({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSupplierPerformanceReport>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSupplierPerformanceReportQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSupplierPerformanceReport>>
+>;
+export type GetSupplierPerformanceReportQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Supplier performance metrics derived from purchase order history
+ */
+
+export function useGetSupplierPerformanceReport<
+  TData = Awaited<ReturnType<typeof getSupplierPerformanceReport>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getSupplierPerformanceReport>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSupplierPerformanceReportQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

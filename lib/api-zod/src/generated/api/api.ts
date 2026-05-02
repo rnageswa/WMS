@@ -939,6 +939,32 @@ export const GetStockValueReportResponse = zod.object({
 });
 
 /**
+ * @summary Supplier performance metrics derived from purchase order history
+ */
+export const GetSupplierPerformanceReportResponse = zod.object({
+  generatedAt: zod.string(),
+  suppliers: zod.array(
+    zod.object({
+      supplierId: zod.string().nullable(),
+      supplierName: zod.string(),
+      totalOrders: zod.number(),
+      receivedOrders: zod.number(),
+      cancelledOrders: zod.number(),
+      openOrders: zod.number(),
+      onTimeOrders: zod.number(),
+      ordersWithDate: zod.number(),
+      onTimeRate: zod.number().nullable(),
+      avgLeadTimeDays: zod.number().nullable(),
+      totalItemsOrdered: zod.number(),
+      totalItemsReceived: zod.number(),
+      fillRate: zod.number().nullable(),
+      totalSpend: zod.number().nullable(),
+      lastOrderDate: zod.string().nullable(),
+    }),
+  ),
+});
+
+/**
  * @summary Submit a cycle count — creates adjustment movements for discrepancies
  */
 export const submitCycleCountBodyLinesItemPhysicalQtyMin = 0;

@@ -408,11 +408,11 @@ router.post("/cycle-counts/submit", async (req, res) => {
         const [movement] = await tx
           .insert(inventoryMovementsTable)
           .values({
-            type: "ADJUSTMENT",
+            movementType: "adjustment",
             productId: d.productId,
             binId: d.binId,
-            qty: d.variance,
-            reason: reference ? `CYCLE-COUNT ${reference}` : "CYCLE-COUNT",
+            quantity: d.variance,
+            reasonCode: reference ? `CYCLE-COUNT ${reference}` : "CYCLE-COUNT",
           })
           .returning();
         createdMovements.push(movement);

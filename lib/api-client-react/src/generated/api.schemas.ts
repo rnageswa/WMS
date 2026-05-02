@@ -544,6 +544,29 @@ export interface ScanResult {
   inventory: InventoryItem[];
 }
 
+export interface SupplierPerformanceRow {
+  supplierId: string | null;
+  supplierName: string;
+  totalOrders: number;
+  receivedOrders: number;
+  cancelledOrders: number;
+  openOrders: number;
+  onTimeOrders: number;
+  ordersWithDate: number;
+  onTimeRate: number | null;
+  avgLeadTimeDays: number | null;
+  totalItemsOrdered: number;
+  totalItemsReceived: number;
+  fillRate: number | null;
+  totalSpend: number | null;
+  lastOrderDate: string | null;
+}
+
+export interface SupplierPerformanceReport {
+  generatedAt: string;
+  suppliers: SupplierPerformanceRow[];
+}
+
 export interface DashboardSummary {
   totalProducts: number;
   activeProducts: number;

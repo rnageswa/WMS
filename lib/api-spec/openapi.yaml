@@ -18,6 +18,8 @@ tags:
     description: Inventory levels and adjustments
   - name: movements
     description: Inventory movement audit log
+  - name: purchasing
+    description: Suppliers and purchase orders
 
 paths:
   /healthz:
@@ -776,6 +778,19 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/StockValueReport"
+
+  /reports/supplier-performance:
+    get:
+      operationId: getSupplierPerformanceReport
+      tags: [purchasing]
+      summary: Supplier performance metrics derived from purchase order history
+      responses:
+        "200":
+          description: Supplier performance report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupplierPerformanceReport"
 
   /reports/inventory-csv:
     get:
@@ -2044,6 +2059,75 @@ components:
           items:
             $ref: "#/components/schemas/InventoryItem"
       required: [query, matchType, bins, inventory]
+
+    # ── Supplier Performance ──────────────────────────────────────────────────
+
+    SupplierPerformanceRow:
+      type: object
+      properties:
+        supplierId:
+          type: string
+          nullable: true
+        supplierName:
+          type: string
+        totalOrders:
+          type: integer
+        receivedOrders:
+          type: integer
+        cancelledOrders:
+          type: integer
+        openOrders:
+          type: integer
+        onTimeOrders:
+          type: integer
+        ordersWithDate:
+          type: integer
+        onTimeRate:
+          type: integer
+          nullable: true
+        avgLeadTimeDays:
+          type: integer
+          nullable: true
+        totalItemsOrdered:
+          type: integer
+        totalItemsReceived:
+          type: integer
+        fillRate:
+          type: integer
+          nullable: true
+        totalSpend:
+          type: number
+          nullable: true
+        lastOrderDate:
+          type: string
+          nullable: true
+      required:
+        - supplierId
+        - supplierName
+        - totalOrders
+        - receivedOrders
+        - cancelledOrders
+        - openOrders
+        - onTimeOrders
+        - ordersWithDate
+        - onTimeRate
+        - avgLeadTimeDays
+        - totalItemsOrdered
+        - totalItemsReceived
+        - fillRate
+        - totalSpend
+        - lastOrderDate
+
+    SupplierPerformanceReport:
+      type: object
+      properties:
+        generatedAt:
+          type: string
+        suppliers:
+          type: array
+          items:
+            $ref: "#/components/schemas/SupplierPerformanceRow"
+      required: [generatedAt, suppliers]
 
     # ── Dashboard ─────────────────────────────────────────────────────────────
 
