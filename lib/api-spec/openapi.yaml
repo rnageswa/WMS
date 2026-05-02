@@ -522,6 +522,11 @@ paths:
           schema:
             type: string
             enum: [draft, ordered, partially_received, received, cancelled]
+        - in: query
+          name: q
+          schema:
+            type: string
+          description: Search by PO number, supplier name, or product SKU / name
       responses:
         "200":
           description: List of purchase orders

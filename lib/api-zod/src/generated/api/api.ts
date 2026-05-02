@@ -587,6 +587,10 @@ export const ListPurchaseOrdersQueryParams = zod.object({
   status: zod
     .enum(["draft", "ordered", "partially_received", "received", "cancelled"])
     .optional(),
+  q: zod.coerce
+    .string()
+    .optional()
+    .describe("Search by PO number, supplier name, or product SKU \/ name"),
 });
 
 export const ListPurchaseOrdersResponseItem = zod.object({

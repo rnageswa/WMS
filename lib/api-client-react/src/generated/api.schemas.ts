@@ -710,6 +710,10 @@ export type ListSuppliersParams = {
 
 export type ListPurchaseOrdersParams = {
   status?: ListPurchaseOrdersStatus;
+  /**
+   * Search by PO number, supplier name, or product SKU / name
+   */
+  q?: string;
 };
 
 export type ListPurchaseOrdersStatus =

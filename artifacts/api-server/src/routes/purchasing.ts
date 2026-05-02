@@ -12,7 +12,7 @@ import {
   poTemplateLinesTable,
   poStatusHistoryTable,
 } from "@workspace/db/schema";
-import { eq, inArray, sql, ne, and, desc } from "drizzle-orm";
+import { eq, inArray, sql, ne, and, or, ilike, desc } from "drizzle-orm";
 import { z } from "zod";
 import { sendPoEmail } from "../lib/email";
 
@@ -613,11 +613,45 @@ router.get("/reports/supplier-performance", async (_req, res) => {
 // ── GET /purchase-orders ──────────────────────────────────────────────────────
 
 router.get("/purchase-orders", async (req, res) => {
-  const { status } = req.query as { status?: string };
+  const { status, q } = req.query as { status?: string; q?: string };
+
+  // When a search term is present, find PO IDs whose lines match by SKU / product name
+  let skuMatchPoIds: string[] = [];
+  if (q && q.trim().length > 0) {
+    const term = `%${q.trim()}%`;
+    const matches = await db
+      .selectDistinct({ poId: purchaseOrderLinesTable.poId })
+      .from(purchaseOrderLinesTable)
+      .leftJoin(productsTable, eq(purchaseOrderLinesTable.productId, productsTable.id))
+      .where(
+        or(
+          ilike(productsTable.skuCode, term),
+          ilike(productsTable.name, term)
+        )
+      );
+    skuMatchPoIds = matches.map((r) => r.poId);
+  }
+
+  const buildWhere = () => {
+    const conditions: ReturnType<typeof eq>[] = [];
+    if (status) conditions.push(eq(purchaseOrdersTable.status, status as any));
+    if (q && q.trim().length > 0) {
+      const term = `%${q.trim()}%`;
+      const searchOr = or(
+        ilike(purchaseOrdersTable.poNumber, term),
+        ilike(purchaseOrdersTable.supplierName, term),
+        ...(skuMatchPoIds.length > 0 ? [inArray(purchaseOrdersTable.id, skuMatchPoIds)] : [])
+      );
+      conditions.push(searchOr as any);
+    }
+    if (conditions.length === 0) return undefined;
+    if (conditions.length === 1) return conditions[0];
+    return and(...conditions);
+  };
 
   const pos = await db.query.purchaseOrdersTable.findMany({
     orderBy: (t, { desc }) => [desc(t.createdAt)],
-    where: status ? eq(purchaseOrdersTable.status, status as any) : undefined,
+    where: buildWhere(),
   });
 
   if (pos.length === 0) { res.json([]); return; }
