@@ -1,6 +1,7 @@
 import {
   useGetDashboardSummary,
   useGetLowStockAlerts,
+  useGetPurchaseOrderAging,
   getGetLowStockAlertsQueryKey,
 } from "@workspace/api-client-react";
 import { Layout, PageHeader } from "@/components/layout";
@@ -19,8 +20,13 @@ import {
   XCircle,
   ArrowRight,
   TrendingDown,
+  ShoppingCart,
+  CalendarDays,
+  Clock,
+  CalendarCheck2,
+  CalendarX2,
 } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format, parseISO } from "date-fns";
 import { Link } from "wouter";
 
 function movementIcon(type: string) {
@@ -58,6 +64,7 @@ export default function Dashboard() {
   const { data: alertData, isLoading: alertsLoading } = useGetLowStockAlerts({
     query: { queryKey: getGetLowStockAlertsQueryKey() },
   });
+  const { data: aging, isLoading: agingLoading } = useGetPurchaseOrderAging();
 
   const alerts = alertData?.alerts ?? [];
   const hasAlerts = alerts.length > 0;
@@ -242,6 +249,146 @@ export default function Dashboard() {
                   )}
                 </div>
               )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* PO Aging Widget */}
+        {(agingLoading || (aging && aging.totalOpen > 0)) && (
+          <Card className={`border-border/60 ${aging?.overdue ? "border-red-200" : ""}`}>
+            <CardHeader className="pb-2 pt-4 px-5 flex flex-row items-center justify-between space-y-0">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <ShoppingCart className={`w-4 h-4 ${aging?.overdue ? "text-red-500" : "text-muted-foreground"}`} />
+                Open Purchase Orders
+                {!agingLoading && aging && (
+                  <div className="flex gap-1.5 ml-1">
+                    <Badge className="bg-muted text-muted-foreground border-border hover:bg-muted text-[10px]">
+                      {aging.totalOpen} open
+                    </Badge>
+                    {aging.overdue > 0 && (
+                      <Badge className="bg-red-50 text-red-700 border-red-200 hover:bg-red-50 text-[10px]">
+                        {aging.overdue} overdue
+                      </Badge>
+                    )}
+                    {aging.dueThisWeek > 0 && (
+                      <Badge className="bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-50 text-[10px]">
+                        {aging.dueThisWeek} due this week
+                      </Badge>
+                    )}
+                  </div>
+                )}
+              </CardTitle>
+              <Button variant="ghost" size="sm" asChild className="text-xs h-7 gap-1 text-muted-foreground">
+                <Link href="/purchase-orders">
+                  View all <ArrowRight className="w-3 h-3" />
+                </Link>
+              </Button>
+            </CardHeader>
+            <CardContent className="px-5 pb-5">
+              {agingLoading ? (
+                <div className="space-y-2 pt-1">
+                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-10 w-full" />
+                </div>
+              ) : aging ? (
+                <div className="space-y-4">
+                  {/* Stat tiles */}
+                  <div className="grid grid-cols-4 gap-3">
+                    {[
+                      {
+                        label: "Overdue",
+                        value: aging.overdue,
+                        icon: CalendarX2,
+                        active: aging.overdue > 0,
+                        activeCls: "bg-red-50 border-red-200 text-red-700",
+                        inactiveCls: "bg-muted/40 border-border text-muted-foreground",
+                        iconCls: aging.overdue > 0 ? "text-red-500" : "text-muted-foreground/50",
+                      },
+                      {
+                        label: "Due this week",
+                        value: aging.dueThisWeek,
+                        icon: Clock,
+                        active: aging.dueThisWeek > 0,
+                        activeCls: "bg-amber-50 border-amber-200 text-amber-700",
+                        inactiveCls: "bg-muted/40 border-border text-muted-foreground",
+                        iconCls: aging.dueThisWeek > 0 ? "text-amber-500" : "text-muted-foreground/50",
+                      },
+                      {
+                        label: "Upcoming",
+                        value: aging.upcoming,
+                        icon: CalendarCheck2,
+                        active: aging.upcoming > 0,
+                        activeCls: "bg-green-50 border-green-200 text-green-700",
+                        inactiveCls: "bg-muted/40 border-border text-muted-foreground",
+                        iconCls: aging.upcoming > 0 ? "text-green-500" : "text-muted-foreground/50",
+                      },
+                      {
+                        label: "No date set",
+                        value: aging.noDate,
+                        icon: CalendarDays,
+                        active: false,
+                        activeCls: "",
+                        inactiveCls: "bg-muted/40 border-border text-muted-foreground",
+                        iconCls: "text-muted-foreground/50",
+                      },
+                    ].map((tile) => (
+                      <div
+                        key={tile.label}
+                        className={`rounded-lg border px-3 py-2.5 flex items-center gap-2.5 ${tile.active ? tile.activeCls : tile.inactiveCls}`}
+                      >
+                        <tile.icon className={`w-4 h-4 shrink-0 ${tile.iconCls}`} />
+                        <div>
+                          <p className="text-xl font-bold tabular-nums leading-none">{tile.value}</p>
+                          <p className="text-[10px] mt-0.5 leading-tight opacity-80">{tile.label}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Overdue PO list */}
+                  {aging.overdueItems.length > 0 && (
+                    <div className="rounded-lg border border-red-100 bg-red-50/30 overflow-hidden">
+                      <div className="px-3 py-2 bg-red-50/60 border-b border-red-100">
+                        <p className="text-[11px] font-semibold text-red-700 uppercase tracking-wide flex items-center gap-1.5">
+                          <CalendarX2 className="w-3 h-3" /> Overdue orders
+                        </p>
+                      </div>
+                      <div className="divide-y divide-red-100/60">
+                        {aging.overdueItems.slice(0, 5).map((item) => (
+                          <Link key={item.id} href={`/purchase-orders/${item.id}`}>
+                            <div className="flex items-center gap-3 px-3 py-2.5 hover:bg-red-50/60 transition-colors cursor-pointer">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-mono text-xs font-semibold text-red-700">{item.poNumber}</span>
+                                  <span className="text-xs text-muted-foreground truncate">{item.supplierName}</span>
+                                </div>
+                                {item.expectedDeliveryDate && (
+                                  <p className="text-[10px] text-red-500 mt-0.5">
+                                    Due {format(parseISO(item.expectedDeliveryDate), "dd MMM yyyy")}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="text-right shrink-0">
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-red-100 text-red-700 border border-red-200">
+                                  {item.daysOverdue}d overdue
+                                </span>
+                              </div>
+                              <ArrowRight className="w-3 h-3 text-red-400 shrink-0" />
+                            </div>
+                          </Link>
+                        ))}
+                        {aging.overdueItems.length > 5 && (
+                          <div className="px-3 py-2 text-center">
+                            <Button variant="ghost" size="sm" asChild className="text-xs h-6 text-red-600 hover:text-red-700 hover:bg-red-50">
+                              <Link href="/purchase-orders">+{aging.overdueItems.length - 5} more overdue</Link>
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : null}
             </CardContent>
           </Card>
         )}

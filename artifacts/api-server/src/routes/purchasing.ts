@@ -51,6 +51,64 @@ async function formatPo(po: typeof purchaseOrdersTable.$inferSelect, lines: (typ
   };
 }
 
+// ── GET /purchase-orders/aging ────────────────────────────────────────────────
+
+router.get("/purchase-orders/aging", async (_req, res) => {
+  const openStatuses = ["draft", "ordered", "partially_received"] as const;
+
+  const openPos = await db.query.purchaseOrdersTable.findMany({
+    where: inArray(purchaseOrdersTable.status, openStatuses as any),
+  });
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const weekFromNow = new Date(today);
+  weekFromNow.setDate(weekFromNow.getDate() + 7);
+
+  let overdue = 0, dueThisWeek = 0, upcoming = 0, noDate = 0;
+  const overdueItems: {
+    id: string; poNumber: string; supplierName: string; status: string;
+    expectedDeliveryDate: string | null; daysOverdue: number | null;
+  }[] = [];
+
+  for (const po of openPos) {
+    if (!po.expectedDeliveryDate) {
+      noDate++;
+    } else {
+      const d = new Date(po.expectedDeliveryDate);
+      d.setHours(0, 0, 0, 0);
+      const msPerDay = 86_400_000;
+      if (d < today) {
+        overdue++;
+        const daysOverdue = Math.round((today.getTime() - d.getTime()) / msPerDay);
+        overdueItems.push({
+          id: po.id,
+          poNumber: po.poNumber,
+          supplierName: po.supplierName,
+          status: po.status,
+          expectedDeliveryDate: po.expectedDeliveryDate,
+          daysOverdue,
+        });
+      } else if (d <= weekFromNow) {
+        dueThisWeek++;
+      } else {
+        upcoming++;
+      }
+    }
+  }
+
+  overdueItems.sort((a, b) => (b.daysOverdue ?? 0) - (a.daysOverdue ?? 0));
+
+  res.json({
+    totalOpen: openPos.length,
+    overdue,
+    dueThisWeek,
+    upcoming,
+    noDate,
+    overdueItems,
+  });
+});
+
 // ── GET /purchase-orders ──────────────────────────────────────────────────────
 
 router.get("/purchase-orders", async (req, res) => {

@@ -708,6 +708,27 @@ export const UpdatePurchaseOrderStatusResponse = zod.object({
 });
 
 /**
+ * @summary Aging breakdown of open purchase orders by delivery date status
+ */
+export const GetPurchaseOrderAgingResponse = zod.object({
+  totalOpen: zod.number(),
+  overdue: zod.number(),
+  dueThisWeek: zod.number(),
+  upcoming: zod.number(),
+  noDate: zod.number(),
+  overdueItems: zod.array(
+    zod.object({
+      id: zod.string().uuid(),
+      poNumber: zod.string(),
+      supplierName: zod.string(),
+      status: zod.string(),
+      expectedDeliveryDate: zod.coerce.date().nullish(),
+      daysOverdue: zod.number().nullish(),
+    }),
+  ),
+});
+
+/**
  * @summary Set or clear the expected delivery date on a PO
  */
 export const UpdatePurchaseOrderDeliveryDateParams = zod.object({

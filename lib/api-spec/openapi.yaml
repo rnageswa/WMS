@@ -611,6 +611,19 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /purchase-orders/aging:
+    get:
+      operationId: getPurchaseOrderAging
+      tags: [inventory]
+      summary: Aging breakdown of open purchase orders by delivery date status
+      responses:
+        "200":
+          description: PO aging summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PoAgingSummary"
+
   /purchase-orders/{id}/delivery-date:
     patch:
       operationId: updatePurchaseOrderDeliveryDate
@@ -1577,6 +1590,46 @@ components:
         movementsCreated:
           type: integer
       required: [po, movementsCreated]
+
+    PoAgingItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        poNumber:
+          type: string
+        supplierName:
+          type: string
+        status:
+          type: string
+        expectedDeliveryDate:
+          type: string
+          format: date
+          nullable: true
+        daysOverdue:
+          type: integer
+          nullable: true
+      required: [id, poNumber, supplierName, status]
+
+    PoAgingSummary:
+      type: object
+      properties:
+        totalOpen:
+          type: integer
+        overdue:
+          type: integer
+        dueThisWeek:
+          type: integer
+        upcoming:
+          type: integer
+        noDate:
+          type: integer
+        overdueItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/PoAgingItem"
+      required: [totalOpen, overdue, dueThisWeek, upcoming, noDate, overdueItems]
 
     SendPoEmailBody:
       type: object

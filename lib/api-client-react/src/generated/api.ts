@@ -44,6 +44,7 @@ import type {
   ListSuppliersParams,
   LowStockAlertList,
   NotFoundResponse,
+  PoAgingSummary,
   Product,
   PurchaseOrder,
   PurchaseOrderDetail,
@@ -2255,6 +2256,81 @@ export const useUpdatePurchaseOrderStatus = <
 > => {
   return useMutation(getUpdatePurchaseOrderStatusMutationOptions(options));
 };
+
+/**
+ * @summary Aging breakdown of open purchase orders by delivery date status
+ */
+export const getGetPurchaseOrderAgingUrl = () => {
+  return `/api/purchase-orders/aging`;
+};
+
+export const getPurchaseOrderAging = async (
+  options?: RequestInit,
+): Promise<PoAgingSummary> => {
+  return customFetch<PoAgingSummary>(getGetPurchaseOrderAgingUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetPurchaseOrderAgingQueryKey = () => {
+  return [`/api/purchase-orders/aging`] as const;
+};
+
+export const getGetPurchaseOrderAgingQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPurchaseOrderAging>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getPurchaseOrderAging>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetPurchaseOrderAgingQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getPurchaseOrderAging>>
+  > = ({ signal }) => getPurchaseOrderAging({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPurchaseOrderAging>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPurchaseOrderAgingQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPurchaseOrderAging>>
+>;
+export type GetPurchaseOrderAgingQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Aging breakdown of open purchase orders by delivery date status
+ */
+
+export function useGetPurchaseOrderAging<
+  TData = Awaited<ReturnType<typeof getPurchaseOrderAging>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getPurchaseOrderAging>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPurchaseOrderAgingQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Set or clear the expected delivery date on a PO

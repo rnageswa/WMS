@@ -326,6 +326,24 @@ export interface ReceivePoResult {
   movementsCreated: number;
 }
 
+export interface PoAgingItem {
+  id: string;
+  poNumber: string;
+  supplierName: string;
+  status: string;
+  expectedDeliveryDate?: string | null;
+  daysOverdue?: number | null;
+}
+
+export interface PoAgingSummary {
+  totalOpen: number;
+  overdue: number;
+  dueThisWeek: number;
+  upcoming: number;
+  noDate: number;
+  overdueItems: PoAgingItem[];
+}
+
 export interface SendPoEmailBody {
   to: string;
 }
