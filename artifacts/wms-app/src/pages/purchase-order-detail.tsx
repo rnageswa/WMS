@@ -6,6 +6,7 @@ import {
   useUpdatePurchaseOrderDeliveryDate,
   useReceivePurchaseOrder,
   useSendPurchaseOrderEmail,
+  useDuplicatePurchaseOrder,
   useListWarehouses,
   useListZones,
   useListBins,
@@ -59,6 +60,7 @@ import {
   Mail,
   CalendarDays,
   Pencil,
+  Copy,
 } from "lucide-react";
 import { Link } from "wouter";
 import { formatDistanceToNow, format, isPast, parseISO } from "date-fns";
@@ -228,6 +230,17 @@ export default function PurchaseOrderDetailPage() {
     },
   });
 
+  const { mutate: duplicatePo, isPending: duplicating } = useDuplicatePurchaseOrder({
+    mutation: {
+      onSuccess: (data) => {
+        qc.invalidateQueries({ queryKey: getListPurchaseOrdersQueryKey() });
+        toast({ title: `Duplicated as ${(data as any).poNumber}` });
+        navigate(`/purchase-orders/${(data as any).id}`);
+      },
+      onError: () => toast({ title: "Failed to duplicate PO", variant: "destructive" }),
+    },
+  });
+
   // Pre-fill email from supplier if available
   const openEmailDialog = () => {
     const supplierEmail = (po as any)?.supplierEmail ?? "";
@@ -327,6 +340,16 @@ export default function PurchaseOrderDetailPage() {
                 <Mail className="w-3 h-3" /> Email PO
               </Button>
             )}
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5 h-8 text-xs"
+              disabled={duplicating}
+              onClick={() => duplicatePo({ id: id! })}
+            >
+              {duplicating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Copy className="w-3 h-3" />}
+              Duplicate
+            </Button>
             {canReceive && !receiving && (
               <Button size="sm" onClick={openReceive} className="gap-1.5 h-8 text-xs bg-[#E8622A] hover:bg-[#E8622A]/90 text-white">
                 <PackagePlus className="w-3 h-3" /> Receive Stock

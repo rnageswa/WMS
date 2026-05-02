@@ -819,6 +819,13 @@ export const ReceivePurchaseOrderResponse = zod.object({
 });
 
 /**
+ * @summary Duplicate a PO as a new draft (copies supplier, notes and line items)
+ */
+export const DuplicatePurchaseOrderParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+/**
  * @summary Products whose total on-hand qty is at or below their reorder threshold
  */
 export const GetLowStockAlertsResponse = zod.object({

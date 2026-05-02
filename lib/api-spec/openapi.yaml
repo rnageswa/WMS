@@ -734,6 +734,32 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /purchase-orders/{id}/duplicate:
+    post:
+      operationId: duplicatePurchaseOrder
+      tags: [inventory]
+      summary: Duplicate a PO as a new draft (copies supplier, notes and line items)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "201":
+          description: New draft PO
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurchaseOrder"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   # ─── Alerts ──────────────────────────────────────────────────────────────────
 
   /alerts/low-stock:

@@ -2604,6 +2604,90 @@ export const useReceivePurchaseOrder = <
 };
 
 /**
+ * @summary Duplicate a PO as a new draft (copies supplier, notes and line items)
+ */
+export const getDuplicatePurchaseOrderUrl = (id: string) => {
+  return `/api/purchase-orders/${id}/duplicate`;
+};
+
+export const duplicatePurchaseOrder = async (
+  id: string,
+  options?: RequestInit,
+): Promise<PurchaseOrder> => {
+  return customFetch<PurchaseOrder>(getDuplicatePurchaseOrderUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getDuplicatePurchaseOrderMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof duplicatePurchaseOrder>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof duplicatePurchaseOrder>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["duplicatePurchaseOrder"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof duplicatePurchaseOrder>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return duplicatePurchaseOrder(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DuplicatePurchaseOrderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof duplicatePurchaseOrder>>
+>;
+
+export type DuplicatePurchaseOrderMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Duplicate a PO as a new draft (copies supplier, notes and line items)
+ */
+export const useDuplicatePurchaseOrder = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof duplicatePurchaseOrder>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof duplicatePurchaseOrder>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getDuplicatePurchaseOrderMutationOptions(options));
+};
+
+/**
  * @summary Products whose total on-hand qty is at or below their reorder threshold
  */
 export const getGetLowStockAlertsUrl = () => {

@@ -743,6 +743,45 @@ router.post("/purchase-orders", async (req, res) => {
   }
 });
 
+// ── POST /purchase-orders/:id/duplicate ──────────────────────────────────────
+
+router.post("/purchase-orders/:id/duplicate", async (req, res) => {
+  const original = await db.query.purchaseOrdersTable.findFirst({
+    where: eq(purchaseOrdersTable.id, req.params.id),
+  });
+  if (!original) { res.status(404).json({ error: "Not found" }); return; }
+
+  const originalLines = await db
+    .select()
+    .from(purchaseOrderLinesTable)
+    .where(eq(purchaseOrderLinesTable.poId, original.id));
+
+  const poNumber = generatePoNumber();
+  const [newPo] = await db
+    .insert(purchaseOrdersTable)
+    .values({
+      poNumber,
+      supplierId: original.supplierId,
+      supplierName: original.supplierName,
+      notes: original.notes,
+      // delivery date intentionally omitted — user should set a fresh one
+    })
+    .returning();
+
+  if (originalLines.length > 0) {
+    await db.insert(purchaseOrderLinesTable).values(
+      originalLines.map((l) => ({
+        poId: newPo.id,
+        productId: l.productId,
+        qtyOrdered: l.qtyOrdered,
+        unitCost: l.unitCost,
+      }))
+    );
+  }
+
+  res.status(201).json(newPo);
+});
+
 // ── GET /purchase-orders/:id ──────────────────────────────────────────────────
 
 router.get("/purchase-orders/:id", async (req, res) => {
