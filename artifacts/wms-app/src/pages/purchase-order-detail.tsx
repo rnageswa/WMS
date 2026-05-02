@@ -3,6 +3,7 @@ import { useParams, useLocation } from "wouter";
 import {
   useGetPurchaseOrder,
   useUpdatePurchaseOrderStatus,
+  useUpdatePurchaseOrderDeliveryDate,
   useReceivePurchaseOrder,
   useSendPurchaseOrderEmail,
   useListWarehouses,
@@ -56,9 +57,11 @@ import {
   RotateCcw,
   TrendingUp,
   Mail,
+  CalendarDays,
+  Pencil,
 } from "lucide-react";
 import { Link } from "wouter";
-import { formatDistanceToNow, format } from "date-fns";
+import { formatDistanceToNow, format, isPast, parseISO } from "date-fns";
 
 type PoStatus = "draft" | "ordered" | "partially_received" | "received" | "cancelled";
 
@@ -166,6 +169,10 @@ export default function PurchaseOrderDetailPage() {
   const [emailOpen, setEmailOpen] = useState(false);
   const [emailTo, setEmailTo] = useState("");
 
+  // Delivery date inline edit state
+  const [editingDate, setEditingDate] = useState(false);
+  const [dateInput, setDateInput] = useState("");
+
   const { data: po, isLoading } = useGetPurchaseOrder(id!, {
     query: {
       queryKey: getGetPurchaseOrderQueryKey(id!),
@@ -196,6 +203,17 @@ export default function PurchaseOrderDetailPage() {
         toast({ title: `Received — ${data.movementsCreated} movement${data.movementsCreated !== 1 ? "s" : ""} created` });
       },
       onError: () => toast({ title: "Failed to receive stock", variant: "destructive" }),
+    },
+  });
+
+  const { mutate: updateDeliveryDate, isPending: updatingDate } = useUpdatePurchaseOrderDeliveryDate({
+    mutation: {
+      onSuccess: () => {
+        invalidate();
+        setEditingDate(false);
+        toast({ title: "Delivery date updated" });
+      },
+      onError: () => toast({ title: "Failed to update delivery date", variant: "destructive" }),
     },
   });
 
@@ -331,11 +349,107 @@ export default function PurchaseOrderDetailPage() {
 
       <div className="p-6 max-w-4xl space-y-5">
 
-        {/* Notes */}
-        {po.notes && (
-          <p className="text-sm text-muted-foreground bg-muted/40 rounded-lg px-4 py-2.5 border border-border/40">
-            {po.notes}
-          </p>
+        {/* Delivery date + notes info bar */}
+        {(po.notes || po.expectedDeliveryDate !== undefined) && (
+          <div className="flex flex-wrap items-start gap-3">
+            {/* Expected delivery date */}
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border/50 bg-muted/30 text-sm">
+              <CalendarDays className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+              {!editingDate ? (
+                <>
+                  <span className="text-muted-foreground text-xs">Expected delivery:</span>
+                  {po.expectedDeliveryDate ? (
+                    <span className={`font-medium text-xs ${
+                      po.status !== "received" && po.status !== "cancelled" && isPast(parseISO(po.expectedDeliveryDate))
+                        ? "text-red-600"
+                        : "text-foreground"
+                    }`}>
+                      {format(parseISO(po.expectedDeliveryDate), "dd MMM yyyy")}
+                      {po.status !== "received" && po.status !== "cancelled" && isPast(parseISO(po.expectedDeliveryDate)) && (
+                        <span className="ml-1 text-red-500">(overdue)</span>
+                      )}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground text-xs italic">Not set</span>
+                  )}
+                  {po.status !== "cancelled" && (
+                    <button
+                      onClick={() => { setDateInput(po.expectedDeliveryDate ?? ""); setEditingDate(true); }}
+                      className="ml-1 text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <Pencil className="w-3 h-3" />
+                    </button>
+                  )}
+                </>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Input
+                    autoFocus
+                    type="date"
+                    value={dateInput}
+                    onChange={(e) => setDateInput(e.target.value)}
+                    className="h-6 text-xs w-36 py-0 px-1.5"
+                  />
+                  <Button
+                    size="sm"
+                    className="h-6 px-2 text-xs bg-[#E8622A] hover:bg-[#E8622A]/90 text-white"
+                    disabled={updatingDate}
+                    onClick={() => updateDeliveryDate({ id: id!, data: { expectedDeliveryDate: dateInput || null } })}
+                  >
+                    {updatingDate ? <Loader2 className="w-3 h-3 animate-spin" /> : "Save"}
+                  </Button>
+                  <button onClick={() => setEditingDate(false)} className="text-muted-foreground hover:text-foreground">
+                    <XCircle className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+            </div>
+            {/* Notes */}
+            {po.notes && (
+              <p className="flex-1 text-sm text-muted-foreground bg-muted/40 rounded-lg px-4 py-2.5 border border-border/40">
+                {po.notes}
+              </p>
+            )}
+          </div>
+        )}
+        {/* Show delivery date picker even when there are no notes */}
+        {!po.notes && po.expectedDeliveryDate === null && po.status !== "cancelled" && (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border/50 bg-muted/30 text-sm w-fit">
+            <CalendarDays className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+            {!editingDate ? (
+              <>
+                <span className="text-muted-foreground text-xs">Expected delivery:</span>
+                <span className="text-muted-foreground text-xs italic">Not set</span>
+                <button
+                  onClick={() => { setDateInput(""); setEditingDate(true); }}
+                  className="ml-1 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Pencil className="w-3 h-3" />
+                </button>
+              </>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Input
+                  autoFocus
+                  type="date"
+                  value={dateInput}
+                  onChange={(e) => setDateInput(e.target.value)}
+                  className="h-6 text-xs w-36 py-0 px-1.5"
+                />
+                <Button
+                  size="sm"
+                  className="h-6 px-2 text-xs bg-[#E8622A] hover:bg-[#E8622A]/90 text-white"
+                  disabled={updatingDate}
+                  onClick={() => updateDeliveryDate({ id: id!, data: { expectedDeliveryDate: dateInput || null } })}
+                >
+                  {updatingDate ? <Loader2 className="w-3 h-3 animate-spin" /> : "Save"}
+                </Button>
+                <button onClick={() => setEditingDate(false)} className="text-muted-foreground hover:text-foreground">
+                  <XCircle className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+          </div>
         )}
 
         {/* Line Items */}

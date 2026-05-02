@@ -57,6 +57,7 @@ import type {
   SubmitCycleCountBody,
   Supplier,
   SupplierDetail,
+  UpdatePoDeliveryDateBody,
   UpdatePoStatusBody,
   UpdateProductBody,
   UpdateSupplierBody,
@@ -2253,6 +2254,97 @@ export const useUpdatePurchaseOrderStatus = <
   TContext
 > => {
   return useMutation(getUpdatePurchaseOrderStatusMutationOptions(options));
+};
+
+/**
+ * @summary Set or clear the expected delivery date on a PO
+ */
+export const getUpdatePurchaseOrderDeliveryDateUrl = (id: string) => {
+  return `/api/purchase-orders/${id}/delivery-date`;
+};
+
+export const updatePurchaseOrderDeliveryDate = async (
+  id: string,
+  updatePoDeliveryDateBody: UpdatePoDeliveryDateBody,
+  options?: RequestInit,
+): Promise<PurchaseOrder> => {
+  return customFetch<PurchaseOrder>(getUpdatePurchaseOrderDeliveryDateUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updatePoDeliveryDateBody),
+  });
+};
+
+export const getUpdatePurchaseOrderDeliveryDateMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updatePurchaseOrderDeliveryDate>>,
+    TError,
+    { id: string; data: BodyType<UpdatePoDeliveryDateBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updatePurchaseOrderDeliveryDate>>,
+  TError,
+  { id: string; data: BodyType<UpdatePoDeliveryDateBody> },
+  TContext
+> => {
+  const mutationKey = ["updatePurchaseOrderDeliveryDate"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updatePurchaseOrderDeliveryDate>>,
+    { id: string; data: BodyType<UpdatePoDeliveryDateBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updatePurchaseOrderDeliveryDate(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdatePurchaseOrderDeliveryDateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updatePurchaseOrderDeliveryDate>>
+>;
+export type UpdatePurchaseOrderDeliveryDateMutationBody =
+  BodyType<UpdatePoDeliveryDateBody>;
+export type UpdatePurchaseOrderDeliveryDateMutationError =
+  ErrorType<ErrorResponse>;
+
+/**
+ * @summary Set or clear the expected delivery date on a PO
+ */
+export const useUpdatePurchaseOrderDeliveryDate = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updatePurchaseOrderDeliveryDate>>,
+    TError,
+    { id: string; data: BodyType<UpdatePoDeliveryDateBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updatePurchaseOrderDeliveryDate>>,
+  TError,
+  { id: string; data: BodyType<UpdatePoDeliveryDateBody> },
+  TContext
+> => {
+  return useMutation(
+    getUpdatePurchaseOrderDeliveryDateMutationOptions(options),
+  );
 };
 
 /**

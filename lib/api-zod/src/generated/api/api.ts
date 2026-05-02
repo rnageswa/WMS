@@ -602,6 +602,7 @@ export const ListPurchaseOrdersResponseItem = zod.object({
     "cancelled",
   ]),
   notes: zod.string().nullish(),
+  expectedDeliveryDate: zod.coerce.date().nullish(),
   lineCount: zod.number(),
   totalQtyOrdered: zod.number(),
   createdAt: zod.coerce.date(),
@@ -619,6 +620,7 @@ export const CreatePurchaseOrderBody = zod.object({
   supplierId: zod.string().uuid().nullish(),
   supplierName: zod.string().min(1).nullish(),
   notes: zod.string().nullish(),
+  expectedDeliveryDate: zod.coerce.date().nullish(),
   lines: zod
     .array(
       zod.object({
@@ -651,6 +653,7 @@ export const GetPurchaseOrderResponse = zod
       "cancelled",
     ]),
     notes: zod.string().nullish(),
+    expectedDeliveryDate: zod.coerce.date().nullish(),
     lineCount: zod.number(),
     totalQtyOrdered: zod.number(),
     createdAt: zod.coerce.date(),
@@ -697,6 +700,38 @@ export const UpdatePurchaseOrderStatusResponse = zod.object({
     "cancelled",
   ]),
   notes: zod.string().nullish(),
+  expectedDeliveryDate: zod.coerce.date().nullish(),
+  lineCount: zod.number(),
+  totalQtyOrdered: zod.number(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Set or clear the expected delivery date on a PO
+ */
+export const UpdatePurchaseOrderDeliveryDateParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const UpdatePurchaseOrderDeliveryDateBody = zod.object({
+  expectedDeliveryDate: zod.coerce.date().nullable(),
+});
+
+export const UpdatePurchaseOrderDeliveryDateResponse = zod.object({
+  id: zod.string().uuid(),
+  poNumber: zod.string(),
+  supplierId: zod.string().uuid().nullish(),
+  supplierName: zod.string(),
+  status: zod.enum([
+    "draft",
+    "ordered",
+    "partially_received",
+    "received",
+    "cancelled",
+  ]),
+  notes: zod.string().nullish(),
+  expectedDeliveryDate: zod.coerce.date().nullish(),
   lineCount: zod.number(),
   totalQtyOrdered: zod.number(),
   createdAt: zod.coerce.date(),
@@ -753,6 +788,7 @@ export const ReceivePurchaseOrderResponse = zod.object({
       "cancelled",
     ]),
     notes: zod.string().nullish(),
+    expectedDeliveryDate: zod.coerce.date().nullish(),
     lineCount: zod.number(),
     totalQtyOrdered: zod.number(),
     createdAt: zod.coerce.date(),

@@ -611,6 +611,44 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /purchase-orders/{id}/delivery-date:
+    patch:
+      operationId: updatePurchaseOrderDeliveryDate
+      tags: [inventory]
+      summary: Set or clear the expected delivery date on a PO
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePoDeliveryDateBody"
+      responses:
+        "200":
+          description: Updated purchase order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurchaseOrder"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /purchase-orders/{id}/email:
     post:
       operationId: sendPurchaseOrderEmail
@@ -1424,6 +1462,10 @@ components:
         notes:
           type: string
           nullable: true
+        expectedDeliveryDate:
+          type: string
+          format: date
+          nullable: true
         lineCount:
           type: integer
         totalQtyOrdered:
@@ -1475,12 +1517,25 @@ components:
         notes:
           type: string
           nullable: true
+        expectedDeliveryDate:
+          type: string
+          format: date
+          nullable: true
         lines:
           type: array
           items:
             $ref: "#/components/schemas/CreatePoLineBody"
           minItems: 1
       required: [lines]
+
+    UpdatePoDeliveryDateBody:
+      type: object
+      properties:
+        expectedDeliveryDate:
+          type: string
+          format: date
+          nullable: true
+      required: [expectedDeliveryDate]
 
     UpdatePoStatusBody:
       type: object

@@ -265,6 +265,7 @@ export interface PurchaseOrder {
   supplierName: string;
   status: PurchaseOrderStatus;
   notes?: string | null;
+  expectedDeliveryDate?: string | null;
   lineCount: number;
   totalQtyOrdered: number;
   createdAt: string;
@@ -287,8 +288,13 @@ export interface CreatePurchaseOrderBody {
   /** @minLength 1 */
   supplierName?: string | null;
   notes?: string | null;
+  expectedDeliveryDate?: string | null;
   /** @minItems 1 */
   lines: CreatePoLineBody[];
+}
+
+export interface UpdatePoDeliveryDateBody {
+  expectedDeliveryDate: string | null;
 }
 
 export type UpdatePoStatusBodyStatus =

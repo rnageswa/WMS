@@ -33,6 +33,7 @@ async function formatPo(po: typeof purchaseOrdersTable.$inferSelect, lines: (typ
     supplierName: po.supplierName,
     status: po.status,
     notes: po.notes,
+    expectedDeliveryDate: po.expectedDeliveryDate ?? null,
     lineCount: lines.length,
     totalQtyOrdered: lines.reduce((s, l) => s + l.qtyOrdered, 0),
     createdAt: po.createdAt,
@@ -104,6 +105,7 @@ const CreatePoBodyZ = z.object({
   supplierId: z.string().uuid().optional().nullable(),
   supplierName: z.string().min(1).optional(),
   notes: z.string().optional().nullable(),
+  expectedDeliveryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   lines: z.array(CreatePoLineZ).min(1),
 }).refine(
   (d) => d.supplierId || (d.supplierName && d.supplierName.trim().length > 0),
@@ -137,7 +139,13 @@ router.post("/purchase-orders", async (req, res) => {
   try {
     const [po] = await db
       .insert(purchaseOrdersTable)
-      .values({ poNumber, supplierId: resolvedSupplierId, supplierName: resolvedSupplierName, notes: body.data.notes })
+      .values({
+        poNumber,
+        supplierId: resolvedSupplierId,
+        supplierName: resolvedSupplierName,
+        notes: body.data.notes,
+        expectedDeliveryDate: body.data.expectedDeliveryDate ?? null,
+      })
       .returning();
 
     const insertedLines = await db
@@ -370,6 +378,48 @@ router.post("/purchase-orders/:id/receive", async (req, res) => {
     po: await formatPo(updatedPo!, updatedLines as any),
     movementsCreated,
   });
+});
+
+// ── PATCH /purchase-orders/:id/delivery-date ─────────────────────────────────
+
+const UpdateDeliveryDateZ = z.object({
+  expectedDeliveryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
+});
+
+router.patch("/purchase-orders/:id/delivery-date", async (req, res) => {
+  const body = UpdateDeliveryDateZ.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: "Validation error", details: body.error.flatten() });
+    return;
+  }
+  const po = await db.query.purchaseOrdersTable.findFirst({
+    where: eq(purchaseOrdersTable.id, req.params.id),
+  });
+  if (!po) { res.status(404).json({ error: "Not found" }); return; }
+
+  const [updated] = await db
+    .update(purchaseOrdersTable)
+    .set({ expectedDeliveryDate: body.data.expectedDeliveryDate, updatedAt: new Date() })
+    .where(eq(purchaseOrdersTable.id, req.params.id))
+    .returning();
+
+  const lines = await db
+    .select({
+      id: purchaseOrderLinesTable.id,
+      poId: purchaseOrderLinesTable.poId,
+      productId: purchaseOrderLinesTable.productId,
+      qtyOrdered: purchaseOrderLinesTable.qtyOrdered,
+      qtyReceived: purchaseOrderLinesTable.qtyReceived,
+      unitCost: purchaseOrderLinesTable.unitCost,
+      status: purchaseOrderLinesTable.status,
+      skuCode: productsTable.skuCode,
+      productName: productsTable.name,
+    })
+    .from(purchaseOrderLinesTable)
+    .leftJoin(productsTable, eq(purchaseOrderLinesTable.productId, productsTable.id))
+    .where(eq(purchaseOrderLinesTable.poId, updated.id));
+
+  res.json(await formatPo(updated, lines as any));
 });
 
 // ── POST /purchase-orders/:id/email ──────────────────────────────────────────

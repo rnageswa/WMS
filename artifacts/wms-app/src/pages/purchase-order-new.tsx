@@ -41,6 +41,7 @@ export default function PurchaseOrderNewPage() {
   const [supplierId, setSupplierId] = useState("");
   const [supplierFreeText, setSupplierFreeText] = useState("");
   const [notes, setNotes] = useState("");
+  const [expectedDeliveryDate, setExpectedDeliveryDate] = useState("");
   const [lines, setLines] = useState<LineForm[]>([{ key: lineKey++, productId: "", qtyOrdered: 1, unitCost: "" }]);
 
   const { data: suppliers = [] } = useListSuppliers({ isActive: true });
@@ -95,6 +96,7 @@ export default function PurchaseOrderNewPage() {
         supplierId: resolvedSupplierId,
         supplierName: resolvedSupplierName || undefined,
         notes: notes.trim() || undefined,
+        expectedDeliveryDate: expectedDeliveryDate || undefined,
         lines: lines.map((l) => ({
           productId: l.productId,
           qtyOrdered: l.qtyOrdered,
@@ -185,15 +187,27 @@ export default function PurchaseOrderNewPage() {
               )}
             </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Notes (optional)</Label>
-              <Textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Delivery instructions, terms, etc."
-                rows={2}
-                className="resize-none"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Expected Delivery Date (optional)</Label>
+                <Input
+                  type="date"
+                  value={expectedDeliveryDate}
+                  onChange={(e) => setExpectedDeliveryDate(e.target.value)}
+                  className="h-9 text-sm"
+                  min={new Date().toISOString().slice(0, 10)}
+                />
+              </div>
+              <div className="space-y-1.5 col-span-2">
+                <Label className="text-xs text-muted-foreground">Notes (optional)</Label>
+                <Textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Delivery instructions, terms, etc."
+                  rows={2}
+                  className="resize-none"
+                />
+              </div>
             </div>
           </CardContent>
         </Card>

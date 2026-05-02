@@ -6,6 +6,7 @@ import {
   numeric,
   boolean,
   timestamp,
+  date,
   index,
 } from "drizzle-orm/pg-core";
 import { productsTable } from "./products";
@@ -41,6 +42,7 @@ export const purchaseOrdersTable = pgTable("purchase_orders", {
     .notNull()
     .default("draft"),
   notes: text("notes"),
+  expectedDeliveryDate: date("expected_delivery_date"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

@@ -24,9 +24,10 @@ import {
   Plus,
   ShoppingCart,
   ChevronRight,
+  CalendarDays,
 } from "lucide-react";
 import { Link } from "wouter";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format, isPast, parseISO } from "date-fns";
 
 type PoStatus = "draft" | "ordered" | "partially_received" | "received" | "cancelled";
 
@@ -110,19 +111,35 @@ export default function PurchaseOrdersPage() {
                     <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Supplier</TableHead>
                     <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Status</TableHead>
                     <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-semibold text-right">Lines</TableHead>
-                    <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-semibold text-right">Qty Ordered</TableHead>
+                    <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-semibold text-right">Qty</TableHead>
+                    <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">
+                      <span className="flex items-center gap-1"><CalendarDays className="w-3 h-3" />Delivery</span>
+                    </TableHead>
                     <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Created</TableHead>
                     <TableHead />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {data.map((po) => (
+                  {data.map((po) => {
+                    const delivDate = (po as any).expectedDeliveryDate as string | null | undefined;
+                    const isOverdue = delivDate && po.status !== "received" && po.status !== "cancelled" && isPast(parseISO(delivDate));
+                    return (
                     <TableRow key={po.id} className="cursor-pointer hover:bg-muted/40" onClick={() => window.location.assign(`/wms/purchase-orders/${po.id}`)}>
                       <TableCell className="font-mono text-sm font-semibold">{po.poNumber}</TableCell>
                       <TableCell className="text-sm font-medium">{po.supplierName}</TableCell>
                       <TableCell><StatusBadge status={po.status} /></TableCell>
                       <TableCell className="text-right tabular-nums text-sm">{po.lineCount}</TableCell>
                       <TableCell className="text-right tabular-nums text-sm">{po.totalQtyOrdered}</TableCell>
+                      <TableCell className="text-xs">
+                        {delivDate ? (
+                          <span className={isOverdue ? "text-red-600 font-medium" : "text-muted-foreground"}>
+                            {format(parseISO(delivDate), "dd MMM yyyy")}
+                            {isOverdue && <span className="ml-1 text-[10px]">⚠</span>}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground/40">—</span>
+                        )}
+                      </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {formatDistanceToNow(new Date(po.createdAt), { addSuffix: true })}
                       </TableCell>
@@ -130,7 +147,8 @@ export default function PurchaseOrdersPage() {
                         <ChevronRight className="w-4 h-4 text-muted-foreground" />
                       </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}
