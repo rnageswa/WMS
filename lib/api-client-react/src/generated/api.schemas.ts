@@ -606,6 +606,43 @@ export interface PoHistoryEvent {
   createdAt: string;
 }
 
+export interface GrnMovementLine {
+  id: string;
+  productId: string;
+  productName: string;
+  skuCode: string;
+  binCode: string;
+  binName: string | null;
+  zoneName: string;
+  warehouseName: string;
+  quantity: number;
+  createdAt: string;
+}
+
+export interface GrnPoLine {
+  id: string;
+  productId: string;
+  productName: string;
+  skuCode: string;
+  qtyOrdered: number;
+  qtyReceived: number;
+  unitCost?: string | null;
+}
+
+export interface GoodsReceiptNote {
+  poId: string;
+  poNumber: string;
+  supplierName: string;
+  supplierId?: string | null;
+  status: string;
+  notes?: string | null;
+  createdAt: string;
+  expectedDeliveryDate?: string | null;
+  lines: GrnPoLine[];
+  receiptEvents: PoHistoryEvent[];
+  movements: GrnMovementLine[];
+}
+
 export interface ReorderSuggestionItem {
   productId: string;
   skuCode: string;

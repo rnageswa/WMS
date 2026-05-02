@@ -25,6 +25,7 @@ import PoTemplateNewPage from "@/pages/po-template-new";
 import PoTemplateDetailPage from "@/pages/po-template-detail";
 import PurchaseOrderDetailPage from "@/pages/purchase-order-detail";
 import PurchaseOrderPrintPage from "@/pages/purchase-order-print";
+import PurchaseOrderGrnPage from "@/pages/purchase-order-grn";
 import SuppliersPage from "@/pages/suppliers";
 import SupplierDetailPage from "@/pages/supplier-detail";
 import SupplierPerformancePage from "@/pages/supplier-performance";
@@ -63,6 +64,7 @@ function Router() {
       <Route path="/purchase-orders/templates" component={PoTemplatesPage} />
       <Route path="/purchase-orders/new" component={PurchaseOrderNewPage} />
       <Route path="/purchase-orders/:id/print" component={PurchaseOrderPrintPage} />
+      <Route path="/purchase-orders/:id/grn" component={PurchaseOrderGrnPage} />
       <Route path="/purchase-orders/:id" component={PurchaseOrderDetailPage} />
       <Route path="/purchase-orders" component={PurchaseOrdersPage} />
       <Route path="/suppliers/performance" component={SupplierPerformancePage} />

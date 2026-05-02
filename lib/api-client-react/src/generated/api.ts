@@ -40,6 +40,7 @@ import type {
   CycleCountResult,
   DashboardSummary,
   ErrorResponse,
+  GoodsReceiptNote,
   HealthStatus,
   InventoryItem,
   InventoryMovement,
@@ -2951,6 +2952,93 @@ export function useGetPoHistory<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetPoHistoryQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get Goods Receipt Note data for a PO
+ */
+export const getGetPurchaseOrderGrnUrl = (id: string) => {
+  return `/api/purchase-orders/${id}/grn`;
+};
+
+export const getPurchaseOrderGrn = async (
+  id: string,
+  options?: RequestInit,
+): Promise<GoodsReceiptNote> => {
+  return customFetch<GoodsReceiptNote>(getGetPurchaseOrderGrnUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetPurchaseOrderGrnQueryKey = (id: string) => {
+  return [`/api/purchase-orders/${id}/grn`] as const;
+};
+
+export const getGetPurchaseOrderGrnQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPurchaseOrderGrn>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPurchaseOrderGrn>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetPurchaseOrderGrnQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getPurchaseOrderGrn>>
+  > = ({ signal }) => getPurchaseOrderGrn(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPurchaseOrderGrn>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPurchaseOrderGrnQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPurchaseOrderGrn>>
+>;
+export type GetPurchaseOrderGrnQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get Goods Receipt Note data for a PO
+ */
+
+export function useGetPurchaseOrderGrn<
+  TData = Awaited<ReturnType<typeof getPurchaseOrderGrn>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPurchaseOrderGrn>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPurchaseOrderGrnQueryOptions(id, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

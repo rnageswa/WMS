@@ -870,6 +870,58 @@ export const GetPoHistoryResponseItem = zod.object({
 export const GetPoHistoryResponse = zod.array(GetPoHistoryResponseItem);
 
 /**
+ * @summary Get Goods Receipt Note data for a PO
+ */
+export const GetPurchaseOrderGrnParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const GetPurchaseOrderGrnResponse = zod.object({
+  poId: zod.string().uuid(),
+  poNumber: zod.string(),
+  supplierName: zod.string(),
+  supplierId: zod.string().uuid().nullish(),
+  status: zod.string(),
+  notes: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  expectedDeliveryDate: zod.string().nullish(),
+  lines: zod.array(
+    zod.object({
+      id: zod.string().uuid(),
+      productId: zod.string().uuid(),
+      productName: zod.string(),
+      skuCode: zod.string(),
+      qtyOrdered: zod.number(),
+      qtyReceived: zod.number(),
+      unitCost: zod.string().nullish(),
+    }),
+  ),
+  receiptEvents: zod.array(
+    zod.object({
+      id: zod.string().uuid(),
+      poId: zod.string().uuid(),
+      event: zod.string(),
+      note: zod.string().nullish(),
+      createdAt: zod.coerce.date(),
+    }),
+  ),
+  movements: zod.array(
+    zod.object({
+      id: zod.string().uuid(),
+      productId: zod.string().uuid(),
+      productName: zod.string(),
+      skuCode: zod.string(),
+      binCode: zod.string(),
+      binName: zod.string().nullable(),
+      zoneName: zod.string(),
+      warehouseName: zod.string(),
+      quantity: zod.number(),
+      createdAt: zod.coerce.date(),
+    }),
+  ),
+});
+
+/**
  * @summary Products whose total on-hand qty is at or below their reorder threshold
  */
 export const GetLowStockAlertsResponse = zod.object({

@@ -7,6 +7,8 @@ import {
   inventoryItemsTable,
   inventoryMovementsTable,
   binsTable,
+  zonesTable,
+  warehousesTable,
   suppliersTable,
   poTemplatesTable,
   poTemplateLinesTable,
@@ -1328,6 +1330,101 @@ router.post("/purchase-orders/:id/email", async (req, res) => {
   });
 
   res.json({ emailId: result.id, to: body.data.to, poNumber: po.poNumber });
+});
+
+// ── GET /purchase-orders/:id/grn ─────────────────────────────────────────────
+
+router.get("/purchase-orders/:id/grn", async (req, res) => {
+  const po = await db.query.purchaseOrdersTable.findFirst({
+    where: eq(purchaseOrdersTable.id, req.params.id),
+  });
+  if (!po) { res.status(404).json({ error: "Not found" }); return; }
+
+  const [lines, receiptEvents, movements] = await Promise.all([
+    db
+      .select({
+        id: purchaseOrderLinesTable.id,
+        productId: purchaseOrderLinesTable.productId,
+        productName: productsTable.name,
+        skuCode: productsTable.skuCode,
+        qtyOrdered: purchaseOrderLinesTable.qtyOrdered,
+        qtyReceived: purchaseOrderLinesTable.qtyReceived,
+        unitCost: purchaseOrderLinesTable.unitCost,
+      })
+      .from(purchaseOrderLinesTable)
+      .leftJoin(productsTable, eq(purchaseOrderLinesTable.productId, productsTable.id))
+      .where(eq(purchaseOrderLinesTable.poId, po.id)),
+
+    db
+      .select()
+      .from(poStatusHistoryTable)
+      .where(
+        and(
+          eq(poStatusHistoryTable.poId, po.id),
+          sql`${poStatusHistoryTable.event} IN ('received', 'partially_received')`,
+        ),
+      )
+      .orderBy(poStatusHistoryTable.createdAt),
+
+    db
+      .select({
+        id: inventoryMovementsTable.id,
+        productId: inventoryMovementsTable.productId,
+        productName: productsTable.name,
+        skuCode: productsTable.skuCode,
+        binCode: binsTable.code,
+        binName: binsTable.name,
+        zoneName: zonesTable.name,
+        warehouseName: warehousesTable.name,
+        quantity: inventoryMovementsTable.quantity,
+        createdAt: inventoryMovementsTable.createdAt,
+      })
+      .from(inventoryMovementsTable)
+      .innerJoin(productsTable, eq(inventoryMovementsTable.productId, productsTable.id))
+      .innerJoin(binsTable, eq(inventoryMovementsTable.binId, binsTable.id))
+      .innerJoin(zonesTable, eq(binsTable.zoneId, zonesTable.id))
+      .innerJoin(warehousesTable, eq(zonesTable.warehouseId, warehousesTable.id))
+      .where(
+        and(
+          eq(inventoryMovementsTable.referenceId, po.id),
+          eq(inventoryMovementsTable.movementType, "inbound"),
+        ),
+      )
+      .orderBy(inventoryMovementsTable.createdAt),
+  ]);
+
+  res.json({
+    poId: po.id,
+    poNumber: po.poNumber,
+    supplierName: po.supplierName,
+    supplierId: po.supplierId ?? null,
+    status: po.status,
+    notes: po.notes ?? null,
+    createdAt: po.createdAt,
+    expectedDeliveryDate: po.expectedDeliveryDate ?? null,
+    lines: lines.map((l) => ({
+      id: l.id,
+      productId: l.productId,
+      productName: l.productName ?? "",
+      skuCode: l.skuCode ?? "",
+      qtyOrdered: l.qtyOrdered,
+      qtyReceived: l.qtyReceived,
+      unitCost: l.unitCost ?? null,
+    })),
+    receiptEvents,
+    movements: movements.map((m) => ({
+      id: m.id,
+      productId: m.productId,
+      productName: m.productName ?? "",
+      skuCode: m.skuCode ?? "",
+      binCode: m.binCode,
+      binName: m.binName ?? null,
+      zoneName: m.zoneName,
+      warehouseName: m.warehouseName,
+      quantity: m.quantity,
+      createdAt: m.createdAt,
+    })),
+  });
 });
 
 export { router as purchasingRouter };

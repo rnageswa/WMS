@@ -867,6 +867,32 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /purchase-orders/{id}/grn:
+    get:
+      operationId: getPurchaseOrderGrn
+      tags: [inventory]
+      summary: Get Goods Receipt Note data for a PO
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: GRN data including PO info, receipt events, and movements
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GoodsReceiptNote"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   # ─── Alerts ──────────────────────────────────────────────────────────────────
 
   /alerts/low-stock:
@@ -2501,6 +2527,96 @@ components:
         createdAt:
           type: string
           format: date-time
+
+    GrnMovementLine:
+      type: object
+      required: [id, productId, productName, skuCode, binCode, binName, zoneName, warehouseName, quantity, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        productId:
+          type: string
+          format: uuid
+        productName:
+          type: string
+        skuCode:
+          type: string
+        binCode:
+          type: string
+        binName:
+          type: string
+          nullable: true
+        zoneName:
+          type: string
+        warehouseName:
+          type: string
+        quantity:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    GrnPoLine:
+      type: object
+      required: [id, productId, productName, skuCode, qtyOrdered, qtyReceived]
+      properties:
+        id:
+          type: string
+          format: uuid
+        productId:
+          type: string
+          format: uuid
+        productName:
+          type: string
+        skuCode:
+          type: string
+        qtyOrdered:
+          type: integer
+        qtyReceived:
+          type: integer
+        unitCost:
+          type: string
+          nullable: true
+
+    GoodsReceiptNote:
+      type: object
+      required: [poId, poNumber, supplierName, status, createdAt, lines, receiptEvents, movements]
+      properties:
+        poId:
+          type: string
+          format: uuid
+        poNumber:
+          type: string
+        supplierName:
+          type: string
+        supplierId:
+          type: string
+          format: uuid
+          nullable: true
+        status:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        expectedDeliveryDate:
+          type: string
+          nullable: true
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/GrnPoLine"
+        receiptEvents:
+          type: array
+          items:
+            $ref: "#/components/schemas/PoHistoryEvent"
+        movements:
+          type: array
+          items:
+            $ref: "#/components/schemas/GrnMovementLine"
 
     # ── Reorder Suggestions ───────────────────────────────────────────────────
 

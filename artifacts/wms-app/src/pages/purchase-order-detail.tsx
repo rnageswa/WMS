@@ -71,6 +71,7 @@ import {
   Clock,
   AlertTriangle,
   Printer,
+  ClipboardCheck,
 } from "lucide-react";
 import { Link } from "wouter";
 import { formatDistanceToNow, format, isPast, parseISO, differenceInCalendarDays } from "date-fns";
@@ -410,6 +411,13 @@ export default function PurchaseOrderDetailPage() {
                 <Printer className="w-3 h-3" /> Print PO
               </Link>
             </Button>
+            {po.lines?.some((l: any) => l.qtyReceived > 0) && (
+              <Button asChild size="sm" variant="outline" className="gap-1.5 h-8 text-xs border-green-300 text-green-700 hover:bg-green-50">
+                <Link href={`/purchase-orders/${id}/grn`}>
+                  <ClipboardCheck className="w-3 h-3" /> Print GRN
+                </Link>
+              </Button>
+            )}
             {canReceive && !receiving && (
               <Button size="sm" onClick={openReceive} className="gap-1.5 h-8 text-xs bg-[#E8622A] hover:bg-[#E8622A]/90 text-white">
                 <PackagePlus className="w-3 h-3" /> Receive Stock
