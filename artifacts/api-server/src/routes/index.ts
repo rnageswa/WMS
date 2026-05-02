@@ -5,6 +5,7 @@ import locationsRouter from "./locations";
 import inventoryRouter from "./inventory";
 import { purchasingRouter } from "./purchasing";
 import { suppliersRouter } from "./suppliers";
+import notificationsRouter from "./notifications";
 
 const router: IRouter = Router();
 
@@ -14,5 +15,6 @@ router.use(locationsRouter);
 router.use(inventoryRouter);
 router.use(purchasingRouter);
 router.use(suppliersRouter);
+router.use(notificationsRouter);
 
 export default router;

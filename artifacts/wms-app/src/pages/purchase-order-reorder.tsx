@@ -44,6 +44,7 @@ import {
   MailCheck,
   ArrowRight,
   Loader2,
+  BellRing,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -346,6 +347,102 @@ function SupplierGroupCard({
   );
 }
 
+// ── Reorder Alert Email Dialog ────────────────────────────────────────────────
+
+function SendAlertDialog({
+  itemCount,
+  onClose,
+}: {
+  itemCount: number;
+  onClose: () => void;
+}) {
+  const { toast } = useToast();
+  const [email, setEmail] = useState("");
+  const [sending, setSending] = useState(false);
+  const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+
+  const handleSend = async () => {
+    setSending(true);
+    try {
+      const res = await fetch("/api/notifications/reorder-alert", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to: email.trim() }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.sent) {
+        throw new Error(json.error ?? "Unknown error");
+      }
+      toast({ title: `Reorder alert sent to ${email.trim()}` });
+      onClose();
+    } catch (err: any) {
+      toast({ title: err?.message ?? "Failed to send alert", variant: "destructive" });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <Dialog open onOpenChange={(open) => { if (!open && !sending) onClose(); }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-10 h-10 rounded-full bg-[#E8622A]/10 border border-[#E8622A]/20 flex items-center justify-center shrink-0">
+              <BellRing className="w-5 h-5 text-[#E8622A]" />
+            </div>
+            <div>
+              <DialogTitle className="text-base">Send Reorder Alert</DialogTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {itemCount} item{itemCount !== 1 ? "s" : ""} below reorder threshold
+              </p>
+            </div>
+          </div>
+        </DialogHeader>
+
+        <div className="space-y-4 py-1">
+          <p className="text-sm text-muted-foreground">
+            An email summary of all low-stock items will be sent to the address below.
+          </p>
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Recipient email</Label>
+            <div className="relative">
+              <Mail className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+              <Input
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && valid && !sending) handleSend(); }}
+                className="pl-8 h-9 text-sm"
+                disabled={sending}
+                autoFocus
+              />
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter className="gap-2 flex-row justify-end">
+          <Button variant="ghost" size="sm" onClick={onClose} disabled={sending} className="text-xs h-8">
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            disabled={!valid || sending}
+            onClick={handleSend}
+            className="bg-[#E8622A] hover:bg-[#E8622A]/90 text-white h-8 text-xs gap-1.5"
+          >
+            {sending ? (
+              <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Sending…</>
+            ) : (
+              <><MailCheck className="w-3.5 h-3.5" /> Send Alert</>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function ReorderSuggestionsPage() {
@@ -362,6 +459,9 @@ export default function ReorderSuggestionsPage() {
   // Per-group item state
   const [groupStates, setGroupStates] = useState<Map<string, Map<string, ItemState>>>(new Map());
   const [creatingGroup, setCreatingGroup] = useState<string | null>(null);
+
+  // Alert email dialog state
+  const [alertDialogOpen, setAlertDialogOpen] = useState(false);
 
   // Post-creation email dialog state
   const [createdPoInfo, setCreatedPoInfo] = useState<CreatedPoInfo | null>(null);
@@ -507,12 +607,25 @@ export default function ReorderSuggestionsPage() {
             : "All stock levels are healthy"
         }
         action={
-          <Link href="/purchase-orders">
-            <Button variant="ghost" size="sm">
-              <ArrowLeft className="w-4 h-4 mr-1.5" />
-              Purchase Orders
-            </Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            {!isLoading && (suggestions?.totalItems ?? 0) > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => setAlertDialogOpen(true)}
+              >
+                <BellRing className="w-3.5 h-3.5" />
+                Send Reorder Alert
+              </Button>
+            )}
+            <Link href="/purchase-orders">
+              <Button variant="ghost" size="sm">
+                <ArrowLeft className="w-4 h-4 mr-1.5" />
+                Purchase Orders
+              </Button>
+            </Link>
+          </div>
         }
       />
 
@@ -586,6 +699,14 @@ export default function ReorderSuggestionsPage() {
           </>
         )}
       </div>
+
+      {/* Reorder alert email dialog */}
+      {alertDialogOpen && (
+        <SendAlertDialog
+          itemCount={suggestions?.totalItems ?? 0}
+          onClose={() => setAlertDialogOpen(false)}
+        />
+      )}
 
       {/* Post-creation: email dialog */}
       {createdPoInfo && (
