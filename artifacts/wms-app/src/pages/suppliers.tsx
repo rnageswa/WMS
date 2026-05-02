@@ -39,6 +39,7 @@ import {
   Phone,
   Clock,
   Loader2,
+  BarChart2,
 } from "lucide-react";
 
 export default function SuppliersPage() {
@@ -98,13 +99,20 @@ export default function SuppliersPage() {
         title="Suppliers"
         subtitle="Manage your supplier contacts and track their purchase orders"
         action={
-          <Button
-            size="sm"
-            onClick={() => setDialogOpen(true)}
-            className="gap-1.5 bg-[#E8622A] hover:bg-[#E8622A]/90 text-white"
-          >
-            <Plus className="w-3.5 h-3.5" /> New Supplier
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button asChild variant="outline" size="sm" className="gap-1.5">
+              <Link href="/suppliers/performance">
+                <BarChart2 className="w-3.5 h-3.5" /> Performance
+              </Link>
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => setDialogOpen(true)}
+              className="gap-1.5 bg-[#E8622A] hover:bg-[#E8622A]/90 text-white"
+            >
+              <Plus className="w-3.5 h-3.5" /> New Supplier
+            </Button>
+          </div>
         }
       />
 

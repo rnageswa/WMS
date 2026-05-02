@@ -26,6 +26,7 @@ import PoTemplateDetailPage from "@/pages/po-template-detail";
 import PurchaseOrderDetailPage from "@/pages/purchase-order-detail";
 import SuppliersPage from "@/pages/suppliers";
 import SupplierDetailPage from "@/pages/supplier-detail";
+import SupplierPerformancePage from "@/pages/supplier-performance";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -62,6 +63,7 @@ function Router() {
       <Route path="/purchase-orders/new" component={PurchaseOrderNewPage} />
       <Route path="/purchase-orders/:id" component={PurchaseOrderDetailPage} />
       <Route path="/purchase-orders" component={PurchaseOrdersPage} />
+      <Route path="/suppliers/performance" component={SupplierPerformancePage} />
       <Route path="/suppliers/:id" component={SupplierDetailPage} />
       <Route path="/suppliers" component={SuppliersPage} />
       <Route component={NotFound} />
