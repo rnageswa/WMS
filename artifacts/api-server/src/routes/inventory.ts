@@ -297,6 +297,89 @@ router.get("/dashboard/summary", async (_req, res) => {
   });
 });
 
+// ── POST /receiving/commit ────────────────────────────────────────────────────
+
+router.post("/receiving/commit", async (req, res) => {
+  const bodySchema = z.object({
+    reference: z.string().nullable().optional(),
+    lines: z
+      .array(
+        z.object({
+          productId: z.string().uuid(),
+          binId: z.string().uuid(),
+          qty: z.number().int().min(1),
+        })
+      )
+      .min(1),
+  });
+
+  const parsed = bodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ message: "Invalid request body" });
+    return;
+  }
+
+  const { reference, lines } = parsed.data;
+  const reasonCode = reference ? `RECEIPT:${reference}` : "RECEIPT";
+
+  const committedMovements: object[] = [];
+
+  for (const line of lines) {
+    const { productId, binId, qty } = line;
+
+    // Upsert inventory
+    const existing = await db
+      .select()
+      .from(inventoryItemsTable)
+      .where(and(eq(inventoryItemsTable.productId, productId), eq(inventoryItemsTable.binId, binId)));
+
+    if (existing.length > 0) {
+      await db
+        .update(inventoryItemsTable)
+        .set({ qtyOnHand: existing[0].qtyOnHand + qty, updatedAt: new Date() })
+        .where(and(eq(inventoryItemsTable.productId, productId), eq(inventoryItemsTable.binId, binId)));
+    } else {
+      await db.insert(inventoryItemsTable).values({ productId, binId, qtyOnHand: qty });
+    }
+
+    // Record inbound movement
+    const [movement] = await db
+      .insert(inventoryMovementsTable)
+      .values({ productId, binId, movementType: "inbound", quantity: qty, reasonCode })
+      .returning();
+
+    // Fetch enriched movement for response
+    const [enriched] = await db
+      .select({
+        movement: inventoryMovementsTable,
+        product: productsTable,
+        bin: binsTable,
+        zone: { id: zonesTable.id, name: zonesTable.name, code: zonesTable.code },
+        warehouse: { id: warehousesTable.id, name: warehousesTable.name },
+      })
+      .from(inventoryMovementsTable)
+      .innerJoin(productsTable, eq(inventoryMovementsTable.productId, productsTable.id))
+      .innerJoin(binsTable, eq(inventoryMovementsTable.binId, binsTable.id))
+      .innerJoin(zonesTable, eq(binsTable.zoneId, zonesTable.id))
+      .innerJoin(warehousesTable, eq(zonesTable.warehouseId, warehousesTable.id))
+      .where(eq(inventoryMovementsTable.id, movement.id));
+
+    if (enriched) {
+      committedMovements.push({
+        ...enriched.movement,
+        product: enriched.product,
+        bin: { ...enriched.bin, zone: { ...enriched.zone, warehouse: enriched.warehouse } },
+      });
+    }
+  }
+
+  res.json({
+    reference: reference ?? null,
+    linesCommitted: committedMovements.length,
+    movements: committedMovements,
+  });
+});
+
 // ── GET /scan ─────────────────────────────────────────────────────────────────
 
 router.get("/scan", async (req, res) => {

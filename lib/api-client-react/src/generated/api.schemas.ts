@@ -164,6 +164,25 @@ export interface InventoryMovement {
   bin: BinWithLocation;
 }
 
+export interface CommitReceiptLine {
+  productId: string;
+  binId: string;
+  /** @minimum 1 */
+  qty: number;
+}
+
+export interface CommitReceiptBody {
+  reference?: string | null;
+  /** @minItems 1 */
+  lines: CommitReceiptLine[];
+}
+
+export interface CommitReceiptResult {
+  reference?: string | null;
+  linesCommitted: number;
+  movements: InventoryMovement[];
+}
+
 export type ScanResultBin = BinWithLocation & {
   inventory: InventoryItem[];
 };

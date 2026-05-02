@@ -417,6 +417,33 @@ paths:
               schema:
                 $ref: "#/components/schemas/DashboardSummary"
 
+  # ─── Receiving ───────────────────────────────────────────────────────────────
+
+  /receiving/commit:
+    post:
+      operationId: commitReceipt
+      tags: [inventory]
+      summary: Receive a shipment — create inbound movements and update inventory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CommitReceiptBody"
+      responses:
+        "200":
+          description: Receipt committed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommitReceiptResult"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   # ─── Scan ────────────────────────────────────────────────────────────────────
 
   /scan:
@@ -815,6 +842,49 @@ components:
         - createdAt
         - product
         - bin
+
+    # ── Receiving ─────────────────────────────────────────────────────────────
+
+    CommitReceiptLine:
+      type: object
+      properties:
+        productId:
+          type: string
+          format: uuid
+        binId:
+          type: string
+          format: uuid
+        qty:
+          type: integer
+          minimum: 1
+      required: [productId, binId, qty]
+
+    CommitReceiptBody:
+      type: object
+      properties:
+        reference:
+          type: string
+          nullable: true
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/CommitReceiptLine"
+          minItems: 1
+      required: [lines]
+
+    CommitReceiptResult:
+      type: object
+      properties:
+        reference:
+          type: string
+          nullable: true
+        linesCommitted:
+          type: integer
+        movements:
+          type: array
+          items:
+            $ref: "#/components/schemas/InventoryMovement"
+      required: [linesCommitted, movements]
 
     # ── Scan ──────────────────────────────────────────────────────────────────
 

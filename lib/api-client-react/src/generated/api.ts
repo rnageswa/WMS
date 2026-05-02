@@ -19,6 +19,8 @@ import type {
 import type {
   AdjustInventoryBody,
   Bin,
+  CommitReceiptBody,
+  CommitReceiptResult,
   CreateBinBody,
   CreateProductBody,
   CreateWarehouseBody,
@@ -1593,6 +1595,92 @@ export function useGetDashboardSummary<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Receive a shipment — create inbound movements and update inventory
+ */
+export const getCommitReceiptUrl = () => {
+  return `/api/receiving/commit`;
+};
+
+export const commitReceipt = async (
+  commitReceiptBody: CommitReceiptBody,
+  options?: RequestInit,
+): Promise<CommitReceiptResult> => {
+  return customFetch<CommitReceiptResult>(getCommitReceiptUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(commitReceiptBody),
+  });
+};
+
+export const getCommitReceiptMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof commitReceipt>>,
+    TError,
+    { data: BodyType<CommitReceiptBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof commitReceipt>>,
+  TError,
+  { data: BodyType<CommitReceiptBody> },
+  TContext
+> => {
+  const mutationKey = ["commitReceipt"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof commitReceipt>>,
+    { data: BodyType<CommitReceiptBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return commitReceipt(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CommitReceiptMutationResult = NonNullable<
+  Awaited<ReturnType<typeof commitReceipt>>
+>;
+export type CommitReceiptMutationBody = BodyType<CommitReceiptBody>;
+export type CommitReceiptMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Receive a shipment — create inbound movements and update inventory
+ */
+export const useCommitReceipt = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof commitReceipt>>,
+    TError,
+    { data: BodyType<CommitReceiptBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof commitReceipt>>,
+  TError,
+  { data: BodyType<CommitReceiptBody> },
+  TContext
+> => {
+  return useMutation(getCommitReceiptMutationOptions(options));
+};
 
 /**
  * @summary Resolve a barcode or bin code to inventory
