@@ -19,6 +19,10 @@ import type {
 import type {
   AdjustInventoryBody,
   Bin,
+  BulkCancelPurchaseOrders200,
+  BulkCancelPurchaseOrdersBody,
+  BulkDeletePurchaseOrders200,
+  BulkDeletePurchaseOrdersBody,
   CommitDispatchBody,
   CommitDispatchResult,
   CommitReceiptBody,
@@ -2087,6 +2091,186 @@ export const useCreatePurchaseOrder = <
   TContext
 > => {
   return useMutation(getCreatePurchaseOrderMutationOptions(options));
+};
+
+/**
+ * @summary Cancel multiple purchase orders at once
+ */
+export const getBulkCancelPurchaseOrdersUrl = () => {
+  return `/api/purchase-orders/bulk-cancel`;
+};
+
+export const bulkCancelPurchaseOrders = async (
+  bulkCancelPurchaseOrdersBody: BulkCancelPurchaseOrdersBody,
+  options?: RequestInit,
+): Promise<BulkCancelPurchaseOrders200> => {
+  return customFetch<BulkCancelPurchaseOrders200>(
+    getBulkCancelPurchaseOrdersUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(bulkCancelPurchaseOrdersBody),
+    },
+  );
+};
+
+export const getBulkCancelPurchaseOrdersMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof bulkCancelPurchaseOrders>>,
+    TError,
+    { data: BodyType<BulkCancelPurchaseOrdersBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof bulkCancelPurchaseOrders>>,
+  TError,
+  { data: BodyType<BulkCancelPurchaseOrdersBody> },
+  TContext
+> => {
+  const mutationKey = ["bulkCancelPurchaseOrders"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof bulkCancelPurchaseOrders>>,
+    { data: BodyType<BulkCancelPurchaseOrdersBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return bulkCancelPurchaseOrders(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type BulkCancelPurchaseOrdersMutationResult = NonNullable<
+  Awaited<ReturnType<typeof bulkCancelPurchaseOrders>>
+>;
+export type BulkCancelPurchaseOrdersMutationBody =
+  BodyType<BulkCancelPurchaseOrdersBody>;
+export type BulkCancelPurchaseOrdersMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Cancel multiple purchase orders at once
+ */
+export const useBulkCancelPurchaseOrders = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof bulkCancelPurchaseOrders>>,
+    TError,
+    { data: BodyType<BulkCancelPurchaseOrdersBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof bulkCancelPurchaseOrders>>,
+  TError,
+  { data: BodyType<BulkCancelPurchaseOrdersBody> },
+  TContext
+> => {
+  return useMutation(getBulkCancelPurchaseOrdersMutationOptions(options));
+};
+
+/**
+ * @summary Delete multiple draft purchase orders
+ */
+export const getBulkDeletePurchaseOrdersUrl = () => {
+  return `/api/purchase-orders/bulk-delete`;
+};
+
+export const bulkDeletePurchaseOrders = async (
+  bulkDeletePurchaseOrdersBody: BulkDeletePurchaseOrdersBody,
+  options?: RequestInit,
+): Promise<BulkDeletePurchaseOrders200> => {
+  return customFetch<BulkDeletePurchaseOrders200>(
+    getBulkDeletePurchaseOrdersUrl(),
+    {
+      ...options,
+      method: "DELETE",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(bulkDeletePurchaseOrdersBody),
+    },
+  );
+};
+
+export const getBulkDeletePurchaseOrdersMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof bulkDeletePurchaseOrders>>,
+    TError,
+    { data: BodyType<BulkDeletePurchaseOrdersBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof bulkDeletePurchaseOrders>>,
+  TError,
+  { data: BodyType<BulkDeletePurchaseOrdersBody> },
+  TContext
+> => {
+  const mutationKey = ["bulkDeletePurchaseOrders"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof bulkDeletePurchaseOrders>>,
+    { data: BodyType<BulkDeletePurchaseOrdersBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return bulkDeletePurchaseOrders(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type BulkDeletePurchaseOrdersMutationResult = NonNullable<
+  Awaited<ReturnType<typeof bulkDeletePurchaseOrders>>
+>;
+export type BulkDeletePurchaseOrdersMutationBody =
+  BodyType<BulkDeletePurchaseOrdersBody>;
+export type BulkDeletePurchaseOrdersMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Delete multiple draft purchase orders
+ */
+export const useBulkDeletePurchaseOrders = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof bulkDeletePurchaseOrders>>,
+    TError,
+    { data: BodyType<BulkDeletePurchaseOrdersBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof bulkDeletePurchaseOrders>>,
+  TError,
+  { data: BodyType<BulkDeletePurchaseOrdersBody> },
+  TContext
+> => {
+  return useMutation(getBulkDeletePurchaseOrdersMutationOptions(options));
 };
 
 /**

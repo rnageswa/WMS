@@ -784,6 +784,64 @@ router.post("/purchase-orders", async (req, res) => {
   }
 });
 
+// ── POST /purchase-orders/bulk-cancel ────────────────────────────────────────
+
+const BulkIdsZ = z.object({ ids: z.array(z.string().uuid()).min(1) });
+
+router.post("/purchase-orders/bulk-cancel", async (req, res) => {
+  const body = BulkIdsZ.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: "Validation error", details: body.error.flatten() });
+    return;
+  }
+
+  const result = await db
+    .update(purchaseOrdersTable)
+    .set({ status: "cancelled", updatedAt: new Date() })
+    .where(
+      and(
+        inArray(purchaseOrdersTable.id, body.data.ids),
+        ne(purchaseOrdersTable.status, "cancelled"),
+        ne(purchaseOrdersTable.status, "received")
+      )
+    )
+    .returning({ id: purchaseOrdersTable.id });
+
+  if (result.length > 0) {
+    await db.insert(poStatusHistoryTable).values(
+      result.map((r) => ({
+        poId: r.id,
+        event: "cancelled" as const,
+        note: "Cancelled via bulk action",
+      }))
+    );
+  }
+
+  res.json({ cancelled: result.length });
+});
+
+// ── DELETE /purchase-orders/bulk-delete ───────────────────────────────────────
+
+router.delete("/purchase-orders/bulk-delete", async (req, res) => {
+  const body = BulkIdsZ.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: "Validation error", details: body.error.flatten() });
+    return;
+  }
+
+  const result = await db
+    .delete(purchaseOrdersTable)
+    .where(
+      and(
+        inArray(purchaseOrdersTable.id, body.data.ids),
+        eq(purchaseOrdersTable.status, "draft")
+      )
+    )
+    .returning({ id: purchaseOrdersTable.id });
+
+  res.json({ deleted: result.length });
+});
+
 // ── POST /purchase-orders/:id/duplicate ──────────────────────────────────────
 
 router.post("/purchase-orders/:id/duplicate", async (req, res) => {

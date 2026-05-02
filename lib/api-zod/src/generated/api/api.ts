@@ -637,6 +637,30 @@ export const CreatePurchaseOrderBody = zod.object({
 });
 
 /**
+ * @summary Cancel multiple purchase orders at once
+ */
+
+export const BulkCancelPurchaseOrdersBody = zod.object({
+  ids: zod.array(zod.string().uuid()).min(1),
+});
+
+export const BulkCancelPurchaseOrdersResponse = zod.object({
+  cancelled: zod.number(),
+});
+
+/**
+ * @summary Delete multiple draft purchase orders
+ */
+
+export const BulkDeletePurchaseOrdersBody = zod.object({
+  ids: zod.array(zod.string().uuid()).min(1),
+});
+
+export const BulkDeletePurchaseOrdersResponse = zod.object({
+  deleted: zod.number(),
+});
+
+/**
  * @summary Get a single PO with its lines
  */
 export const GetPurchaseOrderParams = zod.object({

@@ -727,6 +727,24 @@ export const ListPurchaseOrdersStatus = {
   cancelled: "cancelled",
 } as const;
 
+export type BulkCancelPurchaseOrdersBody = {
+  /** @minItems 1 */
+  ids: string[];
+};
+
+export type BulkCancelPurchaseOrders200 = {
+  cancelled: number;
+};
+
+export type BulkDeletePurchaseOrdersBody = {
+  /** @minItems 1 */
+  ids: string[];
+};
+
+export type BulkDeletePurchaseOrders200 = {
+  deleted: number;
+};
+
 export type ScanLookupParams = {
   /**
    * Bin code, product SKU, or product barcode

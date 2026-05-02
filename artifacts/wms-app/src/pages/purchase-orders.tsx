@@ -1,9 +1,16 @@
 import { useState, useEffect } from "react";
-import { useListPurchaseOrders } from "@workspace/api-client-react";
+import {
+  useListPurchaseOrders,
+  useBulkCancelPurchaseOrders,
+  useBulkDeletePurchaseOrders,
+  getListPurchaseOrdersQueryKey,
+} from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Layout, PageHeader } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -22,6 +29,16 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Plus,
   ShoppingCart,
   ChevronRight,
@@ -29,8 +46,12 @@ import {
   Copy,
   Search,
   X,
+  Ban,
+  Trash2,
+  CheckSquare,
 } from "lucide-react";
 import { Link } from "wouter";
+import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow, format, isPast, parseISO } from "date-fns";
 
 type PoStatus = "draft" | "ordered" | "partially_received" | "received" | "cancelled";
@@ -52,15 +73,27 @@ function StatusBadge({ status }: { status: string }) {
 
 const ALL = "__all__";
 
+function isCancellable(status: string) {
+  return status === "draft" || status === "ordered";
+}
+
 export default function PurchaseOrdersPage() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+
   const [statusFilter, setStatusFilter] = useState(ALL);
   const [searchInput, setSearchInput] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQ(searchInput.trim()), 300);
     return () => clearTimeout(t);
   }, [searchInput]);
+
+  // Clear selection when filters change
+  useEffect(() => { setSelected(new Set()); }, [statusFilter, debouncedQ]);
 
   const params: Record<string, string> = {};
   if (statusFilter !== ALL) params.status = statusFilter;
@@ -68,8 +101,61 @@ export default function PurchaseOrdersPage() {
 
   const { data = [], isLoading } = useListPurchaseOrders(params);
 
+  const invalidate = () => qc.invalidateQueries({ queryKey: getListPurchaseOrdersQueryKey() });
+
+  const { mutate: bulkCancel, isPending: cancelling } = useBulkCancelPurchaseOrders({
+    mutation: {
+      onSuccess: (res) => {
+        invalidate();
+        setSelected(new Set());
+        toast({ title: `${(res as any).cancelled} order${(res as any).cancelled !== 1 ? "s" : ""} cancelled` });
+      },
+      onError: () => toast({ title: "Failed to cancel orders", variant: "destructive" }),
+    },
+  });
+
+  const { mutate: bulkDelete, isPending: deleting } = useBulkDeletePurchaseOrders({
+    mutation: {
+      onSuccess: (res) => {
+        invalidate();
+        setSelected(new Set());
+        setDeleteConfirmOpen(false);
+        toast({ title: `${(res as any).deleted} draft${(res as any).deleted !== 1 ? "s" : ""} deleted` });
+      },
+      onError: () => toast({ title: "Failed to delete orders", variant: "destructive" }),
+    },
+  });
+
   const hasSearch = debouncedQ.length > 0;
   const hasFilters = statusFilter !== ALL || hasSearch;
+
+  // Selection helpers
+  const selectableIds = data.map((po) => po.id);
+  const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selected.has(id));
+  const someSelected = selected.size > 0;
+  const indeterminate = someSelected && !allSelected;
+
+  const toggleAll = () => {
+    if (allSelected) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(selectableIds));
+    }
+  };
+
+  const toggleRow = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  // What the selected POs can do
+  const selectedPos = data.filter((po) => selected.has(po.id));
+  const cancellableIds = selectedPos.filter((po) => isCancellable(po.status)).map((po) => po.id);
+  const deletableIds = selectedPos.filter((po) => po.status === "draft").map((po) => po.id);
 
   return (
     <Layout>
@@ -95,7 +181,6 @@ export default function PurchaseOrdersPage() {
       <div className="p-6 max-w-5xl space-y-4">
         {/* Filter bar */}
         <div className="flex items-center gap-3 flex-wrap">
-          {/* Search input */}
           <div className="relative flex-1 min-w-[220px] max-w-xs">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
             <Input
@@ -114,7 +199,6 @@ export default function PurchaseOrdersPage() {
             )}
           </div>
 
-          {/* Status filter */}
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-44 h-8 text-sm">
               <SelectValue placeholder="All statuses" />
@@ -174,6 +258,14 @@ export default function PurchaseOrdersPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/40 hover:bg-muted/40">
+                    <TableHead className="w-10 pl-4">
+                      <Checkbox
+                        checked={allSelected}
+                        ref={(el) => { if (el) (el as any).indeterminate = indeterminate; }}
+                        onCheckedChange={toggleAll}
+                        aria-label="Select all"
+                      />
+                    </TableHead>
                     <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">PO Number</TableHead>
                     <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Supplier</TableHead>
                     <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Status</TableHead>
@@ -188,10 +280,26 @@ export default function PurchaseOrdersPage() {
                 </TableHeader>
                 <TableBody>
                   {data.map((po) => {
+                    const isSelected = selected.has(po.id);
                     const delivDate = (po as any).expectedDeliveryDate as string | null | undefined;
                     const isOverdue = delivDate && po.status !== "received" && po.status !== "cancelled" && isPast(parseISO(delivDate));
                     return (
-                      <TableRow key={po.id} className="cursor-pointer hover:bg-muted/40" onClick={() => window.location.assign(`/wms/purchase-orders/${po.id}`)}>
+                      <TableRow
+                        key={po.id}
+                        className={`cursor-pointer hover:bg-muted/40 ${isSelected ? "bg-orange-50/60 hover:bg-orange-50" : ""}`}
+                        onClick={(e) => {
+                          const target = e.target as HTMLElement;
+                          if (target.closest('[role="checkbox"]') || target.closest("button")) return;
+                          window.location.assign(`/wms/purchase-orders/${po.id}`);
+                        }}
+                      >
+                        <TableCell className="pl-4 w-10" onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={() => toggleRow(po.id)}
+                            aria-label={`Select ${po.poNumber}`}
+                          />
+                        </TableCell>
                         <TableCell className="font-mono text-sm font-semibold">{po.poNumber}</TableCell>
                         <TableCell className="text-sm font-medium">{po.supplierName}</TableCell>
                         <TableCell><StatusBadge status={po.status} /></TableCell>
@@ -222,6 +330,73 @@ export default function PurchaseOrdersPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Bulk action bar */}
+      {someSelected && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 bg-gray-900 text-white rounded-xl shadow-2xl border border-white/10 animate-in slide-in-from-bottom-4 duration-200">
+          <div className="flex items-center gap-2 pr-3 border-r border-white/20">
+            <CheckSquare className="w-4 h-4 text-white/70" />
+            <span className="text-sm font-medium">{selected.size} selected</span>
+          </div>
+
+          {cancellableIds.length > 0 && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8 gap-1.5 text-amber-300 hover:text-amber-200 hover:bg-white/10 text-xs"
+              disabled={cancelling}
+              onClick={() => bulkCancel({ data: { ids: cancellableIds } })}
+            >
+              <Ban className="w-3.5 h-3.5" />
+              Cancel {cancellableIds.length > 1 ? `${cancellableIds.length} orders` : "order"}
+            </Button>
+          )}
+
+          {deletableIds.length > 0 && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8 gap-1.5 text-red-400 hover:text-red-300 hover:bg-white/10 text-xs"
+              disabled={deleting}
+              onClick={() => setDeleteConfirmOpen(true)}
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Delete {deletableIds.length > 1 ? `${deletableIds.length} drafts` : "draft"}
+            </Button>
+          )}
+
+          <button
+            onClick={() => setSelected(new Set())}
+            className="ml-1 text-white/50 hover:text-white transition-colors"
+            aria-label="Clear selection"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {deletableIds.length} draft{deletableIds.length !== 1 ? "s" : ""}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete {deletableIds.length === 1 ? "this draft purchase order" : `these ${deletableIds.length} draft purchase orders`}. Only draft POs can be deleted — ordered or received POs are not affected.
+              <br /><br />
+              <span className="font-medium text-foreground">This cannot be undone.</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={() => bulkDelete({ data: { ids: deletableIds } })}
+            >
+              {deleting ? "Deleting…" : `Delete ${deletableIds.length} draft${deletableIds.length !== 1 ? "s" : ""}`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Layout>
   );
 }

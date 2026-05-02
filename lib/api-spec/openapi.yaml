@@ -560,6 +560,80 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /purchase-orders/bulk-cancel:
+    post:
+      operationId: bulkCancelPurchaseOrders
+      tags: [inventory]
+      summary: Cancel multiple purchase orders at once
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ids]
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  minItems: 1
+      responses:
+        "200":
+          description: Number of orders cancelled
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [cancelled]
+                properties:
+                  cancelled:
+                    type: integer
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /purchase-orders/bulk-delete:
+    delete:
+      operationId: bulkDeletePurchaseOrders
+      tags: [inventory]
+      summary: Delete multiple draft purchase orders
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ids]
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  minItems: 1
+      responses:
+        "200":
+          description: Number of orders deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deleted]
+                properties:
+                  deleted:
+                    type: integer
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /purchase-orders/{id}:
     get:
       operationId: getPurchaseOrder
