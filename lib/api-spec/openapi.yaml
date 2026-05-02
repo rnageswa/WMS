@@ -402,6 +402,111 @@ paths:
                 items:
                   $ref: "#/components/schemas/InventoryMovement"
 
+  # ─── Suppliers ───────────────────────────────────────────────────────────────
+
+  /suppliers:
+    get:
+      operationId: listSuppliers
+      tags: [inventory]
+      summary: List all suppliers
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: isActive
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Supplier list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Supplier"
+    post:
+      operationId: createSupplier
+      tags: [inventory]
+      summary: Create a new supplier
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSupplierBody"
+      responses:
+        "201":
+          description: Created supplier
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Supplier"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /suppliers/{id}:
+    get:
+      operationId: getSupplier
+      tags: [inventory]
+      summary: Get supplier detail with PO history
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Supplier detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupplierDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateSupplier
+      tags: [inventory]
+      summary: Update a supplier
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSupplierBody"
+      responses:
+        "200":
+          description: Updated supplier
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Supplier"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   # ─── Purchase Orders ─────────────────────────────────────────────────────────
 
   /purchase-orders:
@@ -1132,6 +1237,133 @@ components:
           enum: [pending, partially_received, received]
       required: [id, productId, qtyOrdered, qtyReceived, status]
 
+    # ── Suppliers ──────────────────────────────────────────────────────────────
+
+    Supplier:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        contactName:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        leadTimeDays:
+          type: integer
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+        poCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, name, isActive, poCount, createdAt, updatedAt]
+
+    SupplierPoSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        poNumber:
+          type: string
+        status:
+          type: string
+          enum: [draft, ordered, partially_received, received, cancelled]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, poNumber, status, createdAt, updatedAt]
+
+    SupplierDetail:
+      allOf:
+        - $ref: "#/components/schemas/Supplier"
+        - type: object
+          properties:
+            purchaseOrders:
+              type: array
+              items:
+                $ref: "#/components/schemas/SupplierPoSummary"
+          required: [purchaseOrders]
+
+    CreateSupplierBody:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        contactName:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        leadTimeDays:
+          type: integer
+          minimum: 0
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+      required: [name]
+
+    UpdateSupplierBody:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        contactName:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        leadTimeDays:
+          type: integer
+          minimum: 0
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+
+    # ── Purchase Orders ────────────────────────────────────────────────────────
+
     PurchaseOrder:
       type: object
       properties:
@@ -1140,6 +1372,10 @@ components:
           format: uuid
         poNumber:
           type: string
+        supplierId:
+          type: string
+          format: uuid
+          nullable: true
         supplierName:
           type: string
         status:
@@ -1188,9 +1424,14 @@ components:
     CreatePurchaseOrderBody:
       type: object
       properties:
+        supplierId:
+          type: string
+          format: uuid
+          nullable: true
         supplierName:
           type: string
           minLength: 1
+          nullable: true
         notes:
           type: string
           nullable: true
@@ -1199,7 +1440,7 @@ components:
           items:
             $ref: "#/components/schemas/CreatePoLineBody"
           minItems: 1
-      required: [supplierName, lines]
+      required: [lines]
 
     UpdatePoStatusBody:
       type: object

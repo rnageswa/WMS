@@ -48,6 +48,7 @@ pnpm workspace monorepo using TypeScript. WareIQ — a full Warehouse Management
 - **Cycle Count** — Guided count workflow; records adjustments and audit movements
 - **Low-Stock Alerts** — Dashboard badge + alert list for SKUs below reorder threshold
 - **Purchase Orders** — Full PO workflow: create draft PO with line items, mark as ordered, receive stock per-line into specific bins (upserts inventory, records inbound movements), status machine (draft→ordered→partially_received→received / cancelled)
+- **Supplier Management** — Supplier directory with contact info (name, email, phone, address, lead time, notes), inline create dialog, edit-in-place detail page, active/inactive toggle, PO history per supplier, supplier selector in PO create form (with free-text fallback)
 
 ## Database Schema
 
@@ -57,7 +58,8 @@ pnpm workspace monorepo using TypeScript. WareIQ — a full Warehouse Management
 - `products(id, sku_code, name, description, category, barcode, unit_of_measure, unit_price, reorder_threshold, is_active, created_at, updated_at)`
 - `inventory_items(id, product_id, bin_id, qty_on_hand, updated_at)` — unique(product_id, bin_id)
 - `inventory_movements(id, product_id, bin_id, movement_type, quantity, reason_code, reference_id, reference_type, created_by, created_at)`
-- `purchase_orders(id, po_number, supplier_name, status, notes, created_at, updated_at)` — status: draft|ordered|partially_received|received|cancelled
+- `suppliers(id, name, contact_name, email, phone, address, lead_time_days, notes, is_active, created_at, updated_at)`
+- `purchase_orders(id, po_number, supplier_id (FK nullable), supplier_name, status, notes, created_at, updated_at)` — status: draft|ordered|partially_received|received|cancelled
 - `purchase_order_lines(id, po_id, product_id, qty_ordered, qty_received, unit_cost, status, created_at)` — status: pending|partially_received|received
 
 ## API Routes
@@ -70,6 +72,7 @@ All routes prefixed `/api`:
 - `GET /movements`
 - `GET /dashboard/summary`
 - `GET /alerts/low-stock`
+- `GET/POST /suppliers` · `GET/PATCH /suppliers/:id`
 - `GET/POST /purchase-orders` · `GET /purchase-orders/:id`
 - `PATCH /purchase-orders/:id/status` · `POST /purchase-orders/:id/receive`
 

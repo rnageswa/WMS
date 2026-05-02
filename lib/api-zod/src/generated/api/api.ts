@@ -459,6 +459,123 @@ export const ListMovementsResponseItem = zod.object({
 export const ListMovementsResponse = zod.array(ListMovementsResponseItem);
 
 /**
+ * @summary List all suppliers
+ */
+export const ListSuppliersQueryParams = zod.object({
+  search: zod.coerce.string().optional(),
+  isActive: zod.coerce.boolean().optional(),
+});
+
+export const ListSuppliersResponseItem = zod.object({
+  id: zod.string().uuid(),
+  name: zod.string(),
+  contactName: zod.string().nullish(),
+  email: zod.string().nullish(),
+  phone: zod.string().nullish(),
+  address: zod.string().nullish(),
+  leadTimeDays: zod.number().nullish(),
+  notes: zod.string().nullish(),
+  isActive: zod.boolean(),
+  poCount: zod.number(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListSuppliersResponse = zod.array(ListSuppliersResponseItem);
+
+/**
+ * @summary Create a new supplier
+ */
+
+export const createSupplierBodyLeadTimeDaysMin = 0;
+
+export const CreateSupplierBody = zod.object({
+  name: zod.string().min(1),
+  contactName: zod.string().nullish(),
+  email: zod.string().nullish(),
+  phone: zod.string().nullish(),
+  address: zod.string().nullish(),
+  leadTimeDays: zod.number().min(createSupplierBodyLeadTimeDaysMin).nullish(),
+  notes: zod.string().nullish(),
+});
+
+/**
+ * @summary Get supplier detail with PO history
+ */
+export const GetSupplierParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const GetSupplierResponse = zod
+  .object({
+    id: zod.string().uuid(),
+    name: zod.string(),
+    contactName: zod.string().nullish(),
+    email: zod.string().nullish(),
+    phone: zod.string().nullish(),
+    address: zod.string().nullish(),
+    leadTimeDays: zod.number().nullish(),
+    notes: zod.string().nullish(),
+    isActive: zod.boolean(),
+    poCount: zod.number(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  })
+  .and(
+    zod.object({
+      purchaseOrders: zod.array(
+        zod.object({
+          id: zod.string().uuid(),
+          poNumber: zod.string(),
+          status: zod.enum([
+            "draft",
+            "ordered",
+            "partially_received",
+            "received",
+            "cancelled",
+          ]),
+          createdAt: zod.coerce.date(),
+          updatedAt: zod.coerce.date(),
+        }),
+      ),
+    }),
+  );
+
+/**
+ * @summary Update a supplier
+ */
+export const UpdateSupplierParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const updateSupplierBodyLeadTimeDaysMin = 0;
+
+export const UpdateSupplierBody = zod.object({
+  name: zod.string().min(1).optional(),
+  contactName: zod.string().nullish(),
+  email: zod.string().nullish(),
+  phone: zod.string().nullish(),
+  address: zod.string().nullish(),
+  leadTimeDays: zod.number().min(updateSupplierBodyLeadTimeDaysMin).nullish(),
+  notes: zod.string().nullish(),
+  isActive: zod.boolean().optional(),
+});
+
+export const UpdateSupplierResponse = zod.object({
+  id: zod.string().uuid(),
+  name: zod.string(),
+  contactName: zod.string().nullish(),
+  email: zod.string().nullish(),
+  phone: zod.string().nullish(),
+  address: zod.string().nullish(),
+  leadTimeDays: zod.number().nullish(),
+  notes: zod.string().nullish(),
+  isActive: zod.boolean(),
+  poCount: zod.number(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
  * @summary List all purchase orders
  */
 export const ListPurchaseOrdersQueryParams = zod.object({
@@ -470,6 +587,7 @@ export const ListPurchaseOrdersQueryParams = zod.object({
 export const ListPurchaseOrdersResponseItem = zod.object({
   id: zod.string().uuid(),
   poNumber: zod.string(),
+  supplierId: zod.string().uuid().nullish(),
   supplierName: zod.string(),
   status: zod.enum([
     "draft",
@@ -493,7 +611,8 @@ export const ListPurchaseOrdersResponse = zod.array(
  */
 
 export const CreatePurchaseOrderBody = zod.object({
-  supplierName: zod.string().min(1),
+  supplierId: zod.string().uuid().nullish(),
+  supplierName: zod.string().min(1).nullish(),
   notes: zod.string().nullish(),
   lines: zod
     .array(
@@ -517,6 +636,7 @@ export const GetPurchaseOrderResponse = zod
   .object({
     id: zod.string().uuid(),
     poNumber: zod.string(),
+    supplierId: zod.string().uuid().nullish(),
     supplierName: zod.string(),
     status: zod.enum([
       "draft",
@@ -562,6 +682,7 @@ export const UpdatePurchaseOrderStatusBody = zod.object({
 export const UpdatePurchaseOrderStatusResponse = zod.object({
   id: zod.string().uuid(),
   poNumber: zod.string(),
+  supplierId: zod.string().uuid().nullish(),
   supplierName: zod.string(),
   status: zod.enum([
     "draft",
@@ -600,6 +721,7 @@ export const ReceivePurchaseOrderResponse = zod.object({
   po: zod.object({
     id: zod.string().uuid(),
     poNumber: zod.string(),
+    supplierId: zod.string().uuid().nullish(),
     supplierName: zod.string(),
     status: zod.enum([
       "draft",

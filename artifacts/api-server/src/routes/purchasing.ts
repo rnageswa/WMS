@@ -7,6 +7,7 @@ import {
   inventoryItemsTable,
   inventoryMovementsTable,
   binsTable,
+  suppliersTable,
 } from "@workspace/db/schema";
 import { eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -27,6 +28,7 @@ async function formatPo(po: typeof purchaseOrdersTable.$inferSelect, lines: (typ
   return {
     id: po.id,
     poNumber: po.poNumber,
+    supplierId: po.supplierId,
     supplierName: po.supplierName,
     status: po.status,
     notes: po.notes,
@@ -98,10 +100,14 @@ const CreatePoLineZ = z.object({
 });
 
 const CreatePoBodyZ = z.object({
-  supplierName: z.string().min(1),
+  supplierId: z.string().uuid().optional().nullable(),
+  supplierName: z.string().min(1).optional(),
   notes: z.string().optional().nullable(),
   lines: z.array(CreatePoLineZ).min(1),
-});
+}).refine(
+  (d) => d.supplierId || (d.supplierName && d.supplierName.trim().length > 0),
+  { message: "Either supplierId or supplierName is required" }
+);
 
 router.post("/purchase-orders", async (req, res) => {
   const body = CreatePoBodyZ.safeParse(req.body);
@@ -110,12 +116,27 @@ router.post("/purchase-orders", async (req, res) => {
     return;
   }
 
+  // Resolve supplier name
+  let resolvedSupplierName = body.data.supplierName ?? "";
+  let resolvedSupplierId = body.data.supplierId ?? null;
+
+  if (resolvedSupplierId) {
+    const supplier = await db.query.suppliersTable.findFirst({
+      where: eq(suppliersTable.id, resolvedSupplierId),
+    });
+    if (!supplier) {
+      res.status(400).json({ error: "Supplier not found" });
+      return;
+    }
+    resolvedSupplierName = supplier.name;
+  }
+
   let poNumber = generatePoNumber();
   // Retry once on collision
   try {
     const [po] = await db
       .insert(purchaseOrdersTable)
-      .values({ poNumber, supplierName: body.data.supplierName, notes: body.data.notes })
+      .values({ poNumber, supplierId: resolvedSupplierId, supplierName: resolvedSupplierName, notes: body.data.notes })
       .returning();
 
     const insertedLines = await db

@@ -183,6 +183,69 @@ export interface PoLine {
   status: PoLineStatus;
 }
 
+export interface Supplier {
+  id: string;
+  name: string;
+  contactName?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  leadTimeDays?: number | null;
+  notes?: string | null;
+  isActive: boolean;
+  poCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type SupplierPoSummaryStatus =
+  (typeof SupplierPoSummaryStatus)[keyof typeof SupplierPoSummaryStatus];
+
+export const SupplierPoSummaryStatus = {
+  draft: "draft",
+  ordered: "ordered",
+  partially_received: "partially_received",
+  received: "received",
+  cancelled: "cancelled",
+} as const;
+
+export interface SupplierPoSummary {
+  id: string;
+  poNumber: string;
+  status: SupplierPoSummaryStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type SupplierDetail = Supplier & {
+  purchaseOrders: SupplierPoSummary[];
+};
+
+export interface CreateSupplierBody {
+  /** @minLength 1 */
+  name: string;
+  contactName?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  /** @minimum 0 */
+  leadTimeDays?: number | null;
+  notes?: string | null;
+}
+
+export interface UpdateSupplierBody {
+  /** @minLength 1 */
+  name?: string;
+  contactName?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  /** @minimum 0 */
+  leadTimeDays?: number | null;
+  notes?: string | null;
+  isActive?: boolean;
+}
+
 export type PurchaseOrderStatus =
   (typeof PurchaseOrderStatus)[keyof typeof PurchaseOrderStatus];
 
@@ -197,6 +260,7 @@ export const PurchaseOrderStatus = {
 export interface PurchaseOrder {
   id: string;
   poNumber: string;
+  supplierId?: string | null;
   supplierName: string;
   status: PurchaseOrderStatus;
   notes?: string | null;
@@ -218,8 +282,9 @@ export interface CreatePoLineBody {
 }
 
 export interface CreatePurchaseOrderBody {
+  supplierId?: string | null;
   /** @minLength 1 */
-  supplierName: string;
+  supplierName?: string | null;
   notes?: string | null;
   /** @minItems 1 */
   lines: CreatePoLineBody[];
@@ -491,6 +556,11 @@ export const ListMovementsMovementType = {
   inbound: "inbound",
   outbound: "outbound",
 } as const;
+
+export type ListSuppliersParams = {
+  search?: string;
+  isActive?: boolean;
+};
 
 export type ListPurchaseOrdersParams = {
   status?: ListPurchaseOrdersStatus;

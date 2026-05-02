@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   useCreatePurchaseOrder,
   useListInventory,
+  useListSuppliers,
   getListInventoryQueryKey,
 } from "@workspace/api-client-react";
 import { Layout, PageHeader } from "@/components/layout";
@@ -18,8 +19,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { useLocation } from "wouter";
-import { Plus, Trash2, Loader2, ShoppingCart } from "lucide-react";
+import { useLocation, Link } from "wouter";
+import { Plus, Trash2, Loader2, ShoppingCart, Truck, ExternalLink } from "lucide-react";
 
 interface LineForm {
   key: number;
@@ -30,15 +31,19 @@ interface LineForm {
 
 let lineKey = 0;
 
+const FREE_TEXT = "__free_text__";
+
 export default function PurchaseOrderNewPage() {
   const { toast } = useToast();
   const [, navigate] = useLocation();
 
-  const [supplierName, setSupplierName] = useState("");
+  // Supplier selection — either pick from list or type free text
+  const [supplierId, setSupplierId] = useState("");
+  const [supplierFreeText, setSupplierFreeText] = useState("");
   const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<LineForm[]>([{ key: lineKey++, productId: "", qtyOrdered: 1, unitCost: "" }]);
 
-  // Load all products (via inventory with no filter) — use products list
+  const { data: suppliers = [] } = useListSuppliers({ isActive: true });
   const { data: inventoryItems = [] } = useListInventory(
     { productId: undefined, binId: undefined, warehouseId: undefined, lowStockOnly: false },
     { query: { queryKey: getListInventoryQueryKey() } }
@@ -76,13 +81,19 @@ export default function PurchaseOrderNewPage() {
   const updateLine = (key: number, patch: Partial<LineForm>) =>
     setLines((prev) => prev.map((l) => l.key === key ? { ...l, ...patch } : l));
 
-  const canSubmit = supplierName.trim() && lines.every((l) => l.productId && l.qtyOrdered >= 1);
+  const resolvedSupplierId = supplierId && supplierId !== FREE_TEXT ? supplierId : null;
+  const resolvedSupplierName = supplierId === FREE_TEXT ? supplierFreeText.trim() : "";
+  const supplierOk = resolvedSupplierId || resolvedSupplierName.length > 0;
+  const canSubmit = supplierOk && lines.every((l) => l.productId && l.qtyOrdered >= 1);
+
+  const selectedSupplier = suppliers.find((s) => s.id === supplierId);
 
   const handleSubmit = () => {
     if (!canSubmit) return;
     createPo({
       data: {
-        supplierName: supplierName.trim(),
+        supplierId: resolvedSupplierId,
+        supplierName: resolvedSupplierName || undefined,
         notes: notes.trim() || undefined,
         lines: lines.map((l) => ({
           productId: l.productId,
@@ -107,26 +118,82 @@ export default function PurchaseOrderNewPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="px-5 pb-5 space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2 space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Supplier Name *</Label>
+
+            {/* Supplier selector */}
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Supplier *</Label>
+              <Select value={supplierId} onValueChange={(v) => { setSupplierId(v); setSupplierFreeText(""); }}>
+                <SelectTrigger className="h-9 text-sm">
+                  <SelectValue placeholder="Select a supplier or type a name…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {suppliers.length > 0 && (
+                    <>
+                      {suppliers.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          <span className="flex items-center gap-2">
+                            <Truck className="w-3 h-3 text-muted-foreground shrink-0" />
+                            {s.name}
+                            {s.leadTimeDays != null && (
+                              <span className="text-[10px] text-muted-foreground">({s.leadTimeDays}d lead)</span>
+                            )}
+                          </span>
+                        </SelectItem>
+                      ))}
+                      <SelectItem value={FREE_TEXT}>
+                        <span className="text-muted-foreground italic">+ Enter name manually…</span>
+                      </SelectItem>
+                    </>
+                  )}
+                  {suppliers.length === 0 && (
+                    <SelectItem value={FREE_TEXT}>
+                      <span className="text-muted-foreground italic">Enter supplier name manually</span>
+                    </SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+
+              {/* Supplier quick-info strip */}
+              {selectedSupplier && (
+                <div className="flex items-center gap-3 px-3 py-2 bg-muted/40 rounded-md text-xs text-muted-foreground border border-border/40">
+                  {selectedSupplier.email && <span>{selectedSupplier.email}</span>}
+                  {selectedSupplier.phone && <span>{selectedSupplier.phone}</span>}
+                  {selectedSupplier.leadTimeDays != null && <span>Lead: {selectedSupplier.leadTimeDays}d</span>}
+                  <Link href={`/suppliers/${selectedSupplier.id}`} className="ml-auto flex items-center gap-1 text-blue-600 hover:underline">
+                    View <ExternalLink className="w-2.5 h-2.5" />
+                  </Link>
+                </div>
+              )}
+
+              {/* Free text fallback */}
+              {supplierId === FREE_TEXT && (
                 <Input
                   autoFocus
-                  value={supplierName}
-                  onChange={(e) => setSupplierName(e.target.value)}
-                  placeholder="e.g. Acme Supply Co."
+                  value={supplierFreeText}
+                  onChange={(e) => setSupplierFreeText(e.target.value)}
+                  placeholder="Supplier name (e.g. Acme Supply Co.)"
+                  className="h-8 text-sm"
                 />
-              </div>
-              <div className="col-span-2 space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Notes (optional)</Label>
-                <Textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Delivery instructions, terms, etc."
-                  rows={2}
-                  className="resize-none"
-                />
-              </div>
+              )}
+
+              {/* Prompt to create a supplier */}
+              {!supplierId && (
+                <p className="text-[11px] text-muted-foreground">
+                  No supplier yet?{" "}
+                  <Link href="/suppliers" className="text-blue-600 hover:underline">Create one in Suppliers</Link>, or pick "Enter name manually" above.
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Notes (optional)</Label>
+              <Textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Delivery instructions, terms, etc."
+                rows={2}
+                className="resize-none"
+              />
             </div>
           </CardContent>
         </Card>
@@ -140,7 +207,6 @@ export default function PurchaseOrderNewPage() {
             </Button>
           </CardHeader>
           <CardContent className="px-5 pb-5 space-y-3">
-            {/* Column headers */}
             <div className="grid grid-cols-[1fr_100px_110px_28px] gap-2 px-0.5">
               <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">Product</span>
               <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">Qty</span>

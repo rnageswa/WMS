@@ -20,6 +20,8 @@ import CycleCountPage from "@/pages/cycle-count";
 import PurchaseOrdersPage from "@/pages/purchase-orders";
 import PurchaseOrderNewPage from "@/pages/purchase-order-new";
 import PurchaseOrderDetailPage from "@/pages/purchase-order-detail";
+import SuppliersPage from "@/pages/suppliers";
+import SupplierDetailPage from "@/pages/supplier-detail";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -52,6 +54,8 @@ function Router() {
       <Route path="/purchase-orders/new" component={PurchaseOrderNewPage} />
       <Route path="/purchase-orders/:id" component={PurchaseOrderDetailPage} />
       <Route path="/purchase-orders" component={PurchaseOrdersPage} />
+      <Route path="/suppliers/:id" component={SupplierDetailPage} />
+      <Route path="/suppliers" component={SuppliersPage} />
       <Route component={NotFound} />
     </Switch>
   );
