@@ -517,3 +517,146 @@ export const GetDashboardSummaryResponse = zod.object({
     }),
   ),
 });
+
+/**
+ * @summary Resolve a barcode or bin code to inventory
+ */
+export const ScanLookupQueryParams = zod.object({
+  q: zod.coerce.string().describe("Bin code, product SKU, or product barcode"),
+});
+
+export const ScanLookupResponse = zod.object({
+  query: zod.string(),
+  matchType: zod.enum(["bin", "product", "none"]),
+  bins: zod.array(
+    zod
+      .object({
+        id: zod.string().uuid(),
+        zoneId: zod.string().uuid(),
+        code: zod.string(),
+        name: zod.string().nullish(),
+        createdAt: zod.coerce.date(),
+      })
+      .and(
+        zod.object({
+          zone: zod.object({
+            id: zod.string().uuid(),
+            name: zod.string(),
+            code: zod.string(),
+            warehouse: zod.object({
+              id: zod.string().uuid(),
+              name: zod.string(),
+            }),
+          }),
+        }),
+      )
+      .and(
+        zod.object({
+          inventory: zod.array(
+            zod.object({
+              id: zod.string().uuid(),
+              productId: zod.string().uuid(),
+              binId: zod.string().uuid(),
+              qtyOnHand: zod.number(),
+              updatedAt: zod.coerce.date(),
+              product: zod.object({
+                id: zod.string().uuid(),
+                skuCode: zod.string(),
+                name: zod.string(),
+                description: zod.string().nullish(),
+                category: zod.string().nullish(),
+                barcode: zod.string().nullish(),
+                unitOfMeasure: zod.string(),
+                unitPrice: zod.string().nullish(),
+                reorderThreshold: zod.number(),
+                isActive: zod.boolean(),
+                createdAt: zod.coerce.date(),
+                updatedAt: zod.coerce.date(),
+              }),
+              bin: zod
+                .object({
+                  id: zod.string().uuid(),
+                  zoneId: zod.string().uuid(),
+                  code: zod.string(),
+                  name: zod.string().nullish(),
+                  createdAt: zod.coerce.date(),
+                })
+                .and(
+                  zod.object({
+                    zone: zod.object({
+                      id: zod.string().uuid(),
+                      name: zod.string(),
+                      code: zod.string(),
+                      warehouse: zod.object({
+                        id: zod.string().uuid(),
+                        name: zod.string(),
+                      }),
+                    }),
+                  }),
+                ),
+            }),
+          ),
+        }),
+      ),
+  ),
+  product: zod
+    .object({
+      id: zod.string().uuid(),
+      skuCode: zod.string(),
+      name: zod.string(),
+      description: zod.string().nullish(),
+      category: zod.string().nullish(),
+      barcode: zod.string().nullish(),
+      unitOfMeasure: zod.string(),
+      unitPrice: zod.string().nullish(),
+      reorderThreshold: zod.number(),
+      isActive: zod.boolean(),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+    })
+    .nullish(),
+  inventory: zod.array(
+    zod.object({
+      id: zod.string().uuid(),
+      productId: zod.string().uuid(),
+      binId: zod.string().uuid(),
+      qtyOnHand: zod.number(),
+      updatedAt: zod.coerce.date(),
+      product: zod.object({
+        id: zod.string().uuid(),
+        skuCode: zod.string(),
+        name: zod.string(),
+        description: zod.string().nullish(),
+        category: zod.string().nullish(),
+        barcode: zod.string().nullish(),
+        unitOfMeasure: zod.string(),
+        unitPrice: zod.string().nullish(),
+        reorderThreshold: zod.number(),
+        isActive: zod.boolean(),
+        createdAt: zod.coerce.date(),
+        updatedAt: zod.coerce.date(),
+      }),
+      bin: zod
+        .object({
+          id: zod.string().uuid(),
+          zoneId: zod.string().uuid(),
+          code: zod.string(),
+          name: zod.string().nullish(),
+          createdAt: zod.coerce.date(),
+        })
+        .and(
+          zod.object({
+            zone: zod.object({
+              id: zod.string().uuid(),
+              name: zod.string(),
+              code: zod.string(),
+              warehouse: zod.object({
+                id: zod.string().uuid(),
+                name: zod.string(),
+              }),
+            }),
+          }),
+        ),
+    }),
+  ),
+});

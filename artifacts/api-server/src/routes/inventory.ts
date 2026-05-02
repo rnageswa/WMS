@@ -297,4 +297,103 @@ router.get("/dashboard/summary", async (_req, res) => {
   });
 });
 
+// ── GET /scan ─────────────────────────────────────────────────────────────────
+
+router.get("/scan", async (req, res) => {
+  const q = String(req.query.q ?? "").trim();
+  if (!q) {
+    res.status(400).json({ message: "Query parameter 'q' is required" });
+    return;
+  }
+
+  const inventorySelect = {
+    item: inventoryItemsTable,
+    product: productsTable,
+    bin: binsTable,
+    zone: { id: zonesTable.id, name: zonesTable.name, code: zonesTable.code },
+    warehouse: { id: warehousesTable.id, name: warehousesTable.name },
+  };
+
+  const buildInventoryItem = (r: {
+    item: typeof inventoryItemsTable.$inferSelect;
+    product: typeof productsTable.$inferSelect;
+    bin: typeof binsTable.$inferSelect;
+    zone: { id: string; name: string; code: string };
+    warehouse: { id: string; name: string };
+  }) => ({
+    ...r.item,
+    product: r.product,
+    bin: { ...r.bin, zone: { ...r.zone, warehouse: r.warehouse } },
+  });
+
+  // 1. Try matching bins by code (case-insensitive)
+  const matchingBins = await db
+    .select({
+      bin: binsTable,
+      zone: { id: zonesTable.id, name: zonesTable.name, code: zonesTable.code },
+      warehouse: { id: warehousesTable.id, name: warehousesTable.name },
+    })
+    .from(binsTable)
+    .innerJoin(zonesTable, eq(binsTable.zoneId, zonesTable.id))
+    .innerJoin(warehousesTable, eq(zonesTable.warehouseId, warehousesTable.id))
+    .where(sql`lower(${binsTable.code}) = lower(${q})`);
+
+  if (matchingBins.length > 0) {
+    const binsWithInventory = await Promise.all(
+      matchingBins.map(async (mb) => {
+        const invRows = await db
+          .select(inventorySelect)
+          .from(inventoryItemsTable)
+          .innerJoin(productsTable, eq(inventoryItemsTable.productId, productsTable.id))
+          .innerJoin(binsTable, eq(inventoryItemsTable.binId, binsTable.id))
+          .innerJoin(zonesTable, eq(binsTable.zoneId, zonesTable.id))
+          .innerJoin(warehousesTable, eq(zonesTable.warehouseId, warehousesTable.id))
+          .where(eq(inventoryItemsTable.binId, mb.bin.id));
+        return {
+          ...mb.bin,
+          zone: { ...mb.zone, warehouse: mb.warehouse },
+          inventory: invRows.map(buildInventoryItem),
+        };
+      })
+    );
+
+    res.json({
+      query: q,
+      matchType: "bin",
+      bins: binsWithInventory,
+      inventory: [],
+    });
+    return;
+  }
+
+  // 2. Try matching a product by SKU code or barcode
+  const [matchedProduct] = await db
+    .select()
+    .from(productsTable)
+    .where(sql`lower(${productsTable.skuCode}) = lower(${q}) OR lower(coalesce(${productsTable.barcode}, '')) = lower(${q})`);
+
+  if (matchedProduct) {
+    const invRows = await db
+      .select(inventorySelect)
+      .from(inventoryItemsTable)
+      .innerJoin(productsTable, eq(inventoryItemsTable.productId, productsTable.id))
+      .innerJoin(binsTable, eq(inventoryItemsTable.binId, binsTable.id))
+      .innerJoin(zonesTable, eq(binsTable.zoneId, zonesTable.id))
+      .innerJoin(warehousesTable, eq(zonesTable.warehouseId, warehousesTable.id))
+      .where(eq(inventoryItemsTable.productId, matchedProduct.id));
+
+    res.json({
+      query: q,
+      matchType: "product",
+      bins: [],
+      product: matchedProduct,
+      inventory: invRows.map(buildInventoryItem),
+    });
+    return;
+  }
+
+  // 3. No match
+  res.json({ query: q, matchType: "none", bins: [], inventory: [] });
+});
+
 export default router;

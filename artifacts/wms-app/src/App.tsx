@@ -11,6 +11,7 @@ import InventoryAdjust from "@/pages/inventory-adjust";
 import Movements from "@/pages/movements";
 import Locations from "@/pages/locations";
 import LocationNew from "@/pages/location-new";
+import ScanPage from "@/pages/scan";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -34,6 +35,7 @@ function Router() {
       <Route path="/movements" component={Movements} />
       <Route path="/locations/new" component={LocationNew} />
       <Route path="/locations" component={Locations} />
+      <Route path="/scan" component={ScanPage} />
       <Route component={NotFound} />
     </Switch>
   );

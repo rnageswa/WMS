@@ -8,12 +8,14 @@ import {
   ClipboardList,
   ChevronRight,
   Warehouse,
+  ScanLine,
 } from "lucide-react";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/products", label: "Products", icon: Package },
   { href: "/inventory", label: "Inventory", icon: Boxes },
+  { href: "/scan", label: "Scan", icon: ScanLine },
   { href: "/locations", label: "Locations", icon: MapPin },
   { href: "/movements", label: "Movements", icon: ClipboardList },
 ];

@@ -417,6 +417,30 @@ paths:
               schema:
                 $ref: "#/components/schemas/DashboardSummary"
 
+  # ─── Scan ────────────────────────────────────────────────────────────────────
+
+  /scan:
+    get:
+      operationId: scanLookup
+      tags: [inventory]
+      summary: Resolve a barcode or bin code to inventory
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Bin code, product SKU, or product barcode
+      responses:
+        "200":
+          description: Scan result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScanResult"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
 components:
   parameters:
     UuidId:
@@ -791,6 +815,40 @@ components:
         - createdAt
         - product
         - bin
+
+    # ── Scan ──────────────────────────────────────────────────────────────────
+
+    ScanResultBin:
+      allOf:
+        - $ref: "#/components/schemas/BinWithLocation"
+        - type: object
+          properties:
+            inventory:
+              type: array
+              items:
+                $ref: "#/components/schemas/InventoryItem"
+          required: [inventory]
+
+    ScanResult:
+      type: object
+      properties:
+        query:
+          type: string
+        matchType:
+          type: string
+          enum: [bin, product, none]
+        bins:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScanResultBin"
+        product:
+          $ref: "#/components/schemas/Product"
+          nullable: true
+        inventory:
+          type: array
+          items:
+            $ref: "#/components/schemas/InventoryItem"
+      required: [query, matchType, bins, inventory]
 
     # ── Dashboard ─────────────────────────────────────────────────────────────
 

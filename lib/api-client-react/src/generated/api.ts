@@ -33,6 +33,8 @@ import type {
   ListProductsParams,
   NotFoundResponse,
   Product,
+  ScanLookupParams,
+  ScanResult,
   UpdateProductBody,
   UpdateWarehouseBody,
   Warehouse,
@@ -1584,6 +1586,100 @@ export function useGetDashboardSummary<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetDashboardSummaryQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Resolve a barcode or bin code to inventory
+ */
+export const getScanLookupUrl = (params: ScanLookupParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/scan?${stringifiedParams}`
+    : `/api/scan`;
+};
+
+export const scanLookup = async (
+  params: ScanLookupParams,
+  options?: RequestInit,
+): Promise<ScanResult> => {
+  return customFetch<ScanResult>(getScanLookupUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getScanLookupQueryKey = (params?: ScanLookupParams) => {
+  return [`/api/scan`, ...(params ? [params] : [])] as const;
+};
+
+export const getScanLookupQueryOptions = <
+  TData = Awaited<ReturnType<typeof scanLookup>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  params: ScanLookupParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof scanLookup>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getScanLookupQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof scanLookup>>> = ({
+    signal,
+  }) => scanLookup(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof scanLookup>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ScanLookupQueryResult = NonNullable<
+  Awaited<ReturnType<typeof scanLookup>>
+>;
+export type ScanLookupQueryError = ErrorType<NotFoundResponse>;
+
+/**
+ * @summary Resolve a barcode or bin code to inventory
+ */
+
+export function useScanLookup<
+  TData = Awaited<ReturnType<typeof scanLookup>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  params: ScanLookupParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof scanLookup>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getScanLookupQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

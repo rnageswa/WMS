@@ -164,6 +164,27 @@ export interface InventoryMovement {
   bin: BinWithLocation;
 }
 
+export type ScanResultBin = BinWithLocation & {
+  inventory: InventoryItem[];
+};
+
+export type ScanResultMatchType =
+  (typeof ScanResultMatchType)[keyof typeof ScanResultMatchType];
+
+export const ScanResultMatchType = {
+  bin: "bin",
+  product: "product",
+  none: "none",
+} as const;
+
+export interface ScanResult {
+  query: string;
+  matchType: ScanResultMatchType;
+  bins: ScanResultBin[];
+  product?: Product | null;
+  inventory: InventoryItem[];
+}
+
 export interface DashboardSummary {
   totalProducts: number;
   activeProducts: number;
@@ -211,3 +232,10 @@ export const ListMovementsMovementType = {
   inbound: "inbound",
   outbound: "outbound",
 } as const;
+
+export type ScanLookupParams = {
+  /**
+   * Bin code, product SKU, or product barcode
+   */
+  q: string;
+};
