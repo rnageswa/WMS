@@ -939,6 +939,35 @@ export const GetStockValueReportResponse = zod.object({
 });
 
 /**
+ * @summary Products below reorder threshold, grouped by last-used supplier for fast PO creation
+ */
+export const GetReorderSuggestionsResponse = zod.object({
+  generatedAt: zod.string(),
+  totalItems: zod.number(),
+  groups: zod.array(
+    zod.object({
+      supplierId: zod.string().nullable(),
+      supplierName: zod.string().nullable(),
+      lastPoDate: zod.string().nullable(),
+      items: zod.array(
+        zod.object({
+          productId: zod.string(),
+          skuCode: zod.string(),
+          name: zod.string(),
+          category: zod.string().nullable(),
+          currentQty: zod.number(),
+          reorderThreshold: zod.number(),
+          deficit: zod.number(),
+          suggestedQty: zod.number(),
+          lastUnitCost: zod.number().nullable(),
+          lastPoDate: zod.string().nullable(),
+        }),
+      ),
+    }),
+  ),
+});
+
+/**
  * @summary Supplier performance metrics derived from purchase order history
  */
 export const GetSupplierPerformanceReportResponse = zod.object({

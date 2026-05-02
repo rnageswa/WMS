@@ -50,6 +50,7 @@ import type {
   PurchaseOrderDetail,
   ReceivePoBody,
   ReceivePoResult,
+  ReorderSuggestions,
   ScanLookupParams,
   ScanResult,
   SendPoEmailBody,
@@ -2815,6 +2816,81 @@ export function useGetStockValueReport<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetStockValueReportQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Products below reorder threshold, grouped by last-used supplier for fast PO creation
+ */
+export const getGetReorderSuggestionsUrl = () => {
+  return `/api/reorder-suggestions`;
+};
+
+export const getReorderSuggestions = async (
+  options?: RequestInit,
+): Promise<ReorderSuggestions> => {
+  return customFetch<ReorderSuggestions>(getGetReorderSuggestionsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetReorderSuggestionsQueryKey = () => {
+  return [`/api/reorder-suggestions`] as const;
+};
+
+export const getGetReorderSuggestionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getReorderSuggestions>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getReorderSuggestions>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetReorderSuggestionsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getReorderSuggestions>>
+  > = ({ signal }) => getReorderSuggestions({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getReorderSuggestions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetReorderSuggestionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getReorderSuggestions>>
+>;
+export type GetReorderSuggestionsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Products below reorder threshold, grouped by last-used supplier for fast PO creation
+ */
+
+export function useGetReorderSuggestions<
+  TData = Awaited<ReturnType<typeof getReorderSuggestions>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getReorderSuggestions>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetReorderSuggestionsQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

@@ -9,7 +9,7 @@ import {
   binsTable,
   suppliersTable,
 } from "@workspace/db/schema";
-import { eq, inArray, sql } from "drizzle-orm";
+import { eq, inArray, sql, ne, and, desc } from "drizzle-orm";
 import { z } from "zod";
 import { sendPoEmail } from "../lib/email";
 
@@ -50,6 +50,142 @@ async function formatPo(po: typeof purchaseOrdersTable.$inferSelect, lines: (typ
     })),
   };
 }
+
+// ── GET /reorder-suggestions ──────────────────────────────────────────────────
+
+router.get("/reorder-suggestions", async (_req, res) => {
+  // 1. All active products with reorder thresholds
+  const products = await db
+    .select({
+      id: productsTable.id,
+      skuCode: productsTable.skuCode,
+      name: productsTable.name,
+      category: productsTable.category,
+      reorderThreshold: productsTable.reorderThreshold,
+    })
+    .from(productsTable)
+    .where(eq(productsTable.isActive, true));
+
+  if (products.length === 0) {
+    res.json({ generatedAt: new Date().toISOString(), totalItems: 0, groups: [] });
+    return;
+  }
+
+  // 2. Current inventory totals per product
+  const invRows = await db
+    .select({
+      productId: inventoryItemsTable.productId,
+      totalQty: sql<number>`coalesce(sum(${inventoryItemsTable.qtyOnHand}), 0)`,
+    })
+    .from(inventoryItemsTable)
+    .groupBy(inventoryItemsTable.productId);
+
+  const qtyMap = new Map(invRows.map((r) => [r.productId, Number(r.totalQty)]));
+
+  // 3. Filter to products that are below threshold
+  const lowStock = products.filter((p) => (qtyMap.get(p.id) ?? 0) < p.reorderThreshold);
+
+  if (lowStock.length === 0) {
+    res.json({ generatedAt: new Date().toISOString(), totalItems: 0, groups: [] });
+    return;
+  }
+
+  // 4. Find the most-recent non-cancelled PO line per product for supplier + unit cost
+  const lowStockIds = lowStock.map((p) => p.id);
+
+  const allRecentLines = await db
+    .select({
+      productId: purchaseOrderLinesTable.productId,
+      unitCost: purchaseOrderLinesTable.unitCost,
+      supplierId: purchaseOrdersTable.supplierId,
+      supplierName: purchaseOrdersTable.supplierName,
+      poCreatedAt: purchaseOrdersTable.createdAt,
+    })
+    .from(purchaseOrderLinesTable)
+    .innerJoin(purchaseOrdersTable, eq(purchaseOrderLinesTable.poId, purchaseOrdersTable.id))
+    .where(
+      and(
+        inArray(purchaseOrderLinesTable.productId, lowStockIds),
+        ne(purchaseOrdersTable.status, "cancelled")
+      )
+    )
+    .orderBy(desc(purchaseOrdersTable.createdAt));
+
+  // Keep only the most-recent PO line per product
+  const latestByProduct = new Map<string, typeof allRecentLines[0]>();
+  for (const line of allRecentLines) {
+    if (!latestByProduct.has(line.productId)) {
+      latestByProduct.set(line.productId, line);
+    }
+  }
+
+  // 5. Build groups keyed by supplier
+  type SuggestionItem = {
+    productId: string;
+    skuCode: string;
+    name: string;
+    category: string | null;
+    currentQty: number;
+    reorderThreshold: number;
+    deficit: number;
+    suggestedQty: number;
+    lastUnitCost: number | null;
+    lastPoDate: string | null;
+  };
+
+  const groups = new Map<string, {
+    supplierId: string | null;
+    supplierName: string | null;
+    lastPoDate: string | null;
+    items: SuggestionItem[];
+  }>();
+
+  for (const p of lowStock) {
+    const currentQty = qtyMap.get(p.id) ?? 0;
+    const deficit = p.reorderThreshold - currentQty;
+    const suggestedQty = Math.max(1, p.reorderThreshold * 2 - currentQty);
+
+    const last = latestByProduct.get(p.id);
+    const key = last?.supplierId ?? (last?.supplierName ? `__name__${last.supplierName}` : "__none__");
+
+    if (!groups.has(key)) {
+      groups.set(key, {
+        supplierId: last?.supplierId ?? null,
+        supplierName: last?.supplierName ?? null,
+        lastPoDate: last?.poCreatedAt?.toISOString().slice(0, 10) ?? null,
+        items: [],
+      });
+    }
+
+    groups.get(key)!.items.push({
+      productId: p.id,
+      skuCode: p.skuCode,
+      name: p.name,
+      category: p.category,
+      currentQty,
+      reorderThreshold: p.reorderThreshold,
+      deficit,
+      suggestedQty,
+      lastUnitCost: last?.unitCost ? parseFloat(last.unitCost) : null,
+      lastPoDate: last?.poCreatedAt?.toISOString().slice(0, 10) ?? null,
+    });
+  }
+
+  // Known suppliers first, then name-only, then unknown
+  const sortedGroups = Array.from(groups.values()).sort((a, b) => {
+    if (a.supplierId && !b.supplierId) return -1;
+    if (!a.supplierId && b.supplierId) return 1;
+    if (a.supplierName && !b.supplierName) return -1;
+    if (!a.supplierName && b.supplierName) return 1;
+    return 0;
+  });
+
+  res.json({
+    generatedAt: new Date().toISOString(),
+    totalItems: lowStock.length,
+    groups: sortedGroups,
+  });
+});
 
 // ── GET /purchase-orders/aging ────────────────────────────────────────────────
 

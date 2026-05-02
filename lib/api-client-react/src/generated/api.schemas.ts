@@ -544,6 +544,32 @@ export interface ScanResult {
   inventory: InventoryItem[];
 }
 
+export interface ReorderSuggestionItem {
+  productId: string;
+  skuCode: string;
+  name: string;
+  category: string | null;
+  currentQty: number;
+  reorderThreshold: number;
+  deficit: number;
+  suggestedQty: number;
+  lastUnitCost: number | null;
+  lastPoDate: string | null;
+}
+
+export interface ReorderSuggestionGroup {
+  supplierId: string | null;
+  supplierName: string | null;
+  lastPoDate: string | null;
+  items: ReorderSuggestionItem[];
+}
+
+export interface ReorderSuggestions {
+  generatedAt: string;
+  totalItems: number;
+  groups: ReorderSuggestionGroup[];
+}
+
 export interface SupplierPerformanceRow {
   supplierId: string | null;
   supplierName: string;

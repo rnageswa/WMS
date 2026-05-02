@@ -21,6 +21,7 @@ import {
   ArrowRight,
   TrendingDown,
   ShoppingCart,
+  Zap,
   CalendarDays,
   Clock,
   CalendarCheck2,
@@ -166,11 +167,19 @@ export default function Dashboard() {
                 )}
               </CardTitle>
               {hasAlerts && (
-                <Button variant="ghost" size="sm" asChild className="text-xs h-7 gap-1 text-muted-foreground">
-                  <Link href="/inventory?lowStock=true">
-                    View all <ArrowRight className="w-3 h-3" />
-                  </Link>
-                </Button>
+                <div className="flex items-center gap-1.5">
+                  <Button variant="ghost" size="sm" asChild className="text-xs h-7 gap-1 text-muted-foreground">
+                    <Link href="/inventory?lowStock=true">
+                      View all <ArrowRight className="w-3 h-3" />
+                    </Link>
+                  </Button>
+                  <Button size="sm" asChild className="text-xs h-7 gap-1.5 bg-[#E8622A] hover:bg-[#E8622A]/90 text-white">
+                    <Link href="/purchase-orders/reorder">
+                      <Zap className="w-3 h-3" />
+                      Reorder
+                    </Link>
+                  </Button>
+                </div>
               )}
             </CardHeader>
             <CardContent className="px-0 pb-1">
