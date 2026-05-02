@@ -1,0 +1,8 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "kZ_2dw8Ds4of7Avcvc-l9"
+uri = "file://artifacts/wms-design/public/hero-warehouse.png"
+type = "image"
+title = "generated_image"

@@ -6,20 +6,21 @@
   --color-bg: var(--slide-bg);
   --color-text: var(--slide-text);
   --color-muted: var(--slide-muted);
+  --color-surface: var(--slide-surface);
   --font-display: var(--font-display-family);
   --font-body: var(--font-body-family);
 }
 
 :root {
-  /* Replace these with brand colors */
-  --slide-primary: #4f46e5;
-  --slide-accent: #06b6d4;
-  --slide-bg: #f8fafc;
-  --slide-text: #0f172a;
-  --slide-muted: #64748b;
-  --font-display-family: "Inter", system-ui, sans-serif;
-  --font-body-family: "Inter", system-ui, sans-serif;
-  color-scheme: light;
+  --slide-primary: #0F2540;
+  --slide-accent: #E8631A;
+  --slide-bg: #0F2540;
+  --slide-text: #F0EDE8;
+  --slide-muted: #8FA3B8;
+  --slide-surface: #162F50;
+  --font-display-family: "Space Grotesk", system-ui, sans-serif;
+  --font-body-family: "DM Sans", system-ui, sans-serif;
+  color-scheme: dark;
 }
 
 html,

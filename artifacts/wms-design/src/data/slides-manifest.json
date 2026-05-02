@@ -1,1 +1,90 @@
-[]
+[
+  {
+    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "position": 1,
+    "filepath": "src/pages/slides/Slide01Title.tsx",
+    "title": "Warehouse Management System",
+    "description": "MVP Design & Architecture Blueprint cover slide",
+    "speakerNotes": ""
+  },
+  {
+    "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+    "position": 2,
+    "filepath": "src/pages/slides/Slide02SystemOverview.tsx",
+    "title": "System Overview",
+    "description": "Modular monolith architecture and design philosophy",
+    "speakerNotes": ""
+  },
+  {
+    "id": "c3d4e5f6-a7b8-9012-cdef-123456789012",
+    "position": 3,
+    "filepath": "src/pages/slides/Slide03TechStack.tsx",
+    "title": "Tech Stack",
+    "description": "Frontend, backend, database, auth and infrastructure choices",
+    "speakerNotes": ""
+  },
+  {
+    "id": "d4e5f6a7-b8c9-0123-defa-234567890123",
+    "position": 4,
+    "filepath": "src/pages/slides/Slide04DatabaseSchema.tsx",
+    "title": "Database Schema",
+    "description": "Core database entities and their fields",
+    "speakerNotes": ""
+  },
+  {
+    "id": "e5f6a7b8-c9d0-1234-efab-345678901234",
+    "position": 5,
+    "filepath": "src/pages/slides/Slide05EntityRelationships.tsx",
+    "title": "Entity Relationships",
+    "description": "How the core data entities relate to each other",
+    "speakerNotes": ""
+  },
+  {
+    "id": "f6a7b8c9-d0e1-2345-fabc-456789012345",
+    "position": 6,
+    "filepath": "src/pages/slides/Slide06APIDesign.tsx",
+    "title": "API Design",
+    "description": "REST API endpoints across all modules",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a7b8c9d0-e1f2-3456-abcd-567890123456",
+    "position": 7,
+    "filepath": "src/pages/slides/Slide07UIWireframes.tsx",
+    "title": "UI Wireframes — Screens",
+    "description": "The 10 core UI screens covering the full warehouse workflow",
+    "speakerNotes": ""
+  },
+  {
+    "id": "b8c9d0e1-f2a3-4567-bcde-678901234567",
+    "position": 8,
+    "filepath": "src/pages/slides/Slide08BuildPhases.tsx",
+    "title": "MVP Build Phases",
+    "description": "Four-phase delivery plan with week-by-week breakdown",
+    "speakerNotes": ""
+  },
+  {
+    "id": "c9d0e1f2-a3b4-5678-cdef-789012345678",
+    "position": 9,
+    "filepath": "src/pages/slides/Slide09TeamRoles.tsx",
+    "title": "Team Roles & Tasks",
+    "description": "Role definitions and responsibilities for each team member",
+    "speakerNotes": ""
+  },
+  {
+    "id": "d0e1f2a3-b4c5-6789-defa-890123456789",
+    "position": 10,
+    "filepath": "src/pages/slides/Slide10TestingStrategy.tsx",
+    "title": "Testing Strategy",
+    "description": "Unit, integration, E2E, performance and UAT testing approach",
+    "speakerNotes": ""
+  },
+  {
+    "id": "e1f2a3b4-c5d6-7890-efab-901234567890",
+    "position": 11,
+    "filepath": "src/pages/slides/Slide11WhatComesNext.tsx",
+    "title": "What Comes After MVP",
+    "description": "Post-MVP roadmap: multi-warehouse, mobile app, AI, ERP",
+    "speakerNotes": ""
+  }
+]
