@@ -49,6 +49,7 @@ import {
   Ban,
   Trash2,
   CheckSquare,
+  Download,
 } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
@@ -128,6 +129,17 @@ export default function PurchaseOrdersPage() {
 
   const hasSearch = debouncedQ.length > 0;
   const hasFilters = statusFilter !== ALL || hasSearch;
+
+  const handleExport = () => {
+    const qs = new URLSearchParams();
+    if (statusFilter !== ALL) qs.set("status", statusFilter);
+    if (debouncedQ) qs.set("q", debouncedQ);
+    const url = `/api/purchase-orders/export${qs.toString() ? `?${qs}` : ""}`;
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "";
+    a.click();
+  };
 
   // Selection helpers
   const selectableIds = data.map((po) => po.id);
@@ -225,6 +237,20 @@ export default function PurchaseOrdersPage() {
               Clear filters
             </button>
           )}
+
+          <div className="ml-auto">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 h-8 text-xs"
+              disabled={data.length === 0 || isLoading}
+              onClick={handleExport}
+            >
+              <Download className="w-3.5 h-3.5" />
+              Export CSV
+            </Button>
+          </div>
+
         </div>
 
         {/* Table */}

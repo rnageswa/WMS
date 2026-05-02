@@ -610,6 +610,121 @@ router.get("/reports/supplier-performance", async (_req, res) => {
   res.json({ generatedAt: new Date().toISOString(), suppliers: result });
 });
 
+// ── GET /purchase-orders/export ───────────────────────────────────────────────
+
+function csvEscape(val: unknown): string {
+  if (val == null) return "";
+  const s = String(val);
+  if (s.includes(",") || s.includes('"') || s.includes("\n")) {
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+  return s;
+}
+
+function csvRow(fields: unknown[]): string {
+  return fields.map(csvEscape).join(",");
+}
+
+router.get("/purchase-orders/export", async (req, res) => {
+  const { status, q } = req.query as { status?: string; q?: string };
+
+  let skuMatchPoIds: string[] = [];
+  if (q && q.trim().length > 0) {
+    const term = `%${q.trim()}%`;
+    const matches = await db
+      .selectDistinct({ poId: purchaseOrderLinesTable.poId })
+      .from(purchaseOrderLinesTable)
+      .leftJoin(productsTable, eq(purchaseOrderLinesTable.productId, productsTable.id))
+      .where(or(ilike(productsTable.skuCode, term), ilike(productsTable.name, term)));
+    skuMatchPoIds = matches.map((r) => r.poId);
+  }
+
+  const buildWhere = () => {
+    const conditions: ReturnType<typeof eq>[] = [];
+    if (status) conditions.push(eq(purchaseOrdersTable.status, status as any));
+    if (q && q.trim().length > 0) {
+      const term = `%${q.trim()}%`;
+      const searchOr = or(
+        ilike(purchaseOrdersTable.poNumber, term),
+        ilike(purchaseOrdersTable.supplierName, term),
+        ...(skuMatchPoIds.length > 0 ? [inArray(purchaseOrdersTable.id, skuMatchPoIds)] : [])
+      );
+      conditions.push(searchOr as any);
+    }
+    if (conditions.length === 0) return undefined;
+    if (conditions.length === 1) return conditions[0];
+    return and(...conditions);
+  };
+
+  const pos = await db.query.purchaseOrdersTable.findMany({
+    orderBy: (t, { desc }) => [desc(t.createdAt)],
+    where: buildWhere(),
+  });
+
+  const lines = pos.length > 0
+    ? await db
+        .select({
+          poId: purchaseOrderLinesTable.poId,
+          skuCode: productsTable.skuCode,
+          productName: productsTable.name,
+          qtyOrdered: purchaseOrderLinesTable.qtyOrdered,
+          qtyReceived: purchaseOrderLinesTable.qtyReceived,
+          unitCost: purchaseOrderLinesTable.unitCost,
+          lineStatus: purchaseOrderLinesTable.status,
+        })
+        .from(purchaseOrderLinesTable)
+        .leftJoin(productsTable, eq(purchaseOrderLinesTable.productId, productsTable.id))
+        .where(inArray(purchaseOrderLinesTable.poId, pos.map((p) => p.id)))
+    : [];
+
+  const linesByPo = new Map<string, typeof lines>();
+  for (const l of lines) {
+    const arr = linesByPo.get(l.poId) ?? [];
+    arr.push(l);
+    linesByPo.set(l.poId, arr);
+  }
+
+  const date = new Date().toISOString().slice(0, 10);
+  const filename = `purchase-orders-${date}.csv`;
+
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+
+  const header = csvRow([
+    "PO Number", "Supplier", "PO Status", "Created At", "Expected Delivery",
+    "Notes", "SKU", "Product", "Qty Ordered", "Qty Received", "Unit Cost",
+    "Line Total", "Line Status",
+  ]);
+  res.write(header + "\n");
+
+  for (const po of pos) {
+    const poLines = linesByPo.get(po.id) ?? [];
+    if (poLines.length === 0) {
+      res.write(csvRow([
+        po.poNumber, po.supplierName, po.status,
+        po.createdAt.toISOString(), po.expectedDeliveryDate ?? "",
+        po.notes ?? "", "", "", "", "", "", "", "",
+      ]) + "\n");
+    } else {
+      for (const l of poLines) {
+        const unitCost = l.unitCost != null ? Number(l.unitCost) : null;
+        const lineTotal = unitCost != null ? (unitCost * l.qtyOrdered).toFixed(2) : "";
+        res.write(csvRow([
+          po.poNumber, po.supplierName, po.status,
+          po.createdAt.toISOString(), po.expectedDeliveryDate ?? "",
+          po.notes ?? "",
+          l.skuCode ?? "", l.productName ?? "",
+          l.qtyOrdered, l.qtyReceived,
+          unitCost != null ? unitCost.toFixed(4) : "",
+          lineTotal, l.lineStatus,
+        ]) + "\n");
+      }
+    }
+  }
+
+  res.end();
+});
+
 // ── GET /purchase-orders ──────────────────────────────────────────────────────
 
 router.get("/purchase-orders", async (req, res) => {
