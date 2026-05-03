@@ -9,11 +9,18 @@ import {
   useListBins,
   useGetZoneActivity,
   useGetBinActivity,
+  useCommitTransfer,
+  useListInventory,
   getGetWarehouseQueryKey,
   getListWarehousesQueryKey,
   getListZonesQueryKey,
   getListBinsQueryKey,
+  getGetBinActivityQueryKey,
+  getGetZoneActivityQueryKey,
+  getListInventoryQueryKey,
+  getGetDashboardSummaryQueryKey,
   type ZoneActivityItem,
+  type BinActivityItem,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Layout, PageHeader } from "@/components/layout";
@@ -30,6 +37,13 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import {
   Plus,
@@ -42,6 +56,7 @@ import {
   Tag,
   Flame,
   X,
+  MoveRight,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 
@@ -62,61 +77,328 @@ function heatColor(count: number, max: number): string {
   return "bg-[#E8622A] text-white border-[#c9521f]";
 }
 
+// ── Quick Transfer Dialog ───────────────────────────────────────────────────
+
+function QuickTransferDialog({
+  open,
+  onClose,
+  fromBin,
+  fromZoneId,
+  days,
+}: {
+  open: boolean;
+  onClose: () => void;
+  fromBin: BinActivityItem | null;
+  fromZoneId: string;
+  days: number;
+}) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  const [productId, setProductId] = useState("");
+  const [qty, setQty] = useState(1);
+  const [toWarehouseId, setToWarehouseId] = useState("");
+  const [toZoneId, setToZoneId] = useState("");
+  const [toBinId, setToBinId] = useState("");
+
+  const invParams = {
+    binId: fromBin?.binId,
+    productId: undefined,
+    warehouseId: undefined,
+    lowStock: false,
+  } as const;
+  const { data: inventory = [], isLoading: invLoading } = useListInventory(invParams, {
+    query: { enabled: open && !!fromBin?.binId, queryKey: getListInventoryQueryKey(invParams) },
+  });
+
+  const { data: warehouses = [] } = useListWarehouses();
+  const { data: toZones = [] } = useListZones(toWarehouseId, {
+    query: { enabled: !!toWarehouseId, queryKey: getListZonesQueryKey(toWarehouseId) },
+  });
+  const { data: toBins = [] } = useListBins(toZoneId, {
+    query: { enabled: !!toZoneId, queryKey: getListBinsQueryKey(toZoneId) },
+  });
+
+  const selectedInv = inventory.find((i) => i.productId === productId);
+  const available = selectedInv?.qtyOnHand ?? 0;
+  const isValid =
+    !!productId && !!toBinId && toBinId !== fromBin?.binId && qty >= 1 && qty <= available;
+
+  const { mutate: commit, isPending } = useCommitTransfer({
+    mutation: {
+      onSuccess: (data) => {
+        toast({ title: "Transfer complete", description: `${data.linesCommitted} line moved successfully.` });
+        qc.invalidateQueries({ queryKey: getListInventoryQueryKey() });
+        qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
+        qc.invalidateQueries({ queryKey: getGetBinActivityQueryKey({ zoneId: fromZoneId, days }) });
+        qc.invalidateQueries({ queryKey: getGetZoneActivityQueryKey({ days }) });
+        handleClose();
+      },
+      onError: (err: any) => {
+        const errors = err?.response?.data?.stockErrors ?? [];
+        const msg =
+          errors.length > 0
+            ? `Only ${errors[0].available} units available in ${errors[0].binCode}.`
+            : "Transfer failed. Please check your inputs.";
+        toast({ title: "Transfer failed", description: msg, variant: "destructive" });
+      },
+    },
+  });
+
+  const handleClose = () => {
+    setProductId("");
+    setQty(1);
+    setToWarehouseId("");
+    setToZoneId("");
+    setToBinId("");
+    onClose();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-sm font-semibold">
+            <MoveRight className="w-4 h-4 text-[#E8622A] shrink-0" />
+            Transfer from{" "}
+            <span className="font-mono bg-muted px-1.5 py-0.5 rounded text-xs">{fromBin?.binCode}</span>
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 pt-1">
+          {/* Product */}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium">Product</Label>
+            {invLoading ? (
+              <Skeleton className="h-9 w-full" />
+            ) : inventory.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-2 px-3 border rounded-md bg-muted/30">
+                No stock in this bin
+              </p>
+            ) : (
+              <Select value={productId} onValueChange={(v) => { setProductId(v); setQty(1); }}>
+                <SelectTrigger className="text-sm">
+                  <SelectValue placeholder="Select a product…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {inventory.map((i) => {
+                    const prod = (i as any).product;
+                    return (
+                      <SelectItem key={i.productId} value={i.productId}>
+                        <span className="font-mono text-xs">{prod?.skuCode}</span>
+                        <span className="text-muted-foreground"> — {prod?.name}</span>
+                        <span className={`ml-1.5 text-xs font-semibold ${i.qtyOnHand === 0 ? "text-red-500" : "text-muted-foreground"}`}>
+                          ({i.qtyOnHand} avail)
+                        </span>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+
+          {/* Qty */}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium">Quantity</Label>
+            <div className="flex items-center gap-3">
+              <Input
+                type="number"
+                min={1}
+                max={available || 1}
+                value={qty}
+                onChange={(e) => setQty(Math.max(1, Math.min(parseInt(e.target.value) || 1, available)))}
+                className="w-24 h-9 text-sm"
+                disabled={!productId}
+              />
+              {productId && (
+                <span
+                  className={`text-xs font-semibold ${
+                    qty > available ? "text-red-500" : "text-green-600"
+                  }`}
+                >
+                  {qty > available ? `✗ only ${available} available` : `✓ ${available} available`}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Destination */}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium">Destination</Label>
+            <div className="grid grid-cols-3 gap-1.5">
+              <Select
+                value={toWarehouseId}
+                onValueChange={(v) => { setToWarehouseId(v); setToZoneId(""); setToBinId(""); }}
+              >
+                <SelectTrigger className="text-xs h-9 col-span-1">
+                  <SelectValue placeholder="Warehouse" />
+                </SelectTrigger>
+                <SelectContent>
+                  {warehouses.map((w) => (
+                    <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select
+                value={toZoneId}
+                onValueChange={(v) => { setToZoneId(v); setToBinId(""); }}
+                disabled={!toWarehouseId}
+              >
+                <SelectTrigger className="text-xs h-9">
+                  <SelectValue placeholder="Zone" />
+                </SelectTrigger>
+                <SelectContent>
+                  {toZones.map((z) => (
+                    <SelectItem key={z.id} value={z.id}>
+                      <span className="font-mono">{z.code}</span> — {z.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={toBinId} onValueChange={setToBinId} disabled={!toZoneId}>
+                <SelectTrigger className="text-xs h-9 font-mono">
+                  <SelectValue placeholder="Bin" />
+                </SelectTrigger>
+                <SelectContent>
+                  {toBins
+                    .filter((b) => b.id !== fromBin?.binId)
+                    .map((b) => (
+                      <SelectItem key={b.id} value={b.id}>
+                        <span className="font-mono">{b.code}</span>
+                        {b.name ? <span className="text-muted-foreground"> — {b.name}</span> : null}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {toBinId && toBinId === fromBin?.binId && (
+              <p className="text-xs text-red-500">Source and destination cannot be the same bin.</p>
+            )}
+          </div>
+        </div>
+
+        <DialogFooter className="pt-2">
+          <Button variant="outline" size="sm" onClick={handleClose}>
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            disabled={!isValid || isPending}
+            onClick={() =>
+              fromBin &&
+              commit({
+                data: {
+                  lines: [{ productId, fromBinId: fromBin.binId, toBinId, qty }],
+                },
+              })
+            }
+          >
+            {isPending ? (
+              <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+            ) : (
+              <MoveRight className="w-3.5 h-3.5 mr-1.5" />
+            )}
+            Transfer
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Bin Drill-Down Panel ────────────────────────────────────────────────────
+
 function BinDrillDown({ zone, days }: { zone: ZoneActivityItem; days: number }) {
   const { data: bins, isLoading } = useGetBinActivity({ zoneId: zone.zoneId, days });
   const maxBinCount = bins ? Math.max(...bins.map((b) => b.movementCount), 1) : 1;
+  const [transferBin, setTransferBin] = useState<BinActivityItem | null>(null);
 
   return (
-    <div className="mt-3 border border-border/50 rounded-lg bg-card overflow-hidden">
-      <div className="flex items-center gap-2 px-3 py-2 bg-muted/30 border-b border-border/40">
-        <Grid3X3 className="w-3.5 h-3.5 text-primary/70" />
-        <span className="text-xs font-semibold">
-          {zone.zoneCode} · {zone.zoneName}
-        </span>
-        <span className="text-[10px] text-muted-foreground">{zone.warehouseName}</span>
-        <span className="text-[10px] text-muted-foreground ml-auto">
-          last {days}d
-        </span>
-      </div>
-      <div className="divide-y divide-border/30">
-        {isLoading ? (
-          <div className="p-3 space-y-2">
-            {[...Array(4)].map((_, i) => (
-              <Skeleton key={i} className="h-5 w-full" />
-            ))}
-          </div>
-        ) : !bins?.length ? (
-          <p className="text-xs text-muted-foreground p-3">No bins in this zone.</p>
-        ) : (
-          bins.map((bin) => {
-            const pct = maxBinCount > 0 ? Math.round((bin.movementCount / maxBinCount) * 100) : 0;
-            const lastMoved = bin.lastMovementAt
-              ? new Date(bin.lastMovementAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })
-              : null;
-            return (
-              <div key={bin.binId} className="flex items-center gap-3 px-3 py-2">
-                <span className="font-mono text-xs font-semibold w-12 shrink-0">{bin.binCode}</span>
-                {bin.binName && (
-                  <span className="text-[11px] text-muted-foreground w-28 truncate shrink-0">{bin.binName}</span>
-                )}
-                <div className="flex-1 h-1.5 bg-muted/60 rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-[#E8622A] transition-all"
-                    style={{ width: `${pct}%` }}
-                  />
+    <>
+      <div className="mt-3 border border-border/50 rounded-lg bg-card overflow-hidden">
+        <div className="flex items-center gap-2 px-3 py-2 bg-muted/30 border-b border-border/40">
+          <Grid3X3 className="w-3.5 h-3.5 text-primary/70" />
+          <span className="text-xs font-semibold">
+            {zone.zoneCode} · {zone.zoneName}
+          </span>
+          <span className="text-[10px] text-muted-foreground">{zone.warehouseName}</span>
+          <span className="text-[10px] text-muted-foreground ml-auto">last {days}d · click Transfer to move stock</span>
+        </div>
+        <div className="divide-y divide-border/30">
+          {isLoading ? (
+            <div className="p-3 space-y-2">
+              {[...Array(4)].map((_, i) => (
+                <Skeleton key={i} className="h-8 w-full" />
+              ))}
+            </div>
+          ) : !bins?.length ? (
+            <p className="text-xs text-muted-foreground p-3">No bins in this zone.</p>
+          ) : (
+            bins.map((bin) => {
+              const pct = maxBinCount > 0 ? Math.round((bin.movementCount / maxBinCount) * 100) : 0;
+              const lastMoved = bin.lastMovementAt
+                ? new Date(bin.lastMovementAt).toLocaleDateString(undefined, {
+                    month: "short",
+                    day: "numeric",
+                  })
+                : null;
+              const isSelected = transferBin?.binId === bin.binId;
+              return (
+                <div
+                  key={bin.binId}
+                  className={`flex items-center gap-3 px-3 py-2 group transition-colors ${
+                    isSelected ? "bg-orange-50 dark:bg-orange-950/20" : "hover:bg-muted/30"
+                  }`}
+                >
+                  <span className="font-mono text-xs font-semibold w-12 shrink-0">{bin.binCode}</span>
+                  {bin.binName && (
+                    <span className="text-[11px] text-muted-foreground w-24 truncate shrink-0">
+                      {bin.binName}
+                    </span>
+                  )}
+                  <div className="flex-1 h-1.5 bg-muted/60 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-[#E8622A] transition-all"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  <span className="text-xs font-semibold tabular-nums w-6 text-right shrink-0">
+                    {bin.movementCount}
+                  </span>
+                  {lastMoved && (
+                    <span className="text-[10px] text-muted-foreground w-14 text-right shrink-0">
+                      {lastMoved}
+                    </span>
+                  )}
+                  <button
+                    className={`flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded border transition-colors shrink-0 ${
+                      isSelected
+                        ? "bg-[#E8622A] text-white border-[#E8622A]"
+                        : "text-muted-foreground border-border hover:border-[#E8622A] hover:text-[#E8622A] opacity-0 group-hover:opacity-100"
+                    }`}
+                    onClick={() => setTransferBin((prev) => (prev?.binId === bin.binId ? null : bin))}
+                  >
+                    <MoveRight className="w-3 h-3" />
+                    Transfer
+                  </button>
                 </div>
-                <span className="text-xs font-semibold tabular-nums w-6 text-right shrink-0">
-                  {bin.movementCount}
-                </span>
-                {lastMoved && (
-                  <span className="text-[10px] text-muted-foreground w-14 text-right shrink-0">{lastMoved}</span>
-                )}
-              </div>
-            );
-          })
-        )}
+              );
+            })
+          )}
+        </div>
       </div>
-    </div>
+
+      <QuickTransferDialog
+        open={!!transferBin}
+        onClose={() => setTransferBin(null)}
+        fromBin={transferBin}
+        fromZoneId={zone.zoneId}
+        days={days}
+      />
+    </>
   );
 }
 
