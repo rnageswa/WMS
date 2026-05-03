@@ -41,6 +41,7 @@ import SuppliersPage from "@/pages/suppliers";
 import SupplierDetailPage from "@/pages/supplier-detail";
 import SupplierPerformancePage from "@/pages/supplier-performance";
 import AdminPage from "@/pages/admin";
+import ReceivingSchedulePage from "@/pages/receiving-schedule";
 import SignInPage from "@/pages/sign-in";
 import SignUpPage from "@/pages/sign-up";
 import NotFound from "@/pages/not-found";
@@ -56,13 +57,9 @@ const clerkProxyUrl =
   import.meta.env.VITE_CLERK_PROXY_URL ||
   `${window.location.origin}/api/__clerk`;
 
-// Whitelabel publishable keys try to load Clerk JS from clerk.{custom-domain}
-// which is production-only. In dev, load from the npm CDN directly.
-// clerkJSUrl exists at runtime in IsomorphicClerkOptions but is omitted from
-// @clerk/react's public ClerkProvider types — spread via Record to bypass TS.
-const extraClerkProps: Record<string, unknown> = import.meta.env.DEV
-  ? { clerkJSUrl: `https://cdn.jsdelivr.net/npm/@clerk/clerk-js@6/dist/clerk.browser.js` }
-  : {};
+// No extra ClerkProvider props needed — pk_test_ keys use the standard Clerk
+// FAPI host (encoded in the key itself) which is publicly reachable.
+const extraClerkProps: Record<string, unknown> = {};
 
 function stripBase(path: string): string {
   return basePath && path.startsWith(basePath)
@@ -215,6 +212,7 @@ function AppRouter() {
             <Route path="/transfer"><AuthGuard><TransferPage /></AuthGuard></Route>
             <Route path="/reports"><AuthGuard><ReportsPage /></AuthGuard></Route>
             <Route path="/cycle-count"><AuthGuard><CycleCountPage /></AuthGuard></Route>
+            <Route path="/purchase-orders/schedule"><AuthGuard><ReceivingSchedulePage /></AuthGuard></Route>
             <Route path="/purchase-orders/reorder"><AuthGuard><ReorderSuggestionsPage /></AuthGuard></Route>
             <Route path="/purchase-orders/templates/new"><AuthGuard><PoTemplateNewPage /></AuthGuard></Route>
             <Route path="/purchase-orders/templates/:id"><AuthGuard><PoTemplateDetailPage /></AuthGuard></Route>
