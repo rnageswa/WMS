@@ -681,6 +681,28 @@ export interface ReorderSuggestions {
   groups: ReorderSuggestionGroup[];
 }
 
+export interface StockVelocityRow {
+  productId: string;
+  skuCode: string;
+  name: string;
+  category: string;
+  totalMoves: number;
+  unitsIn: number;
+  unitsOut: number;
+  totalUnitsMoved: number;
+  velocityPerDay: number;
+  currentStock: number;
+  reorderThreshold: number;
+  reorderRisk: boolean;
+  lastMovementAt: string | null;
+}
+
+export interface StockVelocityReport {
+  generatedAt: string;
+  days: number;
+  rows: StockVelocityRow[];
+}
+
 export interface SupplierPerformanceRow {
   supplierId: string | null;
   supplierName: string;
@@ -827,6 +849,13 @@ export type BulkDeletePurchaseOrdersBody = {
 
 export type BulkDeletePurchaseOrders200 = {
   deleted: number;
+};
+
+export type GetStockVelocityReportParams = {
+  /**
+   * Lookback window in days (default 30)
+   */
+  days?: number;
 };
 
 export type ScanLookupParams = {

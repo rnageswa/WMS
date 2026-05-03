@@ -9,7 +9,7 @@ import {
   warehousesTable,
   purchaseOrdersTable,
 } from "@workspace/db/schema";
-import { eq, and, sql, gte, lte, type SQL } from "drizzle-orm";
+import { eq, and, sql, gte, lte, count, max, type SQL } from "drizzle-orm";
 import { AdjustInventoryBody } from "@workspace/api-zod";
 import { z } from "zod";
 
@@ -496,6 +496,81 @@ router.get("/reports/stock-value", async (_req, res) => {
     categories,
     products: products.sort((a, b) => b.totalValue - a.totalValue),
   });
+});
+
+// ── GET /reports/stock-velocity ───────────────────────────────────────────────
+
+router.get("/reports/stock-velocity", async (req, res) => {
+  const days = Math.min(Math.max(parseInt((req.query.days as string) ?? "30", 10) || 30, 1), 365);
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+  // Movement aggregates per product in the window
+  const movementRows = await db
+    .select({
+      productId: inventoryMovementsTable.productId,
+      totalMoves: count(inventoryMovementsTable.id),
+      unitsIn: sql<number>`coalesce(sum(case when ${inventoryMovementsTable.movementType} = 'inbound' then abs(${inventoryMovementsTable.quantity}) else 0 end), 0)::int`,
+      unitsOut: sql<number>`coalesce(sum(case when ${inventoryMovementsTable.movementType} = 'outbound' then abs(${inventoryMovementsTable.quantity}) else 0 end), 0)::int`,
+      lastMovementAt: max(inventoryMovementsTable.createdAt),
+    })
+    .from(inventoryMovementsTable)
+    .where(gte(inventoryMovementsTable.createdAt, since))
+    .groupBy(inventoryMovementsTable.productId);
+
+  // Current stock per product
+  const stockRows = await db
+    .select({
+      productId: inventoryItemsTable.productId,
+      currentStock: sql<number>`coalesce(sum(${inventoryItemsTable.qtyOnHand}), 0)::int`,
+    })
+    .from(inventoryItemsTable)
+    .groupBy(inventoryItemsTable.productId);
+
+  // All active products (base list so zero-velocity products appear)
+  const products = await db
+    .select({
+      id: productsTable.id,
+      skuCode: productsTable.skuCode,
+      name: productsTable.name,
+      category: productsTable.category,
+      reorderThreshold: productsTable.reorderThreshold,
+    })
+    .from(productsTable)
+    .where(eq(productsTable.isActive, true))
+    .orderBy(productsTable.name);
+
+  const movMap = new Map(movementRows.map((r) => [r.productId, r]));
+  const stockMap = new Map(stockRows.map((r) => [r.productId, r.currentStock]));
+
+  const rows = products.map((p) => {
+    const m = movMap.get(p.id);
+    const totalMoves = m ? Number(m.totalMoves) : 0;
+    const unitsIn = m ? Number(m.unitsIn) : 0;
+    const unitsOut = m ? Number(m.unitsOut) : 0;
+    const totalUnitsMoved = unitsIn + unitsOut;
+    const velocityPerDay = days > 0 ? Math.round((totalUnitsMoved / days) * 100) / 100 : 0;
+    const currentStock = stockMap.get(p.id) ? Number(stockMap.get(p.id)) : 0;
+    return {
+      productId: p.id,
+      skuCode: p.skuCode,
+      name: p.name,
+      category: p.category ?? "Uncategorized",
+      totalMoves,
+      unitsIn,
+      unitsOut,
+      totalUnitsMoved,
+      velocityPerDay,
+      currentStock,
+      reorderThreshold: p.reorderThreshold,
+      reorderRisk: currentStock <= p.reorderThreshold,
+      lastMovementAt: m?.lastMovementAt ? (m.lastMovementAt as Date).toISOString() : null,
+    };
+  });
+
+  // Sort by totalUnitsMoved desc, then alpha
+  rows.sort((a, b) => b.totalUnitsMoved - a.totalUnitsMoved || a.name.localeCompare(b.name));
+
+  res.json({ generatedAt: new Date().toISOString(), days, rows });
 });
 
 // ── GET /reports/inventory-csv ────────────────────────────────────────────────

@@ -43,6 +43,7 @@ import type {
   DashboardSummary,
   ErrorResponse,
   GetBinActivityParams,
+  GetStockVelocityReportParams,
   GetZoneActivityParams,
   GoodsReceiptNote,
   HealthStatus,
@@ -71,6 +72,7 @@ import type {
   SendPoEmailBody,
   SendPoEmailResult,
   StockValueReport,
+  StockVelocityReport,
   SubmitCycleCountBody,
   Supplier,
   SupplierDetail,
@@ -4134,6 +4136,109 @@ export function useGetReorderSuggestions<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetReorderSuggestionsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary SKU movement velocity — units moved per day ranked by throughput
+ */
+export const getGetStockVelocityReportUrl = (
+  params?: GetStockVelocityReportParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/reports/stock-velocity?${stringifiedParams}`
+    : `/api/reports/stock-velocity`;
+};
+
+export const getStockVelocityReport = async (
+  params?: GetStockVelocityReportParams,
+  options?: RequestInit,
+): Promise<StockVelocityReport> => {
+  return customFetch<StockVelocityReport>(
+    getGetStockVelocityReportUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetStockVelocityReportQueryKey = (
+  params?: GetStockVelocityReportParams,
+) => {
+  return [`/api/reports/stock-velocity`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetStockVelocityReportQueryOptions = <
+  TData = Awaited<ReturnType<typeof getStockVelocityReport>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetStockVelocityReportParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getStockVelocityReport>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetStockVelocityReportQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getStockVelocityReport>>
+  > = ({ signal }) =>
+    getStockVelocityReport(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getStockVelocityReport>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetStockVelocityReportQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getStockVelocityReport>>
+>;
+export type GetStockVelocityReportQueryError = ErrorType<unknown>;
+
+/**
+ * @summary SKU movement velocity — units moved per day ranked by throughput
+ */
+
+export function useGetStockVelocityReport<
+  TData = Awaited<ReturnType<typeof getStockVelocityReport>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetStockVelocityReportParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getStockVelocityReport>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetStockVelocityReportQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

@@ -1186,6 +1186,26 @@ paths:
               schema:
                 $ref: "#/components/schemas/ReorderSuggestions"
 
+  /reports/stock-velocity:
+    get:
+      operationId: getStockVelocityReport
+      tags: [inventory]
+      summary: SKU movement velocity — units moved per day ranked by throughput
+      parameters:
+        - name: days
+          in: query
+          description: Lookback window in days (default 30)
+          schema:
+            type: integer
+            default: 30
+      responses:
+        "200":
+          description: Stock velocity report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StockVelocityReport"
+
   /reports/supplier-performance:
     get:
       operationId: getSupplierPerformanceReport
@@ -2787,6 +2807,66 @@ components:
           items:
             $ref: "#/components/schemas/ReorderSuggestionGroup"
       required: [generatedAt, totalItems, groups]
+
+    # ── Stock Velocity ────────────────────────────────────────────────────────
+
+    StockVelocityRow:
+      type: object
+      properties:
+        productId:
+          type: string
+        skuCode:
+          type: string
+        name:
+          type: string
+        category:
+          type: string
+        totalMoves:
+          type: integer
+        unitsIn:
+          type: integer
+        unitsOut:
+          type: integer
+        totalUnitsMoved:
+          type: integer
+        velocityPerDay:
+          type: number
+        currentStock:
+          type: integer
+        reorderThreshold:
+          type: integer
+        reorderRisk:
+          type: boolean
+        lastMovementAt:
+          type: string
+          nullable: true
+      required:
+        - productId
+        - skuCode
+        - name
+        - category
+        - totalMoves
+        - unitsIn
+        - unitsOut
+        - totalUnitsMoved
+        - velocityPerDay
+        - currentStock
+        - reorderThreshold
+        - reorderRisk
+        - lastMovementAt
+
+    StockVelocityReport:
+      type: object
+      properties:
+        generatedAt:
+          type: string
+        days:
+          type: integer
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/StockVelocityRow"
+      required: [generatedAt, days, rows]
 
     # ── Supplier Performance ──────────────────────────────────────────────────
 

@@ -1291,6 +1291,40 @@ export const GetReorderSuggestionsResponse = zod.object({
 });
 
 /**
+ * @summary SKU movement velocity — units moved per day ranked by throughput
+ */
+export const getStockVelocityReportQueryDaysDefault = 30;
+
+export const GetStockVelocityReportQueryParams = zod.object({
+  days: zod.coerce
+    .number()
+    .default(getStockVelocityReportQueryDaysDefault)
+    .describe("Lookback window in days (default 30)"),
+});
+
+export const GetStockVelocityReportResponse = zod.object({
+  generatedAt: zod.string(),
+  days: zod.number(),
+  rows: zod.array(
+    zod.object({
+      productId: zod.string(),
+      skuCode: zod.string(),
+      name: zod.string(),
+      category: zod.string(),
+      totalMoves: zod.number(),
+      unitsIn: zod.number(),
+      unitsOut: zod.number(),
+      totalUnitsMoved: zod.number(),
+      velocityPerDay: zod.number(),
+      currentStock: zod.number(),
+      reorderThreshold: zod.number(),
+      reorderRisk: zod.boolean(),
+      lastMovementAt: zod.string().nullable(),
+    }),
+  ),
+});
+
+/**
  * @summary Supplier performance metrics derived from purchase order history
  */
 export const GetSupplierPerformanceReportResponse = zod.object({

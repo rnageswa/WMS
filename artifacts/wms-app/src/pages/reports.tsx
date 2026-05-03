@@ -3,6 +3,8 @@ import { Link } from "wouter";
 import {
   useGetStockValueReport,
   useGetSupplierPerformanceReport,
+  useGetStockVelocityReport,
+  type StockVelocityRow,
 } from "@workspace/api-client-react";
 import { Layout, PageHeader } from "@/components/layout";
 import { Button } from "@/components/ui/button";
@@ -40,6 +42,10 @@ import {
   CheckCircle,
   Clock,
   PackageCheck,
+  Zap,
+  ArrowUp,
+  ArrowDown,
+  Activity,
 } from "lucide-react";
 
 const CHART_COLORS = [
@@ -504,6 +510,293 @@ function SupplierPerformanceTab() {
   );
 }
 
+// ─── Stock Velocity Tab ───────────────────────────────────────────────────────
+
+const VELOCITY_DAYS = [
+  { label: "30d", value: 30 },
+  { label: "90d", value: 90 },
+];
+
+function velocityTier(row: StockVelocityRow, maxVel: number): "fast" | "medium" | "slow" | "idle" {
+  if (row.totalUnitsMoved === 0) return "idle";
+  const ratio = maxVel > 0 ? row.velocityPerDay / maxVel : 0;
+  if (ratio >= 0.6) return "fast";
+  if (ratio >= 0.25) return "medium";
+  return "slow";
+}
+
+const TIER_STYLES = {
+  fast:   { badge: "bg-[#E8622A]/10 text-[#E8622A] border-[#E8622A]/20", bar: "#E8622A",  dot: "bg-[#E8622A]" },
+  medium: { badge: "bg-amber-50 text-amber-700 border-amber-200",          bar: "#d97706",  dot: "bg-amber-500" },
+  slow:   { badge: "bg-muted/60 text-muted-foreground border-border",       bar: "#9ca3af",  dot: "bg-gray-400" },
+  idle:   { badge: "bg-muted/40 text-muted-foreground/60 border-border/40", bar: "#e5e7eb",  dot: "bg-gray-200" },
+};
+
+function VelocityTooltip({ active, payload }: any) {
+  if (!active || !payload?.length) return null;
+  const d = payload[0].payload as StockVelocityRow;
+  return (
+    <div className="bg-white border border-border rounded-lg shadow-lg p-3 text-sm max-w-[200px]">
+      <p className="font-semibold truncate">{d.name}</p>
+      <p className="text-muted-foreground text-xs font-mono">{d.skuCode}</p>
+      <div className="mt-1.5 space-y-0.5 text-xs">
+        <p>
+          <span className="text-green-600 font-medium">↑ {d.unitsIn}</span>
+          {" in · "}
+          <span className="text-red-500 font-medium">↓ {d.unitsOut}</span>
+          {" out"}
+        </p>
+        <p className="text-muted-foreground">{d.velocityPerDay} units/day · {d.totalMoves} movements</p>
+      </div>
+    </div>
+  );
+}
+
+function StockVelocityTab() {
+  const [days, setDays] = useState(30);
+  const { data, isLoading } = useGetStockVelocityReport({ days });
+
+  const rows = data?.rows ?? [];
+  const maxVel = rows.length > 0 ? Math.max(...rows.map((r) => r.velocityPerDay), 0) : 0;
+
+  const fastMovers   = rows.filter((r) => velocityTier(r, maxVel) === "fast");
+  const riskRows     = rows.filter((r) => r.reorderRisk && r.totalUnitsMoved > 0);
+  const activeMovers = rows.filter((r) => r.totalUnitsMoved > 0);
+  const avgVel =
+    activeMovers.length > 0
+      ? (activeMovers.reduce((s, r) => s + r.velocityPerDay, 0) / activeMovers.length).toFixed(2)
+      : "0.00";
+
+  const chartData = rows.slice(0, 12);
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="text-xs text-muted-foreground">
+          {data ? (
+            <>Generated {new Date(data.generatedAt).toLocaleString()} · last {days} days</>
+          ) : (
+            <Skeleton className="h-4 w-52" />
+          )}
+        </div>
+        <div className="flex items-center gap-1 border border-border rounded-md p-0.5 bg-muted/30">
+          {VELOCITY_DAYS.map((opt) => (
+            <button
+              key={opt.value}
+              className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                days === opt.value
+                  ? "bg-[#E8622A] text-white"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              onClick={() => setDays(opt.value)}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Summary cards */}
+      <div className="grid grid-cols-4 gap-4">
+        {[
+          {
+            label: "SKUs Analyzed",
+            icon: Package,
+            value: isLoading ? null : String(rows.length),
+            sub: `${activeMovers.length} with activity`,
+            accent: false, warn: false,
+          },
+          {
+            label: "Avg Velocity",
+            icon: Activity,
+            value: isLoading ? null : `${avgVel}/day`,
+            sub: "units moved per day",
+            accent: false, warn: false,
+          },
+          {
+            label: "Fast Movers",
+            icon: Zap,
+            value: isLoading ? null : String(fastMovers.length),
+            sub: "top throughput SKUs",
+            accent: fastMovers.length > 0, warn: false,
+          },
+          {
+            label: "Reorder Risk",
+            icon: AlertTriangle,
+            value: isLoading ? null : String(riskRows.length),
+            sub: "active + below threshold",
+            accent: false, warn: riskRows.length > 0,
+          },
+        ].map(({ label, icon: Icon, value, sub, accent, warn }) => (
+          <Card key={label} className="border-border/60">
+            <CardContent className="px-5 py-4 flex items-center gap-3">
+              <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
+                warn ? "bg-amber-50" : accent ? "bg-[#E8622A]/10" : "bg-muted"
+              }`}>
+                <Icon className={`w-4 h-4 ${warn ? "text-amber-600" : accent ? "text-[#E8622A]" : "text-muted-foreground"}`} />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">{label}</p>
+                {value !== null ? (
+                  <p className={`text-xl font-bold tabular-nums ${warn && riskRows.length > 0 ? "text-amber-600" : ""}`}>
+                    {value}
+                  </p>
+                ) : (
+                  <Skeleton className="h-6 w-16 mt-0.5" />
+                )}
+                <p className="text-[10px] text-muted-foreground">{sub}</p>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Bar chart — top SKUs */}
+      <Card className="border-border/60">
+        <CardHeader className="pb-2 pt-4 px-5">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-muted-foreground" />
+            Top SKUs by Units Moved
+            <span className="text-xs font-normal text-muted-foreground ml-1">(inbound + outbound)</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="px-5 pb-5">
+          {isLoading ? (
+            <Skeleton className="h-52 w-full" />
+          ) : !chartData.length || chartData.every((r) => r.totalUnitsMoved === 0) ? (
+            <p className="text-sm text-center text-muted-foreground py-16">No movement data for this period</p>
+          ) : (
+            <>
+              <div className="flex items-center gap-3 mb-3 text-[11px] text-muted-foreground">
+                {(["fast", "medium", "slow", "idle"] as const).map((t) => (
+                  <span key={t} className="flex items-center gap-1">
+                    <span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ backgroundColor: TIER_STYLES[t].bar }} />
+                    {t.charAt(0).toUpperCase() + t.slice(1)}
+                  </span>
+                ))}
+              </div>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 32 }} barCategoryGap="30%">
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                  <XAxis
+                    dataKey="skuCode"
+                    tick={{ fontSize: 10, fill: "#6b7280", fontFamily: "monospace" }}
+                    axisLine={false}
+                    tickLine={false}
+                    angle={-35}
+                    textAnchor="end"
+                    interval={0}
+                  />
+                  <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} width={32} />
+                  <Tooltip content={<VelocityTooltip />} cursor={{ fill: "#f8fafc" }} />
+                  <Bar dataKey="totalUnitsMoved" radius={[4, 4, 0, 0]}>
+                    {chartData.map((row, i) => (
+                      <Cell key={i} fill={TIER_STYLES[velocityTier(row, maxVel)].bar} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Full SKU table */}
+      <Card className="border-border/60">
+        <CardHeader className="pb-2 pt-4 px-5">
+          <CardTitle className="text-sm font-semibold">All SKUs — Velocity Ranking</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0 pb-1">
+          {isLoading ? (
+            <div className="px-5 py-4 space-y-2">
+              {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-9 w-full" />)}
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/40 hover:bg-muted/40">
+                  {["#", "SKU", "Product", "Category", "In", "Out", "Total", "Velocity", "Stock", "Risk", "Last Move"].map((h, i) => (
+                    <TableHead
+                      key={h}
+                      className={`text-xs uppercase tracking-wide text-muted-foreground font-semibold ${
+                        i >= 4 && i <= 8 ? "text-right" : ""
+                      } ${i === 0 ? "pl-5 w-[1%] whitespace-nowrap" : ""}`}
+                    >
+                      {h}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((row, idx) => {
+                  const tier = velocityTier(row, maxVel);
+                  const styles = TIER_STYLES[tier];
+                  const barPct = maxVel > 0 ? (row.velocityPerDay / maxVel) * 100 : 0;
+                  const lastMove = row.lastMovementAt
+                    ? new Date(row.lastMovementAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+                    : null;
+                  return (
+                    <TableRow key={row.productId} className="hover:bg-muted/20">
+                      <TableCell className="text-xs text-muted-foreground tabular-nums pl-5">{idx + 1}</TableCell>
+                      <TableCell className="font-mono text-xs font-semibold">{row.skuCode}</TableCell>
+                      <TableCell className="text-sm max-w-[160px] truncate">{row.name}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-[10px] font-normal">{row.category}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-sm">
+                        <span className="text-green-600 font-medium flex items-center justify-end gap-0.5">
+                          <ArrowUp className="w-3 h-3 shrink-0" />{row.unitsIn}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-sm">
+                        <span className="text-red-500 font-medium flex items-center justify-end gap-0.5">
+                          <ArrowDown className="w-3 h-3 shrink-0" />{row.unitsOut}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-sm font-semibold">{row.totalUnitsMoved}</TableCell>
+                      <TableCell className="text-right min-w-[130px]">
+                        <div className="flex items-center gap-2 justify-end">
+                          <div className="w-14 h-1.5 bg-muted/60 rounded-full overflow-hidden shrink-0">
+                            <div
+                              className="h-full rounded-full"
+                              style={{ width: `${barPct}%`, backgroundColor: styles.bar }}
+                            />
+                          </div>
+                          <Badge className={`${styles.badge} text-[10px] font-semibold tabular-nums border shrink-0`}>
+                            {row.velocityPerDay}/d
+                          </Badge>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-sm">
+                        <span className={row.reorderRisk ? "text-amber-600 font-semibold" : ""}>{row.currentStock}</span>
+                        <span className="text-[10px] text-muted-foreground ml-1">/ {row.reorderThreshold}</span>
+                      </TableCell>
+                      <TableCell>
+                        {row.reorderRisk ? (
+                          <Badge className="bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-50 text-[10px] font-semibold gap-0.5 border">
+                            <AlertTriangle className="w-2.5 h-2.5" />
+                            Low Stock
+                          </Badge>
+                        ) : (
+                          <span className="text-[10px] text-muted-foreground/40">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right text-xs text-muted-foreground">
+                        {lastMove ?? <span className="opacity-40">never</span>}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ReportsPage() {
@@ -524,12 +817,19 @@ export default function ReportsPage() {
               <Truck className="w-3.5 h-3.5" />
               Supplier Performance
             </TabsTrigger>
+            <TabsTrigger value="stock-velocity" className="gap-1.5">
+              <Zap className="w-3.5 h-3.5" />
+              Stock Velocity
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="stock-value">
             <StockValueTab />
           </TabsContent>
           <TabsContent value="supplier-performance">
             <SupplierPerformanceTab />
+          </TabsContent>
+          <TabsContent value="stock-velocity">
+            <StockVelocityTab />
           </TabsContent>
         </Tabs>
       </div>
