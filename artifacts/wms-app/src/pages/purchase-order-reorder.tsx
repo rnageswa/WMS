@@ -5,6 +5,8 @@ import {
   useCreatePurchaseOrder,
   useSendPurchaseOrderEmail,
   useListSuppliers,
+  createPurchaseOrder,
+  createPoTemplate,
 } from "@workspace/api-client-react";
 import { Layout, PageHeader } from "@/components/layout";
 import { Button } from "@/components/ui/button";
@@ -45,6 +47,9 @@ import {
   ArrowRight,
   Loader2,
   BellRing,
+  BookmarkPlus,
+  Layers,
+  ExternalLink,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -176,6 +181,216 @@ function EmailPoDialog({
   );
 }
 
+// ── Save-as-template dialog ────────────────────────────────────────────────────
+
+function SaveAsTemplateDialog({
+  group,
+  itemStates,
+  onClose,
+}: {
+  group: SuggestionGroup;
+  itemStates: Map<string, ItemState>;
+  onClose: () => void;
+}) {
+  const { toast } = useToast();
+  const [name, setName] = useState(
+    group.supplierName ? `${group.supplierName} — Reorder Template` : "Reorder Template"
+  );
+  const [saving, setSaving] = useState(false);
+
+  const selectedItems = group.items.filter(
+    (item) => itemStates.get(item.productId)?.selected !== false
+  );
+
+  const handleSave = async () => {
+    if (!name.trim() || selectedItems.length === 0) return;
+    setSaving(true);
+    try {
+      await createPoTemplate({
+        name: name.trim(),
+        supplierId: group.supplierId ?? undefined,
+        supplierName: !group.supplierId && group.supplierName ? group.supplierName : undefined,
+        lines: selectedItems.map((item) => ({
+          productId: item.productId,
+          defaultQty: itemStates.get(item.productId)?.qty ?? item.suggestedQty,
+          defaultUnitCost: item.lastUnitCost ?? undefined,
+        })),
+      });
+      toast({ title: `Template "${name.trim()}" saved with ${selectedItems.length} item${selectedItems.length !== 1 ? "s" : ""}` });
+      onClose();
+    } catch {
+      toast({ title: "Failed to save template", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open onOpenChange={(open) => { if (!open && !saving) onClose(); }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-10 h-10 rounded-full bg-[#0F2540]/10 border border-[#0F2540]/20 flex items-center justify-center shrink-0">
+              <BookmarkPlus className="w-5 h-5 text-[#0F2540]" />
+            </div>
+            <div>
+              <DialogTitle className="text-base">Save as Template</DialogTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {selectedItems.length} item{selectedItems.length !== 1 ? "s" : ""} · {group.supplierName ?? "No supplier"}
+              </p>
+            </div>
+          </div>
+        </DialogHeader>
+
+        <div className="space-y-4 py-1">
+          <p className="text-sm text-muted-foreground">
+            Save the currently selected items and quantities as a reusable PO template for future orders.
+          </p>
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Template name</Label>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && name.trim() && !saving) handleSave(); }}
+              className="h-9 text-sm"
+              disabled={saving}
+              autoFocus
+            />
+          </div>
+          <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 space-y-1">
+            {selectedItems.slice(0, 4).map((item) => (
+              <div key={item.productId} className="flex items-center justify-between text-xs">
+                <span className="text-foreground truncate mr-2">{item.name}</span>
+                <span className="text-muted-foreground shrink-0">qty {itemStates.get(item.productId)?.qty ?? item.suggestedQty}</span>
+              </div>
+            ))}
+            {selectedItems.length > 4 && (
+              <p className="text-[10px] text-muted-foreground">+{selectedItems.length - 4} more…</p>
+            )}
+          </div>
+        </div>
+
+        <DialogFooter className="gap-2 flex-row justify-end">
+          <Button variant="ghost" size="sm" onClick={onClose} disabled={saving} className="text-xs h-8">
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            disabled={!name.trim() || saving || selectedItems.length === 0}
+            onClick={handleSave}
+            className="bg-[#0F2540] hover:bg-[#0F2540]/90 text-white h-8 text-xs gap-1.5"
+          >
+            {saving ? (
+              <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving…</>
+            ) : (
+              <><BookmarkPlus className="w-3.5 h-3.5" /> Save Template</>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Bulk-create results dialog ─────────────────────────────────────────────────
+
+interface BulkPoResult {
+  supplierId: string | null;
+  supplierName: string | null;
+  poId?: string;
+  poNumber?: string;
+  lineCount?: number;
+  error?: string;
+}
+
+function BulkResultsDialog({
+  results,
+  onClose,
+}: {
+  results: BulkPoResult[];
+  onClose: () => void;
+}) {
+  const [, navigate] = useLocation();
+  const succeeded = results.filter((r) => r.poId);
+  const failed = results.filter((r) => r.error);
+
+  return (
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <div className="flex items-center gap-3 mb-1">
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
+              failed.length === 0 ? "bg-emerald-50 border border-emerald-200" : "bg-amber-50 border border-amber-200"
+            }`}>
+              {failed.length === 0
+                ? <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                : <AlertTriangle className="w-5 h-5 text-amber-600" />
+              }
+            </div>
+            <div>
+              <DialogTitle className="text-base">
+                {succeeded.length} Draft PO{succeeded.length !== 1 ? "s" : ""} Created
+              </DialogTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {failed.length > 0 ? `${failed.length} failed — see below` : "All purchase orders created successfully"}
+              </p>
+            </div>
+          </div>
+        </DialogHeader>
+
+        <div className="space-y-2 py-1 max-h-64 overflow-y-auto">
+          {results.map((r, i) => (
+            <div
+              key={i}
+              className={`flex items-center justify-between px-3 py-2 rounded-lg border text-sm ${
+                r.poId ? "border-border/60 bg-muted/20" : "border-red-200 bg-red-50/30"
+              }`}
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                {r.poId
+                  ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  : <AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                }
+                <div className="min-w-0">
+                  <p className="font-medium truncate">{r.supplierName ?? "Unknown Supplier"}</p>
+                  {r.poNumber && (
+                    <p className="text-[10px] font-mono text-muted-foreground">{r.poNumber} · {r.lineCount} line{r.lineCount !== 1 ? "s" : ""}</p>
+                  )}
+                  {r.error && <p className="text-[10px] text-red-600">{r.error}</p>}
+                </div>
+              </div>
+              {r.poId && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs gap-1 shrink-0 ml-2"
+                  onClick={() => { onClose(); navigate(`/purchase-orders/${r.poId}`); }}
+                >
+                  View <ExternalLink className="w-3 h-3" />
+                </Button>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <DialogFooter className="gap-2 flex-row justify-end">
+          <Button variant="ghost" size="sm" onClick={onClose} className="text-xs h-8">
+            Close
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => { onClose(); navigate("/purchase-orders"); }}
+            className="bg-[#E8622A] hover:bg-[#E8622A]/90 text-white h-8 text-xs gap-1.5"
+          >
+            <ShoppingCart className="w-3.5 h-3.5" />
+            View All POs
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ── Per-supplier group card ───────────────────────────────────────────────────
 
 function SupplierGroupCard({
@@ -186,6 +401,7 @@ function SupplierGroupCard({
   onQtyChange,
   onCreatePo,
   creating,
+  onSaveAsTemplate,
 }: {
   group: SuggestionGroup;
   itemStates: Map<string, ItemState>;
@@ -194,6 +410,7 @@ function SupplierGroupCard({
   onQtyChange: (productId: string, qty: number) => void;
   onCreatePo: () => void;
   creating: boolean;
+  onSaveAsTemplate: () => void;
 }) {
   const selectedItems = group.items.filter((item) => itemStates.get(item.productId)?.selected !== false);
   const allSelected = selectedItems.length === group.items.length;
@@ -235,6 +452,18 @@ function SupplierGroupCard({
             <span className="text-xs text-muted-foreground">
               Est. {fmtCurrency(totalEstCost)}
             </span>
+          )}
+          {someSelected && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={creating}
+              onClick={onSaveAsTemplate}
+              className="h-8 text-xs gap-1.5 border-[#0F2540]/30 text-[#0F2540] hover:bg-[#0F2540]/5"
+            >
+              <BookmarkPlus className="w-3.5 h-3.5" />
+              Save as Template
+            </Button>
           )}
           {hasSupplier ? (
             <Button
@@ -467,6 +696,13 @@ export default function ReorderSuggestionsPage() {
   const [createdPoInfo, setCreatedPoInfo] = useState<CreatedPoInfo | null>(null);
   const [sendingEmail, setSendingEmail] = useState(false);
 
+  // Bulk create state
+  const [bulkCreating, setBulkCreating] = useState(false);
+  const [bulkResults, setBulkResults] = useState<BulkPoResult[] | null>(null);
+
+  // Save-as-template state
+  const [saveTemplateGroup, setSaveTemplateGroup] = useState<SuggestionGroup | null>(null);
+
   const { mutate: sendEmail } = useSendPurchaseOrderEmail({
     mutation: {
       onSuccess: (result) => {
@@ -595,6 +831,53 @@ export default function ReorderSuggestionsPage() {
     return sum + group.items.filter((item) => states.get(item.productId)?.selected !== false).length;
   }, 0);
 
+  // Groups that have a supplier + at least one selected item — eligible for bulk create
+  const bulkEligibleGroups = groups.filter((group) => {
+    if (!(group.supplierId || group.supplierName)) return false;
+    const states = getGroupItemStates(group);
+    return group.items.some((item) => states.get(item.productId)?.selected !== false);
+  });
+
+  async function handleBulkCreate() {
+    if (bulkEligibleGroups.length === 0) return;
+    setBulkCreating(true);
+    const results = await Promise.allSettled(
+      bulkEligibleGroups.map((group) => {
+        const states = getGroupItemStates(group);
+        const selectedItems = group.items.filter((item) => states.get(item.productId)?.selected !== false);
+        return createPurchaseOrder({
+          supplierId: group.supplierId ?? undefined,
+          supplierName: group.supplierName && !group.supplierId ? group.supplierName : undefined,
+          lines: selectedItems.map((item) => ({
+            productId: item.productId,
+            qtyOrdered: states.get(item.productId)?.qty ?? item.suggestedQty,
+            unitCost: item.lastUnitCost ?? undefined,
+          })),
+        }).then((po) => ({ group, po }));
+      })
+    );
+    setBulkCreating(false);
+    setBulkResults(
+      bulkEligibleGroups.map((group, i) => {
+        const r = results[i];
+        if (r.status === "fulfilled") {
+          return {
+            supplierId: group.supplierId,
+            supplierName: group.supplierName,
+            poId: r.value.po.id,
+            poNumber: r.value.po.poNumber,
+            lineCount: (r.value.po as any).lineCount ?? (r.value.po as any).lines?.length,
+          };
+        }
+        return {
+          supplierId: group.supplierId,
+          supplierName: group.supplierName,
+          error: "Failed to create",
+        };
+      })
+    );
+  }
+
   return (
     <Layout>
       <PageHeader
@@ -608,6 +891,20 @@ export default function ReorderSuggestionsPage() {
         }
         action={
           <div className="flex items-center gap-2">
+            {!isLoading && bulkEligibleGroups.length > 1 && (
+              <Button
+                size="sm"
+                disabled={bulkCreating}
+                onClick={handleBulkCreate}
+                className="gap-1.5 bg-[#0F2540] hover:bg-[#0F2540]/90 text-white h-8 text-xs"
+              >
+                {bulkCreating ? (
+                  <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Creating…</>
+                ) : (
+                  <><Layers className="w-3.5 h-3.5" /> Create All {bulkEligibleGroups.length} Draft POs</>
+                )}
+              </Button>
+            )}
             {!isLoading && (suggestions?.totalItems ?? 0) > 0 && (
               <Button
                 variant="outline"
@@ -685,6 +982,7 @@ export default function ReorderSuggestionsPage() {
                   onQtyChange={(productId, qty) => handleQtyChange(group, productId, qty)}
                   onCreatePo={() => handleCreatePo(group)}
                   creating={creatingGroup === key}
+                  onSaveAsTemplate={() => setSaveTemplateGroup(group)}
                 />
               );
             })}
@@ -723,6 +1021,23 @@ export default function ReorderSuggestionsPage() {
             setCreatedPoInfo(null);
             navigate(`/purchase-orders/${id}`);
           }}
+        />
+      )}
+
+      {/* Bulk create results dialog */}
+      {bulkResults && (
+        <BulkResultsDialog
+          results={bulkResults}
+          onClose={() => setBulkResults(null)}
+        />
+      )}
+
+      {/* Save as template dialog */}
+      {saveTemplateGroup && (
+        <SaveAsTemplateDialog
+          group={saveTemplateGroup}
+          itemStates={getGroupItemStates(saveTemplateGroup)}
+          onClose={() => setSaveTemplateGroup(null)}
         />
       )}
     </Layout>
