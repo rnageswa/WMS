@@ -580,20 +580,31 @@ function StockVelocityTab() {
             <Skeleton className="h-4 w-52" />
           )}
         </div>
-        <div className="flex items-center gap-1 border border-border rounded-md p-0.5 bg-muted/30">
-          {VELOCITY_DAYS.map((opt) => (
-            <button
-              key={opt.value}
-              className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                days === opt.value
-                  ? "bg-[#E8622A] text-white"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-              onClick={() => setDays(opt.value)}
-            >
-              {opt.label}
-            </button>
-          ))}
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => window.open(`/api/reports/stock-velocity-csv?days=${days}`, "_blank")}
+          >
+            <Download className="w-3.5 h-3.5" />
+            Export CSV
+          </Button>
+          <div className="flex items-center gap-1 border border-border rounded-md p-0.5 bg-muted/30">
+            {VELOCITY_DAYS.map((opt) => (
+              <button
+                key={opt.value}
+                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                  days === opt.value
+                    ? "bg-[#E8622A] text-white"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                onClick={() => setDays(opt.value)}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

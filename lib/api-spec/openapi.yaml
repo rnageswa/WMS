@@ -1206,6 +1206,26 @@ paths:
               schema:
                 $ref: "#/components/schemas/StockVelocityReport"
 
+  /reports/stock-velocity-csv:
+    get:
+      operationId: getStockVelocityCsv
+      tags: [inventory]
+      summary: Stock velocity report as CSV download
+      parameters:
+        - name: days
+          in: query
+          description: Lookback window in days (default 30)
+          schema:
+            type: integer
+            default: 30
+      responses:
+        "200":
+          description: CSV file
+          content:
+            text/csv:
+              schema:
+                type: string
+
   /reports/supplier-performance:
     get:
       operationId: getSupplierPerformanceReport

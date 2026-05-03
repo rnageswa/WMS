@@ -573,6 +573,93 @@ router.get("/reports/stock-velocity", async (req, res) => {
   res.json({ generatedAt: new Date().toISOString(), days, rows });
 });
 
+// ── GET /reports/stock-velocity-csv ──────────────────────────────────────────
+
+router.get("/reports/stock-velocity-csv", async (req, res) => {
+  const days = Math.min(Math.max(parseInt((req.query.days as string) ?? "30", 10) || 30, 1), 365);
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+  const movementRows = await db
+    .select({
+      productId: inventoryMovementsTable.productId,
+      totalMoves: count(inventoryMovementsTable.id),
+      unitsIn: sql<number>`coalesce(sum(case when ${inventoryMovementsTable.movementType} = 'inbound' then abs(${inventoryMovementsTable.quantity}) else 0 end), 0)::int`,
+      unitsOut: sql<number>`coalesce(sum(case when ${inventoryMovementsTable.movementType} = 'outbound' then abs(${inventoryMovementsTable.quantity}) else 0 end), 0)::int`,
+      lastMovementAt: max(inventoryMovementsTable.createdAt),
+    })
+    .from(inventoryMovementsTable)
+    .where(gte(inventoryMovementsTable.createdAt, since))
+    .groupBy(inventoryMovementsTable.productId);
+
+  const stockRows = await db
+    .select({
+      productId: inventoryItemsTable.productId,
+      currentStock: sql<number>`coalesce(sum(${inventoryItemsTable.qtyOnHand}), 0)::int`,
+    })
+    .from(inventoryItemsTable)
+    .groupBy(inventoryItemsTable.productId);
+
+  const products = await db
+    .select({
+      id: productsTable.id,
+      skuCode: productsTable.skuCode,
+      name: productsTable.name,
+      category: productsTable.category,
+      reorderThreshold: productsTable.reorderThreshold,
+    })
+    .from(productsTable)
+    .where(eq(productsTable.isActive, true))
+    .orderBy(productsTable.name);
+
+  const movMap = new Map(movementRows.map((r) => [r.productId, r]));
+  const stockMap = new Map(stockRows.map((r) => [r.productId, r.currentStock]));
+
+  const rows = products.map((p) => {
+    const m = movMap.get(p.id);
+    const unitsIn = m ? Number(m.unitsIn) : 0;
+    const unitsOut = m ? Number(m.unitsOut) : 0;
+    const totalUnitsMoved = unitsIn + unitsOut;
+    const velocityPerDay = days > 0 ? Math.round((totalUnitsMoved / days) * 100) / 100 : 0;
+    const currentStock = stockMap.get(p.id) ? Number(stockMap.get(p.id)) : 0;
+    return {
+      skuCode: p.skuCode,
+      name: p.name,
+      category: p.category ?? "Uncategorized",
+      totalMoves: m ? Number(m.totalMoves) : 0,
+      unitsIn,
+      unitsOut,
+      totalUnitsMoved,
+      velocityPerDay,
+      currentStock,
+      reorderThreshold: p.reorderThreshold,
+      reorderRisk: currentStock <= p.reorderThreshold ? "Yes" : "No",
+      lastMovementAt: m?.lastMovementAt ? (m.lastMovementAt as Date).toISOString().slice(0, 10) : "",
+    };
+  });
+
+  rows.sort((a, b) => b.totalUnitsMoved - a.totalUnitsMoved || a.name.localeCompare(b.name));
+
+  const escape = (v: string | number) => {
+    const s = String(v);
+    return s.includes(",") || s.includes('"') || s.includes("\n") ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+
+  const headers = ["Rank", "SKU", "Product", "Category", "Units In", "Units Out", "Total Moved", "Velocity (units/day)", "Current Stock", "Reorder Threshold", "Reorder Risk", "Last Movement"];
+  const csvLines = [
+    headers.join(","),
+    ...rows.map((r, i) =>
+      [i + 1, r.skuCode, r.name, r.category, r.unitsIn, r.unitsOut, r.totalUnitsMoved, r.velocityPerDay, r.currentStock, r.reorderThreshold, r.reorderRisk, r.lastMovementAt]
+        .map(escape)
+        .join(",")
+    ),
+  ];
+
+  const filename = `stock-velocity-${days}d-${new Date().toISOString().slice(0, 10)}.csv`;
+  res.setHeader("Content-Type", "text/csv");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  res.send(csvLines.join("\r\n"));
+});
+
 // ── GET /reports/inventory-csv ────────────────────────────────────────────────
 
 router.get("/reports/inventory-csv", async (_req, res) => {
