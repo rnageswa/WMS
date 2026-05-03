@@ -681,6 +681,48 @@ export interface ReorderSuggestions {
   groups: ReorderSuggestionGroup[];
 }
 
+export interface VelocityAlertConfig {
+  id: string;
+  thresholdDays: number;
+  lookbackDays: number;
+  recipientEmail: string;
+  enabled: boolean;
+  lastSentAt: string | null;
+  updatedAt: string;
+}
+
+export interface UpdateVelocityAlertConfigBody {
+  thresholdDays?: number;
+  lookbackDays?: number;
+  recipientEmail?: string;
+  enabled?: boolean;
+}
+
+export interface VelocityAlertSendResult {
+  sent: boolean;
+  reason: string | null;
+  message: string | null;
+  skuCount: number | null;
+  to: string | null;
+}
+
+export interface VelocityAlertPreviewSku {
+  skuCode: string;
+  name: string;
+  category: string;
+  velocityPerDay: number;
+  currentStock: number;
+  reorderThreshold: number;
+  daysOfStockRemaining: number;
+}
+
+export interface VelocityAlertPreview {
+  thresholdDays: number;
+  lookbackDays: number;
+  atRiskCount: number;
+  skus: VelocityAlertPreviewSku[];
+}
+
 export interface StockVelocityRow {
   productId: string;
   skuCode: string;
@@ -864,6 +906,11 @@ export type GetStockVelocityCsvParams = {
    * Lookback window in days (default 30)
    */
   days?: number;
+};
+
+export type PreviewVelocityAlertParams = {
+  threshold?: number;
+  lookback?: number;
 };
 
 export type ScanLookupParams = {

@@ -1338,6 +1338,75 @@ export const GetStockVelocityCsvQueryParams = zod.object({
 });
 
 /**
+ * @summary Get velocity alert email configuration
+ */
+export const GetVelocityAlertConfigResponse = zod.object({
+  id: zod.string(),
+  thresholdDays: zod.number(),
+  lookbackDays: zod.number(),
+  recipientEmail: zod.string(),
+  enabled: zod.boolean(),
+  lastSentAt: zod.string().nullable(),
+  updatedAt: zod.string(),
+});
+
+/**
+ * @summary Update velocity alert configuration
+ */
+export const UpdateVelocityAlertConfigBody = zod.object({
+  thresholdDays: zod.number().optional(),
+  lookbackDays: zod.number().optional(),
+  recipientEmail: zod.string().optional(),
+  enabled: zod.boolean().optional(),
+});
+
+export const UpdateVelocityAlertConfigResponse = zod.object({
+  id: zod.string(),
+  thresholdDays: zod.number(),
+  lookbackDays: zod.number(),
+  recipientEmail: zod.string(),
+  enabled: zod.boolean(),
+  lastSentAt: zod.string().nullable(),
+  updatedAt: zod.string(),
+});
+
+/**
+ * @summary Manually trigger a velocity alert email
+ */
+export const SendVelocityAlertResponse = zod.object({
+  sent: zod.boolean(),
+  reason: zod.string().nullable(),
+  message: zod.string().nullable(),
+  skuCount: zod.number().nullable(),
+  to: zod.string().nullable(),
+});
+
+/**
+ * @summary Preview which SKUs would be included in a velocity alert
+ */
+export const PreviewVelocityAlertQueryParams = zod.object({
+  threshold: zod.coerce.number().optional(),
+  lookback: zod.coerce.number().optional(),
+});
+
+export const PreviewVelocityAlertResponse = zod.object({
+  thresholdDays: zod.number(),
+  lookbackDays: zod.number(),
+  atRiskCount: zod.number(),
+  skus: zod.array(
+    zod.object({
+      skuCode: zod.string(),
+      name: zod.string(),
+      category: zod.string(),
+      velocityPerDay: zod.number(),
+      currentStock: zod.number(),
+      reorderThreshold: zod.number(),
+      daysOfStockRemaining: zod.number(),
+    }),
+  ),
+});
+
+/**
  * @summary Supplier performance metrics derived from purchase order history
  */
 export const GetSupplierPerformanceReportResponse = zod.object({

@@ -2,9 +2,17 @@ import { Router } from "express";
 import { Resend } from "resend";
 import { z } from "zod";
 import { db } from "@workspace/db";
-import { productsTable, inventoryItemsTable, binsTable, zonesTable, warehousesTable } from "@workspace/db/schema";
+import {
+  productsTable,
+  inventoryItemsTable,
+  binsTable,
+  zonesTable,
+  warehousesTable,
+  velocityAlertSettingsTable,
+} from "@workspace/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { logger } from "../lib/logger";
+import { getOrCreateAlertConfig, runVelocityAlert, computeAtRiskSkus } from "../lib/velocity-alert";
 
 const router = Router();
 
@@ -214,6 +222,63 @@ router.post("/notifications/reorder-alert", async (req, res) => {
     logger.error({ err }, "Failed to send reorder alert email");
     res.status(500).json({ sent: false, error: "Failed to send email" });
   }
+});
+
+// ── GET /notifications/velocity-alert/config ──────────────────────────────────
+
+router.get("/notifications/velocity-alert/config", async (_req, res) => {
+  const config = await getOrCreateAlertConfig();
+  res.json(config);
+});
+
+// ── PUT /notifications/velocity-alert/config ──────────────────────────────────
+
+const updateConfigSchema = z.object({
+  thresholdDays: z.number().int().min(1).max(365).optional(),
+  lookbackDays: z.number().int().min(7).max(365).optional(),
+  recipientEmail: z.string().email().optional().or(z.literal("")),
+  enabled: z.boolean().optional(),
+});
+
+router.put("/notifications/velocity-alert/config", async (req, res) => {
+  const parsed = updateConfigSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid request", details: parsed.error.flatten() });
+    return;
+  }
+
+  const config = await getOrCreateAlertConfig();
+  const [updated] = await db
+    .update(velocityAlertSettingsTable)
+    .set({ ...parsed.data, updatedAt: new Date() })
+    .where(eq(velocityAlertSettingsTable.id, config.id))
+    .returning();
+
+  res.json(updated);
+});
+
+// ── POST /notifications/velocity-alert/send ───────────────────────────────────
+
+router.post("/notifications/velocity-alert/send", async (_req, res) => {
+  const config = await getOrCreateAlertConfig();
+
+  if (!config.recipientEmail) {
+    res.status(400).json({ sent: false, reason: "no_email", message: "No recipient email configured.", skuCount: null, to: null });
+    return;
+  }
+
+  const result = await runVelocityAlert(config.recipientEmail, config.thresholdDays, config.lookbackDays);
+  res.json({ ...result, to: config.recipientEmail });
+});
+
+// ── GET /notifications/velocity-alert/preview ────────────────────────────────
+
+router.get("/notifications/velocity-alert/preview", async (req, res) => {
+  const config = await getOrCreateAlertConfig();
+  const thresholdDays = parseInt((req.query.threshold as string) ?? String(config.thresholdDays), 10) || config.thresholdDays;
+  const lookbackDays = parseInt((req.query.lookback as string) ?? String(config.lookbackDays), 10) || config.lookbackDays;
+  const atRisk = await computeAtRiskSkus(lookbackDays, thresholdDays);
+  res.json({ thresholdDays, lookbackDays, atRiskCount: atRisk.length, skus: atRisk });
 });
 
 export default router;

@@ -44,7 +44,7 @@ pnpm workspace monorepo using TypeScript. WareIQ — a full Warehouse Management
 - **Receiving** — Inbound stock form; upserts inventory, records inbound movement
 - **Dispatch** — Outbound pick form with validation against on-hand qty
 - **Stock Transfer** — Bin-to-bin transfer with cascading location selectors
-- **Reports** — Stock value report with per-SKU breakdown + CSV export
+- **Reports** — Stock value, Supplier Performance, and Stock Velocity reports with CSV export; velocity alert settings panel (daily cron + manual send via Resend)
 - **Cycle Count** — Guided count workflow; records adjustments and audit movements
 - **Low-Stock Alerts** — Dashboard badge + alert list for SKUs below reorder threshold
 - **Purchase Orders** — Full PO workflow: create draft PO with line items, mark as ordered, receive stock per-line into specific bins (upserts inventory, records inbound movements), status machine (draft→ordered→partially_received→received / cancelled)

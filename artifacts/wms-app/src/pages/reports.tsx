@@ -1,14 +1,22 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import {
   useGetStockValueReport,
   useGetSupplierPerformanceReport,
   useGetStockVelocityReport,
+  useGetVelocityAlertConfig,
+  useUpdateVelocityAlertConfig,
+  useSendVelocityAlert,
+  usePreviewVelocityAlert,
   type StockVelocityRow,
 } from "@workspace/api-client-react";
 import { Layout, PageHeader } from "@/components/layout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -46,6 +54,11 @@ import {
   ArrowUp,
   ArrowDown,
   Activity,
+  Bell,
+  BellOff,
+  Send,
+  CheckCircle2,
+  Loader2,
 } from "lucide-react";
 
 const CHART_COLORS = [
@@ -819,7 +832,250 @@ function StockVelocityTab() {
           )}
         </CardContent>
       </Card>
+
+      <AlertSettingsCard />
     </div>
+  );
+}
+
+// ─── Velocity Alert Settings Card ─────────────────────────────────────────────
+
+const THRESHOLD_OPTIONS = [7, 14, 30, 60];
+const LOOKBACK_OPTIONS = [
+  { label: "30 days", value: 30 },
+  { label: "90 days", value: 90 },
+];
+
+function AlertSettingsCard() {
+  const { data: config, isLoading, refetch } = useGetVelocityAlertConfig();
+  const updateConfig = useUpdateVelocityAlertConfig();
+  const sendAlert = useSendVelocityAlert();
+
+  const [email, setEmail] = useState("");
+  const [thresholdDays, setThresholdDays] = useState(14);
+  const [lookbackDays, setLookbackDays] = useState(30);
+  const [enabled, setEnabled] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const [sendStatus, setSendStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [sendMessage, setSendMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (config) {
+      setEmail(config.recipientEmail ?? "");
+      setThresholdDays(config.thresholdDays);
+      setLookbackDays(config.lookbackDays);
+      setEnabled(config.enabled);
+      setDirty(false);
+    }
+  }, [config]);
+
+  const { data: preview } = usePreviewVelocityAlert({
+    threshold: thresholdDays,
+    lookback: lookbackDays,
+  });
+
+  const handleSave = async () => {
+    setSaveStatus("saving");
+    await updateConfig.mutateAsync({
+      data: { thresholdDays, lookbackDays, recipientEmail: email, enabled },
+    });
+    await refetch();
+    setDirty(false);
+    setSaveStatus("saved");
+    setTimeout(() => setSaveStatus("idle"), 2500);
+  };
+
+  const handleSend = async () => {
+    setSendStatus("sending");
+    try {
+      const result = await sendAlert.mutateAsync();
+      if (result.sent) {
+        setSendStatus("sent");
+        setSendMessage(result.message ?? null);
+        await refetch();
+      } else {
+        setSendStatus("error");
+        setSendMessage(result.message ?? "Could not send alert.");
+      }
+    } catch {
+      setSendStatus("error");
+      setSendMessage("Unexpected error sending alert.");
+    }
+    setTimeout(() => { setSendStatus("idle"); setSendMessage(null); }, 4000);
+  };
+
+  const mark = () => setDirty(true);
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="pt-6">
+          <Skeleton className="h-32 w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const lastSent = config?.lastSentAt
+    ? new Date(config.lastSentAt).toLocaleString()
+    : null;
+
+  const atRiskCount = preview?.atRiskCount ?? 0;
+
+  return (
+    <Card>
+      <CardHeader className="pb-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {enabled ? (
+              <Bell className="w-4 h-4 text-[#E8622A]" />
+            ) : (
+              <BellOff className="w-4 h-4 text-muted-foreground" />
+            )}
+            <CardTitle className="text-base">Daily Velocity Alert</CardTitle>
+          </div>
+          <div className="flex items-center gap-2">
+            <Label htmlFor="alert-enabled" className="text-sm text-muted-foreground cursor-pointer">
+              {enabled ? "Enabled" : "Disabled"}
+            </Label>
+            <Switch
+              id="alert-enabled"
+              checked={enabled}
+              onCheckedChange={(v) => { setEnabled(v); mark(); }}
+            />
+          </div>
+        </div>
+        <CardDescription>
+          Send an automated email at 8:00 AM daily when any SKU's stock runway falls below the threshold.
+        </CardDescription>
+      </CardHeader>
+
+      <CardContent className="space-y-5">
+        {/* At-risk preview badge */}
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/40 border border-border">
+          <Activity className="w-4 h-4 text-muted-foreground shrink-0" />
+          <span className="text-sm text-muted-foreground">
+            Right now,{" "}
+            <span
+              className={`font-semibold ${
+                atRiskCount > 0 ? "text-[#E8622A]" : "text-emerald-600"
+              }`}
+            >
+              {atRiskCount} SKU{atRiskCount !== 1 ? "s" : ""}
+            </span>{" "}
+            {atRiskCount === 1 ? "has" : "have"} fewer than{" "}
+            <span className="font-medium">{thresholdDays} days</span> of stock remaining.
+          </span>
+          {lastSent && (
+            <span className="ml-auto text-xs text-muted-foreground whitespace-nowrap">
+              Last sent: {lastSent}
+            </span>
+          )}
+        </div>
+
+        <Separator />
+
+        {/* Email */}
+        <div className="grid gap-1.5">
+          <Label htmlFor="alert-email" className="text-sm font-medium">
+            Recipient email
+          </Label>
+          <Input
+            id="alert-email"
+            type="email"
+            placeholder="ops@your-company.com"
+            value={email}
+            onChange={(e) => { setEmail(e.target.value); mark(); }}
+            className="max-w-sm"
+          />
+        </div>
+
+        {/* Threshold */}
+        <div className="grid gap-2">
+          <Label className="text-sm font-medium">Alert threshold (days of stock remaining)</Label>
+          <div className="flex gap-2">
+            {THRESHOLD_OPTIONS.map((opt) => (
+              <button
+                key={opt}
+                onClick={() => { setThresholdDays(opt); mark(); }}
+                className={`px-4 py-1.5 rounded-md text-sm font-medium border transition-colors ${
+                  thresholdDays === opt
+                    ? "bg-[#E8622A] text-white border-[#E8622A]"
+                    : "bg-background border-border text-muted-foreground hover:border-[#E8622A]/60"
+                }`}
+              >
+                {opt}d
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Lookback */}
+        <div className="grid gap-2">
+          <Label className="text-sm font-medium">Velocity lookback window</Label>
+          <div className="flex gap-2">
+            {LOOKBACK_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => { setLookbackDays(opt.value); mark(); }}
+                className={`px-4 py-1.5 rounded-md text-sm font-medium border transition-colors ${
+                  lookbackDays === opt.value
+                    ? "bg-[#0F2540] text-white border-[#0F2540]"
+                    : "bg-background border-border text-muted-foreground hover:border-[#0F2540]/60"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <Separator />
+
+        {/* Actions */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <Button
+            onClick={handleSave}
+            disabled={!dirty || saveStatus === "saving"}
+            className="bg-[#E8622A] hover:bg-[#d05520] text-white gap-2"
+          >
+            {saveStatus === "saving" && <Loader2 className="w-4 h-4 animate-spin" />}
+            {saveStatus === "saved" && <CheckCircle2 className="w-4 h-4" />}
+            {saveStatus === "saved" ? "Saved" : "Save Settings"}
+          </Button>
+
+          <Button
+            variant="outline"
+            onClick={handleSend}
+            disabled={!email || sendStatus === "sending"}
+            className="gap-2"
+          >
+            {sendStatus === "sending" && <Loader2 className="w-4 h-4 animate-spin" />}
+            {sendStatus === "sent" && <CheckCircle2 className="w-4 h-4 text-emerald-600" />}
+            {sendStatus === "error" && <AlertTriangle className="w-4 h-4 text-destructive" />}
+            {sendStatus === "idle" && <Send className="w-4 h-4" />}
+            {sendStatus === "sending"
+              ? "Sending…"
+              : sendStatus === "sent"
+              ? "Sent!"
+              : sendStatus === "error"
+              ? "Failed"
+              : "Send Test Email Now"}
+          </Button>
+
+          {sendMessage && (
+            <span
+              className={`text-sm ${
+                sendStatus === "error" ? "text-destructive" : "text-emerald-600"
+              }`}
+            >
+              {sendMessage}
+            </span>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

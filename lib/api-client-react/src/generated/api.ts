@@ -62,6 +62,7 @@ import type {
   PoHistoryEvent,
   PoTemplate,
   PoTemplateWithLines,
+  PreviewVelocityAlertParams,
   Product,
   PurchaseOrder,
   PurchaseOrderDetail,
@@ -82,7 +83,11 @@ import type {
   UpdatePoStatusBody,
   UpdateProductBody,
   UpdateSupplierBody,
+  UpdateVelocityAlertConfigBody,
   UpdateWarehouseBody,
+  VelocityAlertConfig,
+  VelocityAlertPreview,
+  VelocityAlertSendResult,
   Warehouse,
   WarehouseDetail,
   Zone,
@@ -4343,6 +4348,353 @@ export function useGetStockVelocityCsv<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetStockVelocityCsvQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get velocity alert email configuration
+ */
+export const getGetVelocityAlertConfigUrl = () => {
+  return `/api/notifications/velocity-alert/config`;
+};
+
+export const getVelocityAlertConfig = async (
+  options?: RequestInit,
+): Promise<VelocityAlertConfig> => {
+  return customFetch<VelocityAlertConfig>(getGetVelocityAlertConfigUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetVelocityAlertConfigQueryKey = () => {
+  return [`/api/notifications/velocity-alert/config`] as const;
+};
+
+export const getGetVelocityAlertConfigQueryOptions = <
+  TData = Awaited<ReturnType<typeof getVelocityAlertConfig>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getVelocityAlertConfig>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetVelocityAlertConfigQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getVelocityAlertConfig>>
+  > = ({ signal }) => getVelocityAlertConfig({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getVelocityAlertConfig>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetVelocityAlertConfigQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getVelocityAlertConfig>>
+>;
+export type GetVelocityAlertConfigQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get velocity alert email configuration
+ */
+
+export function useGetVelocityAlertConfig<
+  TData = Awaited<ReturnType<typeof getVelocityAlertConfig>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getVelocityAlertConfig>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetVelocityAlertConfigQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update velocity alert configuration
+ */
+export const getUpdateVelocityAlertConfigUrl = () => {
+  return `/api/notifications/velocity-alert/config`;
+};
+
+export const updateVelocityAlertConfig = async (
+  updateVelocityAlertConfigBody: UpdateVelocityAlertConfigBody,
+  options?: RequestInit,
+): Promise<VelocityAlertConfig> => {
+  return customFetch<VelocityAlertConfig>(getUpdateVelocityAlertConfigUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateVelocityAlertConfigBody),
+  });
+};
+
+export const getUpdateVelocityAlertConfigMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateVelocityAlertConfig>>,
+    TError,
+    { data: BodyType<UpdateVelocityAlertConfigBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateVelocityAlertConfig>>,
+  TError,
+  { data: BodyType<UpdateVelocityAlertConfigBody> },
+  TContext
+> => {
+  const mutationKey = ["updateVelocityAlertConfig"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateVelocityAlertConfig>>,
+    { data: BodyType<UpdateVelocityAlertConfigBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return updateVelocityAlertConfig(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateVelocityAlertConfigMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateVelocityAlertConfig>>
+>;
+export type UpdateVelocityAlertConfigMutationBody =
+  BodyType<UpdateVelocityAlertConfigBody>;
+export type UpdateVelocityAlertConfigMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update velocity alert configuration
+ */
+export const useUpdateVelocityAlertConfig = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateVelocityAlertConfig>>,
+    TError,
+    { data: BodyType<UpdateVelocityAlertConfigBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateVelocityAlertConfig>>,
+  TError,
+  { data: BodyType<UpdateVelocityAlertConfigBody> },
+  TContext
+> => {
+  return useMutation(getUpdateVelocityAlertConfigMutationOptions(options));
+};
+
+/**
+ * @summary Manually trigger a velocity alert email
+ */
+export const getSendVelocityAlertUrl = () => {
+  return `/api/notifications/velocity-alert/send`;
+};
+
+export const sendVelocityAlert = async (
+  options?: RequestInit,
+): Promise<VelocityAlertSendResult> => {
+  return customFetch<VelocityAlertSendResult>(getSendVelocityAlertUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getSendVelocityAlertMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendVelocityAlert>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof sendVelocityAlert>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["sendVelocityAlert"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof sendVelocityAlert>>,
+    void
+  > = () => {
+    return sendVelocityAlert(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SendVelocityAlertMutationResult = NonNullable<
+  Awaited<ReturnType<typeof sendVelocityAlert>>
+>;
+
+export type SendVelocityAlertMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Manually trigger a velocity alert email
+ */
+export const useSendVelocityAlert = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendVelocityAlert>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof sendVelocityAlert>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getSendVelocityAlertMutationOptions(options));
+};
+
+/**
+ * @summary Preview which SKUs would be included in a velocity alert
+ */
+export const getPreviewVelocityAlertUrl = (
+  params?: PreviewVelocityAlertParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/notifications/velocity-alert/preview?${stringifiedParams}`
+    : `/api/notifications/velocity-alert/preview`;
+};
+
+export const previewVelocityAlert = async (
+  params?: PreviewVelocityAlertParams,
+  options?: RequestInit,
+): Promise<VelocityAlertPreview> => {
+  return customFetch<VelocityAlertPreview>(getPreviewVelocityAlertUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getPreviewVelocityAlertQueryKey = (
+  params?: PreviewVelocityAlertParams,
+) => {
+  return [
+    `/api/notifications/velocity-alert/preview`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getPreviewVelocityAlertQueryOptions = <
+  TData = Awaited<ReturnType<typeof previewVelocityAlert>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: PreviewVelocityAlertParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof previewVelocityAlert>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getPreviewVelocityAlertQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof previewVelocityAlert>>
+  > = ({ signal }) =>
+    previewVelocityAlert(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof previewVelocityAlert>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type PreviewVelocityAlertQueryResult = NonNullable<
+  Awaited<ReturnType<typeof previewVelocityAlert>>
+>;
+export type PreviewVelocityAlertQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Preview which SKUs would be included in a velocity alert
+ */
+
+export function usePreviewVelocityAlert<
+  TData = Awaited<ReturnType<typeof previewVelocityAlert>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: PreviewVelocityAlertParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof previewVelocityAlert>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getPreviewVelocityAlertQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
