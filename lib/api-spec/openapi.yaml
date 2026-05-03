@@ -1352,6 +1352,27 @@ paths:
                     type: boolean
                 required: [deleted]
 
+  /notifications/velocity-alert/history:
+    get:
+      operationId: getVelocityAlertHistory
+      tags: [inventory]
+      summary: Get history of sent velocity alert emails
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Alert send history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AlertSendLogEntry"
+
   /reports/supplier-performance:
     get:
       operationId: getSupplierPerformanceReport
@@ -3006,6 +3027,46 @@ components:
           type: string
           nullable: true
       required: [sent, reason, message, skuCount, to]
+
+    AlertSendLogSkuSnapshot:
+      type: object
+      properties:
+        skuCode:
+          type: string
+        name:
+          type: string
+        daysOfStockRemaining:
+          type: integer
+          nullable: true
+        velocityPerDay:
+          type: number
+        currentStock:
+          type: integer
+      required: [skuCode, name, daysOfStockRemaining, velocityPerDay, currentStock]
+
+    AlertSendLogEntry:
+      type: object
+      properties:
+        id:
+          type: string
+        sentAt:
+          type: string
+        recipientEmail:
+          type: string
+        skuCount:
+          type: integer
+        thresholdDays:
+          type: integer
+        lookbackDays:
+          type: integer
+        triggeredBy:
+          type: string
+          enum: [scheduler, manual]
+        skus:
+          type: array
+          items:
+            $ref: "#/components/schemas/AlertSendLogSkuSnapshot"
+      required: [id, sentAt, recipientEmail, skuCount, thresholdDays, lookbackDays, triggeredBy, skus]
 
     SkuAlertOverrideItem:
       type: object

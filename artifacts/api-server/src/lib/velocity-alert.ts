@@ -5,6 +5,7 @@ import {
   inventoryMovementsTable,
   velocityAlertSettingsTable,
   skuAlertOverridesTable,
+  alertSendLogTable,
 } from "@workspace/db/schema";
 import { eq, gte, sql, count, max } from "drizzle-orm";
 import { Resend } from "resend";
@@ -239,7 +240,8 @@ function buildVelocityAlertEmail(
 export async function runVelocityAlert(
   to: string,
   thresholdDays: number,
-  lookbackDays: number
+  lookbackDays: number,
+  triggeredBy: "scheduler" | "manual" = "manual"
 ): Promise<{ sent: boolean; skuCount: number | null; reason: string | null; message: string | null }> {
   const atRisk = await computeAtRiskSkus(lookbackDays, thresholdDays);
 
@@ -267,9 +269,24 @@ export async function runVelocityAlert(
       return { sent: false, skuCount: atRisk.length, reason: "send_error", message: error.message };
     }
 
-    await db
-      .update(velocityAlertSettingsTable)
-      .set({ lastSentAt: new Date(), updatedAt: new Date() });
+    const now = new Date();
+    await Promise.all([
+      db.update(velocityAlertSettingsTable).set({ lastSentAt: now, updatedAt: now }),
+      db.insert(alertSendLogTable).values({
+        recipientEmail: to,
+        skuCount: atRisk.length,
+        thresholdDays,
+        lookbackDays,
+        triggeredBy,
+        skus: atRisk.map((s) => ({
+          skuCode: s.skuCode,
+          name: s.name,
+          daysOfStockRemaining: s.daysOfStockRemaining,
+          velocityPerDay: s.velocityPerDay,
+          currentStock: s.currentStock,
+        })),
+      }),
+    ]);
 
     return { sent: true, skuCount: atRisk.length, reason: null, message: `Alert sent for ${atRisk.length} at-risk SKU${atRisk.length !== 1 ? "s" : ""}.` };
   } catch (err) {

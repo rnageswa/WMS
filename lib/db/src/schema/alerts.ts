@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, integer, boolean, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, integer, boolean, timestamp, json } from "drizzle-orm/pg-core";
 import { productsTable } from "./products";
 
 export const velocityAlertSettingsTable = pgTable("velocity_alert_settings", {
@@ -26,3 +26,23 @@ export const skuAlertOverridesTable = pgTable("sku_alert_overrides", {
 });
 
 export type SkuAlertOverride = typeof skuAlertOverridesTable.$inferSelect;
+
+// Records every alert email that was successfully sent
+export const alertSendLogTable = pgTable("alert_send_log", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
+  recipientEmail: text("recipient_email").notNull(),
+  skuCount: integer("sku_count").notNull(),
+  thresholdDays: integer("threshold_days").notNull(),
+  lookbackDays: integer("lookback_days").notNull(),
+  triggeredBy: text("triggered_by").notNull().default("manual"), // 'scheduler' | 'manual'
+  skus: json("skus").notNull().$type<Array<{
+    skuCode: string;
+    name: string;
+    daysOfStockRemaining: number | null;
+    velocityPerDay: number;
+    currentStock: number;
+  }>>(),
+});
+
+export type AlertSendLog = typeof alertSendLogTable.$inferSelect;

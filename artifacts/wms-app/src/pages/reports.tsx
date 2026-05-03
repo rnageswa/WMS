@@ -12,6 +12,7 @@ import {
   useSetSkuAlertOverride,
   useDeleteSkuAlertOverride,
   useListProducts,
+  useGetVelocityAlertHistory,
   type StockVelocityRow,
 } from "@workspace/api-client-react";
 import { Layout, PageHeader } from "@/components/layout";
@@ -69,6 +70,10 @@ import {
   ChevronDown,
   ChevronUp,
   Search,
+  History,
+  CalendarClock,
+  Bot,
+  MousePointerClick,
 } from "lucide-react";
 
 const CHART_COLORS = [
@@ -845,6 +850,7 @@ function StockVelocityTab() {
 
       <AlertSettingsCard />
       <SkuExceptionsCard />
+      <AlertHistoryCard />
     </div>
   );
 }
@@ -1308,6 +1314,168 @@ function SkuExceptionsCard() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+        </CardContent>
+      )}
+    </Card>
+  );
+}
+
+// ─── Alert History Card ───────────────────────────────────────────────────────
+
+function AlertHistoryCard() {
+  const { data: entries = [], isLoading } = useGetVelocityAlertHistory({ limit: 30 });
+  const [expanded, setExpanded] = useState(false);
+  const [openId, setOpenId] = useState<string | null>(null);
+
+  return (
+    <Card>
+      <CardHeader
+        className="pb-3 cursor-pointer select-none"
+        onClick={() => setExpanded((v) => !v)}
+      >
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="text-base flex items-center gap-2">
+              <History className="w-4 h-4 text-muted-foreground" />
+              Alert History
+              {entries.length > 0 && (
+                <span className="text-xs font-normal text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                  {entries.length} send{entries.length !== 1 ? "s" : ""}
+                </span>
+              )}
+            </CardTitle>
+            <CardDescription className="mt-0.5">
+              A record of every velocity alert email that has been sent.
+            </CardDescription>
+          </div>
+          <button className="text-muted-foreground hover:text-foreground transition-colors p-1">
+            {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </button>
+        </div>
+      </CardHeader>
+
+      {expanded && (
+        <CardContent className="pt-0 space-y-2">
+          <Separator className="mb-4" />
+
+          {isLoading ? (
+            <div className="space-y-2">
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-14 w-full rounded-lg" />
+              ))}
+            </div>
+          ) : entries.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 text-center gap-2">
+              <CalendarClock className="w-8 h-8 text-muted-foreground/30" />
+              <p className="text-sm text-muted-foreground">No alerts have been sent yet.</p>
+              <p className="text-xs text-muted-foreground/60">
+                History will appear here after the first successful email send.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {entries.map((entry) => {
+                const isOpen = openId === entry.id;
+                const date = new Date(entry.sentAt);
+                const urgentCount = entry.skus.filter(
+                  (s) => s.daysOfStockRemaining !== null && s.daysOfStockRemaining <= 7
+                ).length;
+
+                return (
+                  <div
+                    key={entry.id}
+                    className="rounded-lg border border-border overflow-hidden"
+                  >
+                    {/* Row header */}
+                    <button
+                      className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-muted/30 transition-colors"
+                      onClick={() => setOpenId(isOpen ? null : entry.id)}
+                    >
+                      {/* Trigger badge */}
+                      <span
+                        className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ${
+                          entry.triggeredBy === "scheduler"
+                            ? "bg-blue-50 text-blue-700"
+                            : "bg-orange-50 text-[#E8622A]"
+                        }`}
+                      >
+                        {entry.triggeredBy === "scheduler" ? (
+                          <Bot className="w-2.5 h-2.5" />
+                        ) : (
+                          <MousePointerClick className="w-2.5 h-2.5" />
+                        )}
+                        {entry.triggeredBy === "scheduler" ? "Scheduled" : "Manual"}
+                      </span>
+
+                      {/* Date/time */}
+                      <span className="text-sm font-medium text-foreground">
+                        {date.toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+                      </span>
+
+                      <span className="ml-auto flex items-center gap-2 shrink-0">
+                        {urgentCount > 0 && (
+                          <span className="text-xs font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">
+                            {urgentCount} critical
+                          </span>
+                        )}
+                        <span className="text-xs text-muted-foreground">
+                          {entry.skuCount} SKU{entry.skuCount !== 1 ? "s" : ""} · {entry.thresholdDays}d threshold
+                        </span>
+                        <ChevronDown
+                          className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${isOpen ? "rotate-180" : ""}`}
+                        />
+                      </span>
+                    </button>
+
+                    {/* Expanded SKU list */}
+                    {isOpen && (
+                      <div className="border-t border-border bg-muted/10 px-4 py-3 space-y-1.5">
+                        <div className="text-xs text-muted-foreground mb-2">
+                          Sent to <span className="font-medium text-foreground">{entry.recipientEmail}</span>
+                          {" · "}lookback {entry.lookbackDays}d
+                        </div>
+                        <div className="grid gap-1">
+                          {entry.skus.map((s) => {
+                            const days = s.daysOfStockRemaining;
+                            const isUrgent = days !== null && days <= 7;
+                            return (
+                              <div
+                                key={s.skuCode}
+                                className="flex items-center justify-between gap-3 text-sm py-1"
+                              >
+                                <div className="min-w-0">
+                                  <span className="font-medium">{s.name}</span>
+                                  <span className="text-xs text-muted-foreground ml-2">{s.skuCode}</span>
+                                </div>
+                                <div className="flex items-center gap-3 shrink-0 text-xs text-muted-foreground">
+                                  <span>{s.velocityPerDay}/day</span>
+                                  <span>stock: {s.currentStock}</span>
+                                  <span
+                                    className={`font-semibold ${
+                                      isUrgent ? "text-red-600" : "text-amber-600"
+                                    }`}
+                                  >
+                                    {days !== null ? `${days}d left` : "pinned"}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </CardContent>

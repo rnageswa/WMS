@@ -706,6 +706,33 @@ export interface VelocityAlertSendResult {
   to: string | null;
 }
 
+export interface AlertSendLogSkuSnapshot {
+  skuCode: string;
+  name: string;
+  daysOfStockRemaining: number | null;
+  velocityPerDay: number;
+  currentStock: number;
+}
+
+export type AlertSendLogEntryTriggeredBy =
+  (typeof AlertSendLogEntryTriggeredBy)[keyof typeof AlertSendLogEntryTriggeredBy];
+
+export const AlertSendLogEntryTriggeredBy = {
+  scheduler: "scheduler",
+  manual: "manual",
+} as const;
+
+export interface AlertSendLogEntry {
+  id: string;
+  sentAt: string;
+  recipientEmail: string;
+  skuCount: number;
+  thresholdDays: number;
+  lookbackDays: number;
+  triggeredBy: AlertSendLogEntryTriggeredBy;
+  skus: AlertSendLogSkuSnapshot[];
+}
+
 export type SkuAlertOverrideItemMode =
   (typeof SkuAlertOverrideItemMode)[keyof typeof SkuAlertOverrideItemMode];
 
@@ -945,6 +972,10 @@ export type PreviewVelocityAlertParams = {
 
 export type DeleteSkuAlertOverride200 = {
   deleted: boolean;
+};
+
+export type GetVelocityAlertHistoryParams = {
+  limit?: number;
 };
 
 export type ScanLookupParams = {

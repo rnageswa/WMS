@@ -10,8 +10,9 @@ import {
   warehousesTable,
   velocityAlertSettingsTable,
   skuAlertOverridesTable,
+  alertSendLogTable,
 } from "@workspace/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, desc } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { getOrCreateAlertConfig, runVelocityAlert, computeAtRiskSkus } from "../lib/velocity-alert";
 
@@ -342,6 +343,20 @@ router.delete("/notifications/velocity-alert/sku-overrides/:productId", async (r
     .delete(skuAlertOverridesTable)
     .where(eq(skuAlertOverridesTable.productId, productId));
   res.json({ deleted: true });
+});
+
+// ── GET /notifications/velocity-alert/history ─────────────────────────────────
+
+router.get("/notifications/velocity-alert/history", async (req, res) => {
+  const limit = Math.min(Math.max(parseInt((req.query.limit as string) ?? "20", 10) || 20, 1), 100);
+
+  const rows = await db
+    .select()
+    .from(alertSendLogTable)
+    .orderBy(desc(alertSendLogTable.sentAt))
+    .limit(limit);
+
+  res.json(rows);
 });
 
 export default router;

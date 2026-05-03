@@ -21,7 +21,8 @@ export function startScheduler() {
       const result = await runVelocityAlert(
         config.recipientEmail,
         config.thresholdDays,
-        config.lookbackDays
+        config.lookbackDays,
+        "scheduler"
       );
       logger.info({ result }, "Scheduled velocity alert completed");
     } catch (err) {

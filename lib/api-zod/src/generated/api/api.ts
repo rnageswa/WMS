@@ -1454,6 +1454,37 @@ export const DeleteSkuAlertOverrideResponse = zod.object({
 });
 
 /**
+ * @summary Get history of sent velocity alert emails
+ */
+export const getVelocityAlertHistoryQueryLimitDefault = 20;
+
+export const GetVelocityAlertHistoryQueryParams = zod.object({
+  limit: zod.coerce.number().default(getVelocityAlertHistoryQueryLimitDefault),
+});
+
+export const GetVelocityAlertHistoryResponseItem = zod.object({
+  id: zod.string(),
+  sentAt: zod.string(),
+  recipientEmail: zod.string(),
+  skuCount: zod.number(),
+  thresholdDays: zod.number(),
+  lookbackDays: zod.number(),
+  triggeredBy: zod.enum(["scheduler", "manual"]),
+  skus: zod.array(
+    zod.object({
+      skuCode: zod.string(),
+      name: zod.string(),
+      daysOfStockRemaining: zod.number().nullable(),
+      velocityPerDay: zod.number(),
+      currentStock: zod.number(),
+    }),
+  ),
+});
+export const GetVelocityAlertHistoryResponse = zod.array(
+  GetVelocityAlertHistoryResponseItem,
+);
+
+/**
  * @summary Supplier performance metrics derived from purchase order history
  */
 export const GetSupplierPerformanceReportResponse = zod.object({

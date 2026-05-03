@@ -18,6 +18,7 @@ import type {
 
 import type {
   AdjustInventoryBody,
+  AlertSendLogEntry,
   Bin,
   BinActivityItem,
   BinWithLocation,
@@ -46,6 +47,7 @@ import type {
   GetBinActivityParams,
   GetStockVelocityCsvParams,
   GetStockVelocityReportParams,
+  GetVelocityAlertHistoryParams,
   GetZoneActivityParams,
   GoodsReceiptNote,
   HealthStatus,
@@ -4957,6 +4959,112 @@ export const useDeleteSkuAlertOverride = <
 > => {
   return useMutation(getDeleteSkuAlertOverrideMutationOptions(options));
 };
+
+/**
+ * @summary Get history of sent velocity alert emails
+ */
+export const getGetVelocityAlertHistoryUrl = (
+  params?: GetVelocityAlertHistoryParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/notifications/velocity-alert/history?${stringifiedParams}`
+    : `/api/notifications/velocity-alert/history`;
+};
+
+export const getVelocityAlertHistory = async (
+  params?: GetVelocityAlertHistoryParams,
+  options?: RequestInit,
+): Promise<AlertSendLogEntry[]> => {
+  return customFetch<AlertSendLogEntry[]>(
+    getGetVelocityAlertHistoryUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetVelocityAlertHistoryQueryKey = (
+  params?: GetVelocityAlertHistoryParams,
+) => {
+  return [
+    `/api/notifications/velocity-alert/history`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getGetVelocityAlertHistoryQueryOptions = <
+  TData = Awaited<ReturnType<typeof getVelocityAlertHistory>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetVelocityAlertHistoryParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getVelocityAlertHistory>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetVelocityAlertHistoryQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getVelocityAlertHistory>>
+  > = ({ signal }) =>
+    getVelocityAlertHistory(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getVelocityAlertHistory>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetVelocityAlertHistoryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getVelocityAlertHistory>>
+>;
+export type GetVelocityAlertHistoryQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get history of sent velocity alert emails
+ */
+
+export function useGetVelocityAlertHistory<
+  TData = Awaited<ReturnType<typeof getVelocityAlertHistory>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetVelocityAlertHistoryParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getVelocityAlertHistory>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetVelocityAlertHistoryQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Supplier performance metrics derived from purchase order history
