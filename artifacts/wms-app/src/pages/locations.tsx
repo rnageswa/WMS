@@ -7,10 +7,12 @@ import {
   useCreateBin,
   useListZones,
   useListBins,
+  useGetZoneActivity,
   getGetWarehouseQueryKey,
   getListWarehousesQueryKey,
   getListZonesQueryKey,
   getListBinsQueryKey,
+  type ZoneActivityItem,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Layout, PageHeader } from "@/components/layout";
@@ -37,8 +39,133 @@ import {
   Grid3X3,
   Loader2,
   Tag,
+  Flame,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
+
+// ── Zone Activity Heatmap ───────────────────────────────────────────────────
+
+const DAYS_OPTIONS = [
+  { label: "7d", value: 7 },
+  { label: "30d", value: 30 },
+  { label: "90d", value: 90 },
+];
+
+function heatColor(count: number, max: number): string {
+  if (max === 0 || count === 0) return "bg-muted/40 text-muted-foreground border-border/40";
+  const ratio = count / max;
+  if (ratio < 0.25) return "bg-orange-50 text-orange-700 border-orange-100";
+  if (ratio < 0.55) return "bg-orange-100 text-orange-800 border-orange-200";
+  if (ratio < 0.8) return "bg-orange-300 text-orange-900 border-orange-400";
+  return "bg-[#E8622A] text-white border-[#c9521f]";
+}
+
+function ActivityHeatmap() {
+  const [days, setDays] = useState(30);
+  const [collapsed, setCollapsed] = useState(false);
+  const { data, isLoading } = useGetZoneActivity({ days });
+
+  const maxCount = data ? Math.max(...data.map((z) => z.movementCount), 0) : 0;
+
+  return (
+    <div className="border border-border/60 rounded-lg overflow-hidden">
+      <div
+        className="flex items-center gap-2 px-4 py-3 bg-card hover:bg-muted/20 cursor-pointer transition-colors select-none"
+        onClick={() => setCollapsed((v) => !v)}
+      >
+        {collapsed ? (
+          <ChevronRight className="w-4 h-4 text-muted-foreground" />
+        ) : (
+          <ChevronDown className="w-4 h-4 text-muted-foreground" />
+        )}
+        <Flame className="w-4 h-4 text-[#E8622A]" />
+        <span className="font-semibold text-sm">Zone Activity Heatmap</span>
+        <span className="text-xs text-muted-foreground ml-1">— movement frequency by zone</span>
+        <div className="ml-auto flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+          {DAYS_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              className={`px-2 py-0.5 rounded text-xs font-medium border transition-colors ${
+                days === opt.value
+                  ? "bg-[#E8622A] text-white border-[#E8622A]"
+                  : "bg-background text-muted-foreground border-border hover:border-[#E8622A] hover:text-[#E8622A]"
+              }`}
+              onClick={() => setDays(opt.value)}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {!collapsed && (
+        <div className="px-4 py-4 bg-muted/10">
+          {isLoading ? (
+            <div className="flex flex-wrap gap-2">
+              {[...Array(8)].map((_, i) => (
+                <Skeleton key={i} className="h-20 w-32 rounded-lg" />
+              ))}
+            </div>
+          ) : !data?.length ? (
+            <p className="text-sm text-muted-foreground py-2">No zones found.</p>
+          ) : (
+            <>
+              <div className="flex flex-wrap gap-2">
+                {data.map((zone) => (
+                  <ZoneCell key={zone.zoneId} zone={zone} maxCount={maxCount} />
+                ))}
+              </div>
+              <div className="flex items-center gap-3 mt-4 pt-3 border-t border-border/40">
+                <span className="text-[11px] text-muted-foreground font-medium">Activity:</span>
+                <div className="flex items-center gap-1.5">
+                  {[
+                    { label: "None", cls: "bg-muted/40 border-border/40" },
+                    { label: "Low", cls: "bg-orange-50 border-orange-100" },
+                    { label: "Med", cls: "bg-orange-100 border-orange-200" },
+                    { label: "High", cls: "bg-orange-300 border-orange-400" },
+                    { label: "Peak", cls: "bg-[#E8622A] border-[#c9521f]" },
+                  ].map(({ label, cls }) => (
+                    <div key={label} className="flex items-center gap-1">
+                      <div className={`w-3 h-3 rounded-sm border ${cls}`} />
+                      <span className="text-[10px] text-muted-foreground">{label}</span>
+                    </div>
+                  ))}
+                </div>
+                <span className="text-[11px] text-muted-foreground ml-auto">
+                  Last {days} days · {data.filter((z) => z.movementCount > 0).length} of {data.length} zones active
+                </span>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ZoneCell({ zone, maxCount }: { zone: ZoneActivityItem; maxCount: number }) {
+  const colorCls = heatColor(zone.movementCount, maxCount);
+  const lastMoved = zone.lastMovementAt
+    ? new Date(zone.lastMovementAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+    : null;
+
+  return (
+    <div
+      className={`border rounded-lg px-3 py-2.5 w-36 flex-shrink-0 transition-shadow hover:shadow-sm ${colorCls}`}
+      title={`${zone.warehouseName} · ${zone.zoneName}\n${zone.movementCount} movements${lastMoved ? `\nLast: ${lastMoved}` : ""}`}
+    >
+      <div className="flex items-start justify-between gap-1">
+        <span className="font-mono font-bold text-sm leading-tight">{zone.zoneCode}</span>
+        <span className="text-xs font-semibold tabular-nums">{zone.movementCount}</span>
+      </div>
+      <p className="text-[11px] leading-snug mt-0.5 truncate opacity-80">{zone.zoneName}</p>
+      <p className="text-[10px] leading-snug truncate opacity-60">{zone.warehouseName}</p>
+      {lastMoved && (
+        <p className="text-[9px] leading-snug mt-1 opacity-50">Last {lastMoved}</p>
+      )}
+    </div>
+  );
+}
 
 function BinRow({ zoneId }: { zoneId: string }) {
   const { data: bins, isLoading } = useListBins(zoneId, {
@@ -227,6 +354,8 @@ export default function Locations() {
       />
 
       <div className="p-6 space-y-3">
+        <ActivityHeatmap />
+
         {isLoading ? (
           [...Array(2)].map((_, i) => (
             <Skeleton key={i} className="h-16 w-full rounded-lg" />

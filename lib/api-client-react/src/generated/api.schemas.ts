@@ -704,6 +704,16 @@ export interface SupplierPerformanceReport {
   suppliers: SupplierPerformanceRow[];
 }
 
+export interface ZoneActivityItem {
+  zoneId: string;
+  zoneName: string;
+  zoneCode: string;
+  warehouseId: string;
+  warehouseName: string;
+  movementCount: number;
+  lastMovementAt: string | null;
+}
+
 export interface DashboardSummary {
   totalProducts: number;
   activeProducts: number;
@@ -722,6 +732,13 @@ export type ListProductsParams = {
   search?: string;
   category?: string;
   isActive?: boolean;
+};
+
+export type GetZoneActivityParams = {
+  /**
+   * Lookback window in days (default 30)
+   */
+  days?: number;
 };
 
 export type ListAllBinsParams = {

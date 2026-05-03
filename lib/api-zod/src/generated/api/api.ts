@@ -257,6 +257,29 @@ export const CreateZoneBody = zod.object({
 });
 
 /**
+ * @summary Movement counts per zone for heatmap
+ */
+export const getZoneActivityQueryDaysDefault = 30;
+
+export const GetZoneActivityQueryParams = zod.object({
+  days: zod.coerce
+    .number()
+    .default(getZoneActivityQueryDaysDefault)
+    .describe("Lookback window in days (default 30)"),
+});
+
+export const GetZoneActivityResponseItem = zod.object({
+  zoneId: zod.string(),
+  zoneName: zod.string(),
+  zoneCode: zod.string(),
+  warehouseId: zod.string(),
+  warehouseName: zod.string(),
+  movementCount: zod.number(),
+  lastMovementAt: zod.string().nullable(),
+});
+export const GetZoneActivityResponse = zod.array(GetZoneActivityResponseItem);
+
+/**
  * @summary List all bins across all warehouses, enriched with zone and warehouse
  */
 export const ListAllBinsQueryParams = zod.object({

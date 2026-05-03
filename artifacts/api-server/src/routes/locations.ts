@@ -1,7 +1,12 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { warehousesTable, zonesTable, binsTable } from "@workspace/db/schema";
-import { eq, inArray, and } from "drizzle-orm";
+import {
+  warehousesTable,
+  zonesTable,
+  binsTable,
+  inventoryMovementsTable,
+} from "@workspace/db/schema";
+import { eq, inArray, and, count, max, gte, sql } from "drizzle-orm";
 import {
   CreateWarehouseBody,
   UpdateWarehouseBody,
@@ -10,6 +15,44 @@ import {
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
+
+// ── GET /locations/zone-activity — movement counts per zone ────────────────
+
+router.get("/locations/zone-activity", async (req, res) => {
+  const days = Math.min(Math.max(parseInt((req.query.days as string) ?? "30", 10) || 30, 1), 365);
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+  const rows = await db
+    .select({
+      zoneId: zonesTable.id,
+      zoneName: zonesTable.name,
+      zoneCode: zonesTable.code,
+      warehouseId: warehousesTable.id,
+      warehouseName: warehousesTable.name,
+      movementCount: count(inventoryMovementsTable.id),
+      lastMovementAt: max(inventoryMovementsTable.createdAt),
+    })
+    .from(zonesTable)
+    .innerJoin(warehousesTable, eq(zonesTable.warehouseId, warehousesTable.id))
+    .leftJoin(binsTable, eq(binsTable.zoneId, zonesTable.id))
+    .leftJoin(
+      inventoryMovementsTable,
+      and(
+        eq(inventoryMovementsTable.binId, binsTable.id),
+        gte(inventoryMovementsTable.createdAt, since),
+      ),
+    )
+    .groupBy(zonesTable.id, zonesTable.name, zonesTable.code, warehousesTable.id, warehousesTable.name)
+    .orderBy(sql`count(${inventoryMovementsTable.id}) desc`);
+
+  res.json(
+    rows.map((r) => ({
+      ...r,
+      movementCount: Number(r.movementCount),
+      lastMovementAt: r.lastMovementAt ? (r.lastMovementAt as Date).toISOString() : null,
+    })),
+  );
+});
 
 // ── GET /bins — all bins with zone+warehouse enrichment ────────────────────
 

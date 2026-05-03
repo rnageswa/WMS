@@ -253,6 +253,28 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /locations/zone-activity:
+    get:
+      operationId: getZoneActivity
+      tags: [locations]
+      summary: Movement counts per zone for heatmap
+      parameters:
+        - name: days
+          in: query
+          description: Lookback window in days (default 30)
+          schema:
+            type: integer
+            default: 30
+      responses:
+        "200":
+          description: Zone activity stats
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ZoneActivityItem"
+
   /bins:
     get:
       operationId: listAllBins
@@ -2807,6 +2829,35 @@ components:
           items:
             $ref: "#/components/schemas/SupplierPerformanceRow"
       required: [generatedAt, suppliers]
+
+    # ── Zone Activity ─────────────────────────────────────────────────────────
+
+    ZoneActivityItem:
+      type: object
+      properties:
+        zoneId:
+          type: string
+        zoneName:
+          type: string
+        zoneCode:
+          type: string
+        warehouseId:
+          type: string
+        warehouseName:
+          type: string
+        movementCount:
+          type: integer
+        lastMovementAt:
+          type: string
+          nullable: true
+      required:
+        - zoneId
+        - zoneName
+        - zoneCode
+        - warehouseId
+        - warehouseName
+        - movementCount
+        - lastMovementAt
 
     # ── Dashboard ─────────────────────────────────────────────────────────────
 

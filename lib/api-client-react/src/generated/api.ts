@@ -41,6 +41,7 @@ import type {
   CycleCountResult,
   DashboardSummary,
   ErrorResponse,
+  GetZoneActivityParams,
   GoodsReceiptNote,
   HealthStatus,
   InventoryItem,
@@ -80,6 +81,7 @@ import type {
   Warehouse,
   WarehouseDetail,
   Zone,
+  ZoneActivityItem,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -1110,6 +1112,100 @@ export const useCreateZone = <
 > => {
   return useMutation(getCreateZoneMutationOptions(options));
 };
+
+/**
+ * @summary Movement counts per zone for heatmap
+ */
+export const getGetZoneActivityUrl = (params?: GetZoneActivityParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/locations/zone-activity?${stringifiedParams}`
+    : `/api/locations/zone-activity`;
+};
+
+export const getZoneActivity = async (
+  params?: GetZoneActivityParams,
+  options?: RequestInit,
+): Promise<ZoneActivityItem[]> => {
+  return customFetch<ZoneActivityItem[]>(getGetZoneActivityUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetZoneActivityQueryKey = (params?: GetZoneActivityParams) => {
+  return [`/api/locations/zone-activity`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetZoneActivityQueryOptions = <
+  TData = Awaited<ReturnType<typeof getZoneActivity>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetZoneActivityParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getZoneActivity>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetZoneActivityQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getZoneActivity>>> = ({
+    signal,
+  }) => getZoneActivity(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getZoneActivity>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetZoneActivityQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getZoneActivity>>
+>;
+export type GetZoneActivityQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Movement counts per zone for heatmap
+ */
+
+export function useGetZoneActivity<
+  TData = Awaited<ReturnType<typeof getZoneActivity>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetZoneActivityParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getZoneActivity>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetZoneActivityQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary List all bins across all warehouses, enriched with zone and warehouse
