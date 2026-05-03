@@ -8,6 +8,35 @@ import { z } from "zod";
 
 const router = Router();
 
+// Public: check current clerk session with detailed debug
+router.get("/auth/session-check", (req: any, res) => {
+  // Manually check what Clerk is looking for
+  const cookieHeader = req.headers.cookie || '';
+  
+  // Clerk looks for __session cookie (legacy) or __clerk_db_jwt
+  const hasSessionToken = cookieHeader.includes('__clerk_db_jwt') || cookieHeader.includes('__session');
+  const hasActiveContext = cookieHeader.includes('clerk_active_context');
+  
+  // Try getAuth again with more context
+  const auth = getAuth(req);
+  
+  res.json({ 
+    hasSession: !!auth?.userId, 
+    clerkUserId: auth?.userId,
+    userIdFromAuth: auth?.userId,
+    hasSessionToken,
+    hasActiveContext,
+    cookieNames: cookieHeader.split(';').map(c => c.trim().split('=')[0]),
+    allCookies: cookieHeader
+  });
+});
+
+// Public: list all users (for debugging)
+router.get("/auth/all-users", async (_req, res) => {
+  const users = await db.select().from(userRolesTable).orderBy(desc(userRolesTable.createdAt));
+  res.json(users);
+});
+
 // GET /auth/me — return current user's role
 router.get("/auth/me", requireAuth, (req: any, res) => {
   res.json({
@@ -58,5 +87,48 @@ router.put(
     res.json(updated);
   }
 );
+
+// Debug: see current user's role from DB
+router.get("/auth/debug-role", async (req, res) => {
+  const { userId } = getAuth(req);
+  if (!userId) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+
+  const [userRole] = await db
+    .select()
+    .from(userRolesTable)
+    .where(eq(userRolesTable.clerkUserId, userId))
+    .limit(1);
+
+  res.json({ 
+    clerkUserId: userId, 
+    dbRole: userRole?.role || "NOT FOUND",
+    rawDbRecord: userRole 
+  });
+});
+
+// TEMP: Make first user admin (for dev only)
+router.post("/auth/make-admin", async (req, res) => {
+  const { clerkUserId } = req.body;
+  if (!clerkUserId) {
+    res.status(400).json({ error: "clerkUserId required" });
+    return;
+  }
+
+  const [updated] = await db
+    .update(userRolesTable)
+    .set({ role: "admin", updatedAt: new Date() })
+    .where(eq(userRolesTable.clerkUserId, clerkUserId))
+    .returning();
+
+  if (!updated) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  res.json({ success: true, user: updated });
+});
 
 export default router;

@@ -8,11 +8,16 @@ import { purchasingRouter } from "./purchasing";
 import { suppliersRouter } from "./suppliers";
 import notificationsRouter from "./notifications";
 import authRouter from "./auth";
+import seedRouter from "./seed";
 
 const router: IRouter = Router();
 
-// Public — health check does not need auth
+// Public — health check and seed (no auth required for seed in dev)
 router.use(healthRouter);
+router.use(seedRouter);
+
+// Auth routes (has its own requireAuth where needed)
+router.use(authRouter);
 
 // All routes below require a valid Clerk session
 router.use(requireAuth);
@@ -22,6 +27,5 @@ router.use(inventoryRouter);
 router.use(purchasingRouter);
 router.use(suppliersRouter);
 router.use(notificationsRouter);
-router.use(authRouter);
 
 export default router;

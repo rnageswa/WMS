@@ -52,10 +52,7 @@ const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string;
 
 // In production, Replit sets VITE_CLERK_PROXY_URL automatically.
 // In development, compute the proxy URL from the current origin so Clerk
-// routes API calls through /api/__clerk instead of the custom domain.
-const clerkProxyUrl =
-  import.meta.env.VITE_CLERK_PROXY_URL ||
-  `${window.location.origin}/api/__clerk`;
+const clerkProxyUrl = undefined;
 
 // No extra ClerkProvider props needed — pk_test_ keys use the standard Clerk
 // FAPI host (encoded in the key itself) which is publicly reachable.

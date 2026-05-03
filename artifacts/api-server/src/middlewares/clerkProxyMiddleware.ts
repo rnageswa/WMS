@@ -35,7 +35,9 @@ function getFapiFromPublishableKey(key: string | undefined): string {
   }
 }
 
-const CLERK_FAPI = getFapiFromPublishableKey(process.env.CLERK_PUBLISHABLE_KEY);
+const CLERK_FAPI = process.env.NODE_ENV === "production" 
+  ? getFapiFromPublishableKey(process.env.CLERK_PUBLISHABLE_KEY)
+  : "https://frontend-api.clerk.dev";
 export const CLERK_PROXY_PATH = "/api/__clerk";
 
 /**
