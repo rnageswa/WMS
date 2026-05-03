@@ -1,7 +1,17 @@
-import { Switch, Route, Router as WouterRouter } from "wouter";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
+import { Switch, Route, Redirect, useLocation, Router as WouterRouter } from "wouter";
+import { QueryClientProvider, useQueryClient } from "@tanstack/react-query";
+import {
+  ClerkProvider,
+  Show,
+  useClerk,
+  useAuth,
+} from "@clerk/react";
+import { shadcn } from "@clerk/themes";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { queryClient } from "@/lib/queryClient";
+
 import Dashboard from "@/pages/dashboard";
 import Products from "@/pages/products";
 import ProductNew from "@/pages/product-new";
@@ -30,63 +40,209 @@ import PurchaseOrderGrnPage from "@/pages/purchase-order-grn";
 import SuppliersPage from "@/pages/suppliers";
 import SupplierDetailPage from "@/pages/supplier-detail";
 import SupplierPerformancePage from "@/pages/supplier-performance";
+import AdminPage from "@/pages/admin";
+import SignInPage from "@/pages/sign-in";
+import SignUpPage from "@/pages/sign-up";
 import NotFound from "@/pages/not-found";
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      staleTime: 30_000,
-    },
-  },
-});
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-function Router() {
+const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string;
+
+// In production, Replit sets VITE_CLERK_PROXY_URL automatically.
+// In development, compute the proxy URL from the current origin so Clerk
+// routes API calls through /api/__clerk instead of the custom domain.
+const clerkProxyUrl =
+  import.meta.env.VITE_CLERK_PROXY_URL ||
+  `${window.location.origin}/api/__clerk`;
+
+// Whitelabel publishable keys try to load Clerk JS from clerk.{custom-domain}
+// which is production-only. In dev, load from the npm CDN directly.
+// clerkJSUrl exists at runtime in IsomorphicClerkOptions but is omitted from
+// @clerk/react's public ClerkProvider types — spread via Record to bypass TS.
+const extraClerkProps: Record<string, unknown> = import.meta.env.DEV
+  ? { clerkJSUrl: `https://cdn.jsdelivr.net/npm/@clerk/clerk-js@6/dist/clerk.browser.js` }
+  : {};
+
+function stripBase(path: string): string {
+  return basePath && path.startsWith(basePath)
+    ? path.slice(basePath.length) || "/"
+    : path;
+}
+
+const clerkAppearance = {
+  theme: shadcn,
+  cssLayerName: "clerk",
+  options: {
+    logoPlacement: "none" as const,
+  },
+  variables: {
+    colorPrimary: "#E8622A",
+    colorForeground: "#1a2535",
+    colorMutedForeground: "#68778d",
+    colorDanger: "#ef4444",
+    colorBackground: "#ffffff",
+    colorInput: "#f1f5f9",
+    colorInputForeground: "#1a2535",
+    colorNeutral: "#cbd5e1",
+    fontFamily: "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif",
+    borderRadius: "0.5rem",
+  },
+  elements: {
+    rootBox: "w-full flex justify-center",
+    cardBox: "bg-white rounded-2xl w-[440px] max-w-full overflow-hidden shadow-xl",
+    card: "!shadow-none !border-0 !bg-transparent !rounded-none",
+    footer: "!shadow-none !border-0 !bg-transparent !rounded-none",
+    headerTitle: "text-[#0F2540] font-bold",
+    headerSubtitle: "text-[#68778d]",
+    socialButtonsBlockButtonText: "text-[#1a2535] font-medium",
+    formFieldLabel: "text-[#1a2535] font-medium text-sm",
+    footerActionLink: "text-[#E8622A] font-medium",
+    footerActionText: "text-[#68778d]",
+    dividerText: "text-[#68778d]",
+    identityPreviewEditButton: "text-[#E8622A]",
+    formFieldSuccessText: "text-green-600",
+    alertText: "text-[#1a2535]",
+    socialButtonsBlockButton: "border border-[#e2e8f0] bg-white hover:bg-[#f8fafc] text-[#1a2535]",
+    formButtonPrimary: "bg-[#E8622A] hover:bg-[#d4521a] text-white font-semibold",
+    formFieldInput: "bg-[#f1f5f9] border-[#e2e8f0] text-[#1a2535] placeholder:text-[#94a3b8]",
+    footerAction: "bg-[#f8fafc] border-t border-[#e2e8f0]",
+    dividerLine: "bg-[#e2e8f0]",
+    alert: "bg-[#fef2f2] border border-[#fecaca]",
+    otpCodeFieldInput: "border-[#e2e8f0] text-[#1a2535]",
+    formFieldRow: "",
+    main: "",
+    logoBox: "hidden",
+    logoImage: "hidden",
+  },
+};
+
+// Invalidates query cache when the signed-in user changes
+function ClerkQueryClientCacheInvalidator() {
+  const { addListener } = useClerk();
+  const qc = useQueryClient();
+  const prevUserIdRef = useRef<string | null | undefined>(undefined);
+
+  useEffect(() => {
+    const unsubscribe = addListener(({ user }) => {
+      const userId = user?.id ?? null;
+      if (prevUserIdRef.current !== undefined && prevUserIdRef.current !== userId) {
+        qc.clear();
+      }
+      prevUserIdRef.current = userId;
+    });
+    return unsubscribe;
+  }, [addListener, qc]);
+
+  return null;
+}
+
+function AuthGuard({ children }: { children: React.ReactNode }) {
+  const { isLoaded, isSignedIn } = useAuth();
+
+  if (!isLoaded) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="w-6 h-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+      </div>
+    );
+  }
+
+  if (!isSignedIn) {
+    return <Redirect to="/sign-in" />;
+  }
+
+  return <>{children}</>;
+}
+
+function AppRouter() {
+  const [, setLocation] = useLocation();
+
   return (
-    <Switch>
-      <Route path="/" component={Dashboard} />
-      <Route path="/products/new" component={ProductNew} />
-      <Route path="/products/:id" component={ProductDetail} />
-      <Route path="/products" component={Products} />
-      <Route path="/inventory/adjust" component={InventoryAdjust} />
-      <Route path="/inventory" component={Inventory} />
-      <Route path="/movements" component={Movements} />
-      <Route path="/locations/labels" component={LocationLabelsPage} />
-      <Route path="/locations/new" component={LocationNew} />
-      <Route path="/locations" component={Locations} />
-      <Route path="/scan" component={ScanPage} />
-      <Route path="/receiving" component={ReceivingPage} />
-      <Route path="/dispatch" component={DispatchPage} />
-      <Route path="/transfer" component={TransferPage} />
-      <Route path="/reports" component={ReportsPage} />
-      <Route path="/cycle-count" component={CycleCountPage} />
-      <Route path="/purchase-orders/reorder" component={ReorderSuggestionsPage} />
-      <Route path="/purchase-orders/templates/new" component={PoTemplateNewPage} />
-      <Route path="/purchase-orders/templates/:id" component={PoTemplateDetailPage} />
-      <Route path="/purchase-orders/templates" component={PoTemplatesPage} />
-      <Route path="/purchase-orders/new" component={PurchaseOrderNewPage} />
-      <Route path="/purchase-orders/:id/print" component={PurchaseOrderPrintPage} />
-      <Route path="/purchase-orders/:id/grn" component={PurchaseOrderGrnPage} />
-      <Route path="/purchase-orders/:id" component={PurchaseOrderDetailPage} />
-      <Route path="/purchase-orders" component={PurchaseOrdersPage} />
-      <Route path="/suppliers/performance" component={SupplierPerformancePage} />
-      <Route path="/suppliers/:id" component={SupplierDetailPage} />
-      <Route path="/suppliers" component={SuppliersPage} />
-      <Route component={NotFound} />
-    </Switch>
+    <ClerkProvider
+      publishableKey={clerkPubKey!}
+      proxyUrl={clerkProxyUrl}
+      {...extraClerkProps}
+      appearance={clerkAppearance}
+      signInUrl={`${basePath}/sign-in`}
+      signUpUrl={`${basePath}/sign-up`}
+      localization={{
+        signIn: {
+          start: {
+            title: "Welcome back",
+            subtitle: "Sign in to access WareIQ",
+          },
+        },
+        signUp: {
+          start: {
+            title: "Create your account",
+            subtitle: "Get started with WareIQ",
+          },
+        },
+      }}
+      routerPush={(to) => setLocation(stripBase(to))}
+      routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
+    >
+      <QueryClientProvider client={queryClient}>
+        <ClerkQueryClientCacheInvalidator />
+        <TooltipProvider>
+          <Switch>
+            {/* Public auth routes */}
+            <Route path="/sign-in/*?" component={SignInPage} />
+            <Route path="/sign-up/*?" component={SignUpPage} />
+
+            {/* Home — redirect signed-in users to dashboard */}
+            <Route path="/">
+              <Show when="signed-in"><Dashboard /></Show>
+              <Show when="signed-out"><Redirect to="/sign-in" /></Show>
+            </Route>
+
+            {/* All protected routes */}
+            <Route path="/products/new"><AuthGuard><ProductNew /></AuthGuard></Route>
+            <Route path="/products/:id">
+              {(params) => <AuthGuard><ProductDetail params={params as { id: string }} /></AuthGuard>}
+            </Route>
+            <Route path="/products"><AuthGuard><Products /></AuthGuard></Route>
+            <Route path="/inventory/adjust"><AuthGuard><InventoryAdjust /></AuthGuard></Route>
+            <Route path="/inventory"><AuthGuard><Inventory /></AuthGuard></Route>
+            <Route path="/movements"><AuthGuard><Movements /></AuthGuard></Route>
+            <Route path="/locations/labels"><AuthGuard><LocationLabelsPage /></AuthGuard></Route>
+            <Route path="/locations/new"><AuthGuard><LocationNew /></AuthGuard></Route>
+            <Route path="/locations"><AuthGuard><Locations /></AuthGuard></Route>
+            <Route path="/scan"><AuthGuard><ScanPage /></AuthGuard></Route>
+            <Route path="/receiving"><AuthGuard><ReceivingPage /></AuthGuard></Route>
+            <Route path="/dispatch"><AuthGuard><DispatchPage /></AuthGuard></Route>
+            <Route path="/transfer"><AuthGuard><TransferPage /></AuthGuard></Route>
+            <Route path="/reports"><AuthGuard><ReportsPage /></AuthGuard></Route>
+            <Route path="/cycle-count"><AuthGuard><CycleCountPage /></AuthGuard></Route>
+            <Route path="/purchase-orders/reorder"><AuthGuard><ReorderSuggestionsPage /></AuthGuard></Route>
+            <Route path="/purchase-orders/templates/new"><AuthGuard><PoTemplateNewPage /></AuthGuard></Route>
+            <Route path="/purchase-orders/templates/:id"><AuthGuard><PoTemplateDetailPage /></AuthGuard></Route>
+            <Route path="/purchase-orders/templates"><AuthGuard><PoTemplatesPage /></AuthGuard></Route>
+            <Route path="/purchase-orders/new"><AuthGuard><PurchaseOrderNewPage /></AuthGuard></Route>
+            <Route path="/purchase-orders/:id/print"><AuthGuard><PurchaseOrderPrintPage /></AuthGuard></Route>
+            <Route path="/purchase-orders/:id/grn"><AuthGuard><PurchaseOrderGrnPage /></AuthGuard></Route>
+            <Route path="/purchase-orders/:id"><AuthGuard><PurchaseOrderDetailPage /></AuthGuard></Route>
+            <Route path="/purchase-orders"><AuthGuard><PurchaseOrdersPage /></AuthGuard></Route>
+            <Route path="/suppliers/performance"><AuthGuard><SupplierPerformancePage /></AuthGuard></Route>
+            <Route path="/suppliers/:id"><AuthGuard><SupplierDetailPage /></AuthGuard></Route>
+            <Route path="/suppliers"><AuthGuard><SuppliersPage /></AuthGuard></Route>
+            <Route path="/admin"><AuthGuard><AdminPage /></AuthGuard></Route>
+
+            <Route component={NotFound} />
+          </Switch>
+          <Toaster />
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ClerkProvider>
   );
 }
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
-        </WouterRouter>
-        <Toaster />
-      </TooltipProvider>
-    </QueryClientProvider>
+    <WouterRouter base={basePath}>
+      <AppRouter />
+    </WouterRouter>
   );
 }
 

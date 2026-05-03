@@ -17,11 +17,16 @@ import {
   ShoppingCart,
   Truck,
   Zap,
+  Shield,
+  LogOut,
+  User,
 } from "lucide-react";
 import {
   useGetLowStockAlerts,
   getGetLowStockAlertsQueryKey,
 } from "@workspace/api-client-react";
+import { useClerk, useUser } from "@clerk/react";
+import { useQuery } from "@tanstack/react-query";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard, alertBadge: true },
@@ -39,6 +44,12 @@ const navItems = [
   { href: "/movements", label: "Movements", icon: ClipboardList },
   { href: "/reports", label: "Reports", icon: BarChart3 },
 ];
+
+const ROLE_COLORS: Record<string, string> = {
+  admin: "bg-[#E8622A]/15 text-[#E8622A]",
+  operator: "bg-sidebar-accent/80 text-sidebar-foreground/80",
+  viewer: "bg-sidebar-accent/50 text-sidebar-foreground/60",
+};
 
 function AlertDot({ count, hasCritical }: { count: number; hasCritical: boolean }) {
   if (count === 0) return null;
@@ -97,6 +108,67 @@ function NavItem({
   );
 }
 
+function UserFooter() {
+  const { signOut } = useClerk();
+  const { user } = useUser();
+
+  const { data: me } = useQuery<{ userId: string; role: string }>({
+    queryKey: ["auth", "me"],
+    queryFn: async () => {
+      const res = await fetch("/api/auth/me", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load user info");
+      return res.json();
+    },
+    staleTime: 5 * 60_000,
+  });
+
+  const role = me?.role ?? "operator";
+  const name = user?.fullName ?? user?.primaryEmailAddress?.emailAddress ?? "User";
+  const initial = name.charAt(0).toUpperCase();
+
+  return (
+    <div className="px-3 py-3 border-t border-sidebar-border space-y-2">
+      {/* User profile row */}
+      <div className="flex items-center gap-2.5 px-1">
+        <div className="w-7 h-7 rounded-full bg-sidebar-primary flex items-center justify-center shrink-0">
+          <span className="text-xs font-bold text-sidebar-primary-foreground">{initial}</span>
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-semibold text-sidebar-foreground truncate">{name}</p>
+          <span
+            className={cn(
+              "text-[10px] font-medium px-1.5 py-0.5 rounded capitalize inline-block mt-0.5",
+              ROLE_COLORS[role] ?? ROLE_COLORS.operator
+            )}
+          >
+            {role}
+          </span>
+        </div>
+      </div>
+
+      {/* Admin link (admin only) */}
+      {role === "admin" && (
+        <Link
+          href="/admin"
+          className="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/60 transition-colors"
+        >
+          <Shield className="w-3.5 h-3.5" />
+          User Management
+        </Link>
+      )}
+
+      {/* Sign out */}
+      <button
+        onClick={() => signOut()}
+        className="w-full flex items-center gap-2 px-3 py-1.5 rounded-md text-xs text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/60 transition-colors"
+      >
+        <LogOut className="w-3.5 h-3.5" />
+        Sign out
+      </button>
+    </div>
+  );
+}
+
 export function Layout({ children }: { children: React.ReactNode }) {
   const { data: alertData } = useGetLowStockAlerts({
     query: {
@@ -135,11 +207,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             />
           ))}
         </nav>
-        <div className="px-3 py-3 border-t border-sidebar-border">
-          <p className="text-[10px] text-sidebar-foreground/30 text-center tracking-wide uppercase">
-            Phase 1 MVP
-          </p>
-        </div>
+        <UserFooter />
       </aside>
       <main className="flex-1 flex flex-col overflow-hidden">
         <div className="flex-1 overflow-y-auto">{children}</div>
