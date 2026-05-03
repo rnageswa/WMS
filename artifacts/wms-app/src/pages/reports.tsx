@@ -8,6 +8,10 @@ import {
   useUpdateVelocityAlertConfig,
   useSendVelocityAlert,
   usePreviewVelocityAlert,
+  useListSkuAlertOverrides,
+  useSetSkuAlertOverride,
+  useDeleteSkuAlertOverride,
+  useListProducts,
   type StockVelocityRow,
 } from "@workspace/api-client-react";
 import { Layout, PageHeader } from "@/components/layout";
@@ -59,6 +63,12 @@ import {
   Send,
   CheckCircle2,
   Loader2,
+  Pin,
+  PinOff,
+  X,
+  ChevronDown,
+  ChevronUp,
+  Search,
 } from "lucide-react";
 
 const CHART_COLORS = [
@@ -834,6 +844,7 @@ function StockVelocityTab() {
       </Card>
 
       <AlertSettingsCard />
+      <SkuExceptionsCard />
     </div>
   );
 }
@@ -1075,6 +1086,232 @@ function AlertSettingsCard() {
           )}
         </div>
       </CardContent>
+    </Card>
+  );
+}
+
+// ─── SKU Alert Exceptions Card ────────────────────────────────────────────────
+
+function SkuExceptionsCard() {
+  const { data: overrides = [], refetch } = useListSkuAlertOverrides();
+  const { data: allProducts = [] } = useListProducts();
+  const setOverride = useSetSkuAlertOverride();
+  const removeOverride = useDeleteSkuAlertOverride();
+
+  const [expanded, setExpanded] = useState(false);
+  const [search, setSearch] = useState("");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedMode, setSelectedMode] = useState<"always" | "never">("always");
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [pending, setPending] = useState<string | null>(null);
+
+  const existingIds = new Set(overrides.map((o) => o.productId));
+  const selectedProduct = allProducts.find((p) => p.id === selectedId) ?? null;
+
+  const filteredProducts = allProducts.filter(
+    (p) =>
+      p.isActive &&
+      !existingIds.has(p.id) &&
+      (search.length === 0 ||
+        p.name.toLowerCase().includes(search.toLowerCase()) ||
+        p.skuCode.toLowerCase().includes(search.toLowerCase()))
+  );
+
+  const alwaysGroup = overrides.filter((o) => o.mode === "always");
+  const neverGroup = overrides.filter((o) => o.mode === "never");
+
+  const handleAdd = async () => {
+    if (!selectedId) return;
+    setPending(selectedId);
+    await setOverride.mutateAsync({ productId: selectedId, data: { mode: selectedMode } });
+    await refetch();
+    setSelectedId(null);
+    setSearch("");
+    setPending(null);
+  };
+
+  const handleRemove = async (productId: string) => {
+    setPending(productId);
+    await removeOverride.mutateAsync({ productId });
+    await refetch();
+    setPending(null);
+  };
+
+  const overrideChip = (mode: "always" | "never") =>
+    mode === "always" ? (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-violet-100 text-violet-700">
+        <Pin className="w-2.5 h-2.5" /> Always
+      </span>
+    ) : (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600">
+        <PinOff className="w-2.5 h-2.5" /> Never
+      </span>
+    );
+
+  return (
+    <Card>
+      <CardHeader className="pb-3 cursor-pointer select-none" onClick={() => setExpanded((v) => !v)}>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="text-base flex items-center gap-2">
+              SKU Alert Exceptions
+              {overrides.length > 0 && (
+                <span className="text-xs font-normal text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                  {alwaysGroup.length > 0 && `${alwaysGroup.length} always`}
+                  {alwaysGroup.length > 0 && neverGroup.length > 0 && " · "}
+                  {neverGroup.length > 0 && `${neverGroup.length} never`}
+                </span>
+              )}
+            </CardTitle>
+            <CardDescription className="mt-0.5">
+              Pin SKUs to always appear in alerts, or suppress them entirely.
+            </CardDescription>
+          </div>
+          <button className="text-muted-foreground hover:text-foreground transition-colors p-1">
+            {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </button>
+        </div>
+      </CardHeader>
+
+      {expanded && (
+        <CardContent className="space-y-5 pt-0">
+          <Separator />
+
+          {/* Add new override */}
+          <div className="space-y-3">
+            <p className="text-sm font-medium">Add an exception</p>
+
+            <div className="flex gap-2 items-start flex-wrap">
+              {/* Product search */}
+              <div className="relative flex-1 min-w-[200px]">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                <Input
+                  className="pl-8 text-sm"
+                  placeholder="Search SKU or product name…"
+                  value={selectedProduct ? `${selectedProduct.skuCode} — ${selectedProduct.name}` : search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setSelectedId(null);
+                    setShowDropdown(true);
+                  }}
+                  onFocus={() => setShowDropdown(true)}
+                  onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
+                />
+                {showDropdown && !selectedId && filteredProducts.length > 0 && (
+                  <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-background border border-border rounded-md shadow-lg max-h-52 overflow-y-auto">
+                    {filteredProducts.slice(0, 20).map((p) => (
+                      <button
+                        key={p.id}
+                        className="w-full text-left px-3 py-2 hover:bg-muted transition-colors"
+                        onMouseDown={() => {
+                          setSelectedId(p.id);
+                          setSearch("");
+                          setShowDropdown(false);
+                        }}
+                      >
+                        <div className="text-sm font-medium">{p.name}</div>
+                        <div className="text-xs text-muted-foreground">{p.skuCode}</div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Mode selector */}
+              <div className="flex rounded-md overflow-hidden border border-border shrink-0">
+                <button
+                  onClick={() => setSelectedMode("always")}
+                  className={`px-3 py-2 text-xs font-medium transition-colors flex items-center gap-1 ${
+                    selectedMode === "always"
+                      ? "bg-violet-600 text-white"
+                      : "bg-background text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  <Pin className="w-3 h-3" /> Always
+                </button>
+                <button
+                  onClick={() => setSelectedMode("never")}
+                  className={`px-3 py-2 text-xs font-medium transition-colors flex items-center gap-1 border-l border-border ${
+                    selectedMode === "never"
+                      ? "bg-slate-600 text-white"
+                      : "bg-background text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  <PinOff className="w-3 h-3" /> Never
+                </button>
+              </div>
+
+              <Button
+                onClick={handleAdd}
+                disabled={!selectedId || !!pending}
+                className="bg-[#E8622A] hover:bg-[#d05520] text-white shrink-0"
+                size="sm"
+              >
+                {pending === selectedId ? <Loader2 className="w-4 h-4 animate-spin" /> : "Add Exception"}
+              </Button>
+            </div>
+          </div>
+
+          {/* Existing overrides */}
+          {overrides.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              No exceptions configured — all SKUs use the global threshold.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {[...alwaysGroup, ...neverGroup].map((o) => (
+                <div
+                  key={o.id}
+                  className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border bg-muted/20"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    {overrideChip(o.mode as "always" | "never")}
+                    <div className="min-w-0">
+                      <span className="text-sm font-medium">{o.name}</span>
+                      <span className="text-xs text-muted-foreground ml-2">{o.skuCode}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1 shrink-0">
+                    {/* Flip mode */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-xs h-7 px-2 text-muted-foreground hover:text-foreground"
+                      disabled={!!pending}
+                      onClick={async () => {
+                        setPending(o.productId);
+                        await setOverride.mutateAsync({
+                          productId: o.productId,
+                          data: { mode: o.mode === "always" ? "never" : "always" },
+                        });
+                        await refetch();
+                        setPending(null);
+                      }}
+                    >
+                      {o.mode === "always" ? "Switch to Never" : "Switch to Always"}
+                    </Button>
+                    {/* Remove */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                      disabled={pending === o.productId}
+                      onClick={() => handleRemove(o.productId)}
+                    >
+                      {pending === o.productId ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <X className="w-3.5 h-3.5" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      )}
     </Card>
   );
 }

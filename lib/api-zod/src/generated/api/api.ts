@@ -1401,9 +1401,56 @@ export const PreviewVelocityAlertResponse = zod.object({
       velocityPerDay: zod.number(),
       currentStock: zod.number(),
       reorderThreshold: zod.number(),
-      daysOfStockRemaining: zod.number(),
+      daysOfStockRemaining: zod.number().nullable(),
+      overrideMode: zod.string().nullable(),
     }),
   ),
+});
+
+/**
+ * @summary List all SKU alert overrides with product info
+ */
+export const ListSkuAlertOverridesResponseItem = zod.object({
+  id: zod.string(),
+  productId: zod.string(),
+  skuCode: zod.string(),
+  name: zod.string(),
+  mode: zod.enum(["always", "never"]),
+  updatedAt: zod.string(),
+});
+export const ListSkuAlertOverridesResponse = zod.array(
+  ListSkuAlertOverridesResponseItem,
+);
+
+/**
+ * @summary Set always/never override for a specific SKU
+ */
+export const SetSkuAlertOverrideParams = zod.object({
+  productId: zod.coerce.string(),
+});
+
+export const SetSkuAlertOverrideBody = zod.object({
+  mode: zod.enum(["always", "never"]),
+});
+
+export const SetSkuAlertOverrideResponse = zod.object({
+  id: zod.string(),
+  productId: zod.string(),
+  skuCode: zod.string(),
+  name: zod.string(),
+  mode: zod.enum(["always", "never"]),
+  updatedAt: zod.string(),
+});
+
+/**
+ * @summary Remove override for a SKU (resets to default behaviour)
+ */
+export const DeleteSkuAlertOverrideParams = zod.object({
+  productId: zod.coerce.string(),
+});
+
+export const DeleteSkuAlertOverrideResponse = zod.object({
+  deleted: zod.boolean(),
 });
 
 /**

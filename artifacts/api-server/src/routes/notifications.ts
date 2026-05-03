@@ -9,6 +9,7 @@ import {
   zonesTable,
   warehousesTable,
   velocityAlertSettingsTable,
+  skuAlertOverridesTable,
 } from "@workspace/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { logger } from "../lib/logger";
@@ -279,6 +280,68 @@ router.get("/notifications/velocity-alert/preview", async (req, res) => {
   const lookbackDays = parseInt((req.query.lookback as string) ?? String(config.lookbackDays), 10) || config.lookbackDays;
   const atRisk = await computeAtRiskSkus(lookbackDays, thresholdDays);
   res.json({ thresholdDays, lookbackDays, atRiskCount: atRisk.length, skus: atRisk });
+});
+
+// ── GET /notifications/velocity-alert/sku-overrides ──────────────────────────
+
+router.get("/notifications/velocity-alert/sku-overrides", async (_req, res) => {
+  const rows = await db
+    .select({
+      id: skuAlertOverridesTable.id,
+      productId: skuAlertOverridesTable.productId,
+      skuCode: productsTable.skuCode,
+      name: productsTable.name,
+      mode: skuAlertOverridesTable.mode,
+      updatedAt: skuAlertOverridesTable.updatedAt,
+    })
+    .from(skuAlertOverridesTable)
+    .innerJoin(productsTable, eq(skuAlertOverridesTable.productId, productsTable.id))
+    .orderBy(productsTable.name);
+
+  res.json(rows);
+});
+
+// ── PUT /notifications/velocity-alert/sku-overrides/:productId ───────────────
+
+const skuOverrideBodySchema = z.object({
+  mode: z.enum(["always", "never"]),
+});
+
+router.put("/notifications/velocity-alert/sku-overrides/:productId", async (req, res) => {
+  const { productId } = req.params;
+  const parsed = skuOverrideBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid request", details: parsed.error.flatten() });
+    return;
+  }
+
+  const [saved] = await db
+    .insert(skuAlertOverridesTable)
+    .values({ productId, mode: parsed.data.mode, updatedAt: new Date() })
+    .onConflictDoUpdate({
+      target: skuAlertOverridesTable.productId,
+      set: { mode: parsed.data.mode, updatedAt: new Date() },
+    })
+    .returning();
+
+  // Join product info for response
+  const product = await db
+    .select({ skuCode: productsTable.skuCode, name: productsTable.name })
+    .from(productsTable)
+    .where(eq(productsTable.id, productId))
+    .limit(1);
+
+  res.json({ ...saved, ...(product[0] ?? {}) });
+});
+
+// ── DELETE /notifications/velocity-alert/sku-overrides/:productId ─────────────
+
+router.delete("/notifications/velocity-alert/sku-overrides/:productId", async (req, res) => {
+  const { productId } = req.params;
+  await db
+    .delete(skuAlertOverridesTable)
+    .where(eq(skuAlertOverridesTable.productId, productId));
+  res.json({ deleted: true });
 });
 
 export default router;

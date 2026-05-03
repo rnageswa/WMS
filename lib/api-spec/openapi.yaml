@@ -1291,6 +1291,67 @@ paths:
               schema:
                 $ref: "#/components/schemas/VelocityAlertPreview"
 
+  /notifications/velocity-alert/sku-overrides:
+    get:
+      operationId: listSkuAlertOverrides
+      tags: [inventory]
+      summary: List all SKU alert overrides with product info
+      responses:
+        "200":
+          description: List of SKU overrides
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SkuAlertOverrideItem"
+
+  /notifications/velocity-alert/sku-overrides/{productId}:
+    put:
+      operationId: setSkuAlertOverride
+      tags: [inventory]
+      summary: Set always/never override for a specific SKU
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetSkuAlertOverrideBody"
+      responses:
+        "200":
+          description: Saved override
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SkuAlertOverrideItem"
+    delete:
+      operationId: deleteSkuAlertOverride
+      tags: [inventory]
+      summary: Remove override for a SKU (resets to default behaviour)
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Override removed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted:
+                    type: boolean
+                required: [deleted]
+
   /reports/supplier-performance:
     get:
       operationId: getSupplierPerformanceReport
@@ -2946,6 +3007,32 @@ components:
           nullable: true
       required: [sent, reason, message, skuCount, to]
 
+    SkuAlertOverrideItem:
+      type: object
+      properties:
+        id:
+          type: string
+        productId:
+          type: string
+        skuCode:
+          type: string
+        name:
+          type: string
+        mode:
+          type: string
+          enum: [always, never]
+        updatedAt:
+          type: string
+      required: [id, productId, skuCode, name, mode, updatedAt]
+
+    SetSkuAlertOverrideBody:
+      type: object
+      properties:
+        mode:
+          type: string
+          enum: [always, never]
+      required: [mode]
+
     VelocityAlertPreviewSku:
       type: object
       properties:
@@ -2963,7 +3050,11 @@ components:
           type: integer
         daysOfStockRemaining:
           type: integer
-      required: [skuCode, name, category, velocityPerDay, currentStock, reorderThreshold, daysOfStockRemaining]
+          nullable: true
+        overrideMode:
+          type: string
+          nullable: true
+      required: [skuCode, name, category, velocityPerDay, currentStock, reorderThreshold, daysOfStockRemaining, overrideMode]
 
     VelocityAlertPreview:
       type: object

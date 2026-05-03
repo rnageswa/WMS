@@ -706,6 +706,35 @@ export interface VelocityAlertSendResult {
   to: string | null;
 }
 
+export type SkuAlertOverrideItemMode =
+  (typeof SkuAlertOverrideItemMode)[keyof typeof SkuAlertOverrideItemMode];
+
+export const SkuAlertOverrideItemMode = {
+  always: "always",
+  never: "never",
+} as const;
+
+export interface SkuAlertOverrideItem {
+  id: string;
+  productId: string;
+  skuCode: string;
+  name: string;
+  mode: SkuAlertOverrideItemMode;
+  updatedAt: string;
+}
+
+export type SetSkuAlertOverrideBodyMode =
+  (typeof SetSkuAlertOverrideBodyMode)[keyof typeof SetSkuAlertOverrideBodyMode];
+
+export const SetSkuAlertOverrideBodyMode = {
+  always: "always",
+  never: "never",
+} as const;
+
+export interface SetSkuAlertOverrideBody {
+  mode: SetSkuAlertOverrideBodyMode;
+}
+
 export interface VelocityAlertPreviewSku {
   skuCode: string;
   name: string;
@@ -713,7 +742,8 @@ export interface VelocityAlertPreviewSku {
   velocityPerDay: number;
   currentStock: number;
   reorderThreshold: number;
-  daysOfStockRemaining: number;
+  daysOfStockRemaining: number | null;
+  overrideMode: string | null;
 }
 
 export interface VelocityAlertPreview {
@@ -911,6 +941,10 @@ export type GetStockVelocityCsvParams = {
 export type PreviewVelocityAlertParams = {
   threshold?: number;
   lookback?: number;
+};
+
+export type DeleteSkuAlertOverride200 = {
+  deleted: boolean;
 };
 
 export type ScanLookupParams = {

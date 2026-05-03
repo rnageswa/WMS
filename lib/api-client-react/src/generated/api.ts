@@ -41,6 +41,7 @@ import type {
   CreateZoneBody,
   CycleCountResult,
   DashboardSummary,
+  DeleteSkuAlertOverride200,
   ErrorResponse,
   GetBinActivityParams,
   GetStockVelocityCsvParams,
@@ -73,6 +74,8 @@ import type {
   ScanResult,
   SendPoEmailBody,
   SendPoEmailResult,
+  SetSkuAlertOverrideBody,
+  SkuAlertOverrideItem,
   StockValueReport,
   StockVelocityReport,
   SubmitCycleCountBody,
@@ -4702,6 +4705,258 @@ export function usePreviewVelocityAlert<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary List all SKU alert overrides with product info
+ */
+export const getListSkuAlertOverridesUrl = () => {
+  return `/api/notifications/velocity-alert/sku-overrides`;
+};
+
+export const listSkuAlertOverrides = async (
+  options?: RequestInit,
+): Promise<SkuAlertOverrideItem[]> => {
+  return customFetch<SkuAlertOverrideItem[]>(getListSkuAlertOverridesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListSkuAlertOverridesQueryKey = () => {
+  return [`/api/notifications/velocity-alert/sku-overrides`] as const;
+};
+
+export const getListSkuAlertOverridesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listSkuAlertOverrides>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listSkuAlertOverrides>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListSkuAlertOverridesQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listSkuAlertOverrides>>
+  > = ({ signal }) => listSkuAlertOverrides({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listSkuAlertOverrides>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListSkuAlertOverridesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listSkuAlertOverrides>>
+>;
+export type ListSkuAlertOverridesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all SKU alert overrides with product info
+ */
+
+export function useListSkuAlertOverrides<
+  TData = Awaited<ReturnType<typeof listSkuAlertOverrides>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listSkuAlertOverrides>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListSkuAlertOverridesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Set always/never override for a specific SKU
+ */
+export const getSetSkuAlertOverrideUrl = (productId: string) => {
+  return `/api/notifications/velocity-alert/sku-overrides/${productId}`;
+};
+
+export const setSkuAlertOverride = async (
+  productId: string,
+  setSkuAlertOverrideBody: SetSkuAlertOverrideBody,
+  options?: RequestInit,
+): Promise<SkuAlertOverrideItem> => {
+  return customFetch<SkuAlertOverrideItem>(
+    getSetSkuAlertOverrideUrl(productId),
+    {
+      ...options,
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(setSkuAlertOverrideBody),
+    },
+  );
+};
+
+export const getSetSkuAlertOverrideMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setSkuAlertOverride>>,
+    TError,
+    { productId: string; data: BodyType<SetSkuAlertOverrideBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setSkuAlertOverride>>,
+  TError,
+  { productId: string; data: BodyType<SetSkuAlertOverrideBody> },
+  TContext
+> => {
+  const mutationKey = ["setSkuAlertOverride"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setSkuAlertOverride>>,
+    { productId: string; data: BodyType<SetSkuAlertOverrideBody> }
+  > = (props) => {
+    const { productId, data } = props ?? {};
+
+    return setSkuAlertOverride(productId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetSkuAlertOverrideMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setSkuAlertOverride>>
+>;
+export type SetSkuAlertOverrideMutationBody = BodyType<SetSkuAlertOverrideBody>;
+export type SetSkuAlertOverrideMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Set always/never override for a specific SKU
+ */
+export const useSetSkuAlertOverride = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setSkuAlertOverride>>,
+    TError,
+    { productId: string; data: BodyType<SetSkuAlertOverrideBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof setSkuAlertOverride>>,
+  TError,
+  { productId: string; data: BodyType<SetSkuAlertOverrideBody> },
+  TContext
+> => {
+  return useMutation(getSetSkuAlertOverrideMutationOptions(options));
+};
+
+/**
+ * @summary Remove override for a SKU (resets to default behaviour)
+ */
+export const getDeleteSkuAlertOverrideUrl = (productId: string) => {
+  return `/api/notifications/velocity-alert/sku-overrides/${productId}`;
+};
+
+export const deleteSkuAlertOverride = async (
+  productId: string,
+  options?: RequestInit,
+): Promise<DeleteSkuAlertOverride200> => {
+  return customFetch<DeleteSkuAlertOverride200>(
+    getDeleteSkuAlertOverrideUrl(productId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDeleteSkuAlertOverrideMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteSkuAlertOverride>>,
+    TError,
+    { productId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteSkuAlertOverride>>,
+  TError,
+  { productId: string },
+  TContext
+> => {
+  const mutationKey = ["deleteSkuAlertOverride"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteSkuAlertOverride>>,
+    { productId: string }
+  > = (props) => {
+    const { productId } = props ?? {};
+
+    return deleteSkuAlertOverride(productId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteSkuAlertOverrideMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteSkuAlertOverride>>
+>;
+
+export type DeleteSkuAlertOverrideMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Remove override for a SKU (resets to default behaviour)
+ */
+export const useDeleteSkuAlertOverride = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteSkuAlertOverride>>,
+    TError,
+    { productId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteSkuAlertOverride>>,
+  TError,
+  { productId: string },
+  TContext
+> => {
+  return useMutation(getDeleteSkuAlertOverrideMutationOptions(options));
+};
 
 /**
  * @summary Supplier performance metrics derived from purchase order history
