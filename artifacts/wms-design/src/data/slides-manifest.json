@@ -166,5 +166,37 @@
     "title": "Definition of Done",
     "description": "Quality gate — criteria every user story must meet before closure",
     "speakerNotes": ""
+  },
+  {
+    "id": "d2e3f4a5-b6c7-8901-defa-012345678901",
+    "position": 22,
+    "filepath": "src/pages/slides/Slide22BuildStatus.tsx",
+    "title": "Current Build Status",
+    "description": "MVP progress summary — 14 modules shipped, 6 pending — May 2026",
+    "speakerNotes": ""
+  },
+  {
+    "id": "e3f4a5b6-c7d8-9012-efab-123456789012",
+    "position": 23,
+    "filepath": "src/pages/slides/Slide23FeaturesShipped.tsx",
+    "title": "Features Shipped",
+    "description": "All 14 shipped modules across Inventory & Products, Warehouse Operations, and Reporting & Alerts",
+    "speakerNotes": ""
+  },
+  {
+    "id": "f4a5b6c7-d8e9-0123-fabc-234567890123",
+    "position": 24,
+    "filepath": "src/pages/slides/Slide24AlertSystem.tsx",
+    "title": "Alert & Reporting System",
+    "description": "Deep dive into the velocity alert pipeline — compute, project, override, send, log",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a5b6c7d8-e9f0-1234-abcd-345678901234",
+    "position": 25,
+    "filepath": "src/pages/slides/Slide25PendingTasks.tsx",
+    "title": "Pending Tasks",
+    "description": "Remaining roadmap items: Auth, Mobile, Multi-warehouse, Forecasting, ERP, Delivery Status",
+    "speakerNotes": ""
   }
 ]

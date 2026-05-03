@@ -264,8 +264,26 @@ export async function runVelocityAlert(
       html,
     });
 
+    const skuSnapshot = atRisk.map((s) => ({
+      skuCode: s.skuCode,
+      name: s.name,
+      daysOfStockRemaining: s.daysOfStockRemaining,
+      velocityPerDay: s.velocityPerDay,
+      currentStock: s.currentStock,
+    }));
+
     if (error) {
       logger.error({ error }, "Resend error sending velocity alert");
+      await db.insert(alertSendLogTable).values({
+        recipientEmail: to,
+        skuCount: atRisk.length,
+        thresholdDays,
+        lookbackDays,
+        triggeredBy,
+        status: "failed",
+        errorMessage: error.message,
+        skus: skuSnapshot,
+      });
       return { sent: false, skuCount: atRisk.length, reason: "send_error", message: error.message };
     }
 
@@ -278,13 +296,8 @@ export async function runVelocityAlert(
         thresholdDays,
         lookbackDays,
         triggeredBy,
-        skus: atRisk.map((s) => ({
-          skuCode: s.skuCode,
-          name: s.name,
-          daysOfStockRemaining: s.daysOfStockRemaining,
-          velocityPerDay: s.velocityPerDay,
-          currentStock: s.currentStock,
-        })),
+        status: "sent",
+        skus: skuSnapshot,
       }),
     ]);
 

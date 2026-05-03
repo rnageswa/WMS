@@ -27,7 +27,7 @@ export const skuAlertOverridesTable = pgTable("sku_alert_overrides", {
 
 export type SkuAlertOverride = typeof skuAlertOverridesTable.$inferSelect;
 
-// Records every alert email that was successfully sent
+// Records every alert email attempt (sent or failed)
 export const alertSendLogTable = pgTable("alert_send_log", {
   id: uuid("id").primaryKey().defaultRandom(),
   sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
@@ -36,6 +36,8 @@ export const alertSendLogTable = pgTable("alert_send_log", {
   thresholdDays: integer("threshold_days").notNull(),
   lookbackDays: integer("lookback_days").notNull(),
   triggeredBy: text("triggered_by").notNull().default("manual"), // 'scheduler' | 'manual'
+  status: text("status").notNull().default("sent"), // 'sent' | 'failed'
+  errorMessage: text("error_message"),
   skus: json("skus").notNull().$type<Array<{
     skuCode: string;
     name: string;

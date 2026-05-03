@@ -359,4 +359,35 @@ router.get("/notifications/velocity-alert/history", async (req, res) => {
   res.json(rows);
 });
 
+// ── POST /notifications/velocity-alert/history/:id/retry ──────────────────────
+
+router.post("/notifications/velocity-alert/history/:id/retry", async (req, res) => {
+  const { id } = req.params;
+
+  const [entry] = await db
+    .select()
+    .from(alertSendLogTable)
+    .where(eq(alertSendLogTable.id, id))
+    .limit(1);
+
+  if (!entry) {
+    res.status(404).json({ error: "Log entry not found" });
+    return;
+  }
+
+  if (entry.status === "sent") {
+    res.status(400).json({ error: "This alert was already delivered successfully." });
+    return;
+  }
+
+  const result = await runVelocityAlert(
+    entry.recipientEmail,
+    entry.thresholdDays,
+    entry.lookbackDays,
+    "manual"
+  );
+
+  res.json(result);
+});
+
 export default router;

@@ -1373,6 +1373,25 @@ paths:
                 items:
                   $ref: "#/components/schemas/AlertSendLogEntry"
 
+  /notifications/velocity-alert/history/{id}/retry:
+    post:
+      operationId: retryVelocityAlert
+      tags: [inventory]
+      summary: Retry a failed velocity alert send
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Retry result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VelocityAlertSendResult"
+
   /reports/supplier-performance:
     get:
       operationId: getSupplierPerformanceReport
@@ -3062,11 +3081,17 @@ components:
         triggeredBy:
           type: string
           enum: [scheduler, manual]
+        status:
+          type: string
+          enum: [sent, failed]
+        errorMessage:
+          type: string
+          nullable: true
         skus:
           type: array
           items:
             $ref: "#/components/schemas/AlertSendLogSkuSnapshot"
-      required: [id, sentAt, recipientEmail, skuCount, thresholdDays, lookbackDays, triggeredBy, skus]
+      required: [id, sentAt, recipientEmail, skuCount, thresholdDays, lookbackDays, triggeredBy, status, skus]
 
     SkuAlertOverrideItem:
       type: object

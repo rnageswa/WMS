@@ -5067,6 +5067,90 @@ export function useGetVelocityAlertHistory<
 }
 
 /**
+ * @summary Retry a failed velocity alert send
+ */
+export const getRetryVelocityAlertUrl = (id: string) => {
+  return `/api/notifications/velocity-alert/history/${id}/retry`;
+};
+
+export const retryVelocityAlert = async (
+  id: string,
+  options?: RequestInit,
+): Promise<VelocityAlertSendResult> => {
+  return customFetch<VelocityAlertSendResult>(getRetryVelocityAlertUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getRetryVelocityAlertMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof retryVelocityAlert>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof retryVelocityAlert>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["retryVelocityAlert"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof retryVelocityAlert>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return retryVelocityAlert(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RetryVelocityAlertMutationResult = NonNullable<
+  Awaited<ReturnType<typeof retryVelocityAlert>>
+>;
+
+export type RetryVelocityAlertMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Retry a failed velocity alert send
+ */
+export const useRetryVelocityAlert = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof retryVelocityAlert>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof retryVelocityAlert>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getRetryVelocityAlertMutationOptions(options));
+};
+
+/**
  * @summary Supplier performance metrics derived from purchase order history
  */
 export const getGetSupplierPerformanceReportUrl = () => {

@@ -13,6 +13,7 @@ import {
   useDeleteSkuAlertOverride,
   useListProducts,
   useGetVelocityAlertHistory,
+  useRetryVelocityAlert,
   type StockVelocityRow,
 } from "@workspace/api-client-react";
 import { Layout, PageHeader } from "@/components/layout";
@@ -74,6 +75,8 @@ import {
   CalendarClock,
   Bot,
   MousePointerClick,
+  RefreshCw,
+  XCircle,
 } from "lucide-react";
 
 const CHART_COLORS = [
@@ -1325,9 +1328,12 @@ function SkuExceptionsCard() {
 // ─── Alert History Card ───────────────────────────────────────────────────────
 
 function AlertHistoryCard() {
-  const { data: entries = [], isLoading } = useGetVelocityAlertHistory({ limit: 30 });
+  const { data: entries = [], isLoading, refetch } = useGetVelocityAlertHistory({ limit: 30 });
+  const retry = useRetryVelocityAlert();
   const [expanded, setExpanded] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [retrying, setRetrying] = useState<string | null>(null);
+  const [retryMsg, setRetryMsg] = useState<{ id: string; ok: boolean; text: string } | null>(null);
 
   return (
     <Card>
@@ -1393,6 +1399,13 @@ function AlertHistoryCard() {
                       className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-muted/30 transition-colors"
                       onClick={() => setOpenId(isOpen ? null : entry.id)}
                     >
+                      {/* Delivery status */}
+                      {entry.status === "sent" ? (
+                        <CheckCircle2 className="w-3.5 h-3.5 text-green-600 shrink-0" />
+                      ) : (
+                        <XCircle className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                      )}
+
                       {/* Trigger badge */}
                       <span
                         className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ${
@@ -1422,7 +1435,32 @@ function AlertHistoryCard() {
                       </span>
 
                       <span className="ml-auto flex items-center gap-2 shrink-0">
-                        {urgentCount > 0 && (
+                        {entry.status === "failed" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-6 px-2 text-xs gap-1 text-red-600 border-red-200 hover:bg-red-50"
+                            disabled={retrying === entry.id}
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              setRetrying(entry.id);
+                              setRetryMsg(null);
+                              try {
+                                const r = await retry.mutateAsync({ id: entry.id });
+                                setRetryMsg({ id: entry.id, ok: !!r.sent, text: r.message ?? (r.sent ? "Resent successfully" : "Retry failed") });
+                                if (r.sent) refetch();
+                              } catch {
+                                setRetryMsg({ id: entry.id, ok: false, text: "Unexpected error" });
+                              } finally {
+                                setRetrying(null);
+                              }
+                            }}
+                          >
+                            <RefreshCw className={`w-3 h-3 ${retrying === entry.id ? "animate-spin" : ""}`} />
+                            Retry
+                          </Button>
+                        )}
+                        {urgentCount > 0 && entry.status === "sent" && (
                           <span className="text-xs font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">
                             {urgentCount} critical
                           </span>
@@ -1439,6 +1477,18 @@ function AlertHistoryCard() {
                     {/* Expanded SKU list */}
                     {isOpen && (
                       <div className="border-t border-border bg-muted/10 px-4 py-3 space-y-1.5">
+                        {entry.status === "failed" && entry.errorMessage && (
+                          <div className="flex items-center gap-2 mb-2 text-xs text-red-600 bg-red-50 rounded-md px-3 py-2">
+                            <XCircle className="w-3.5 h-3.5 shrink-0" />
+                            <span>Delivery failed: {entry.errorMessage}</span>
+                          </div>
+                        )}
+                        {retryMsg && retryMsg.id === entry.id && (
+                          <div className={`flex items-center gap-2 mb-2 text-xs rounded-md px-3 py-2 ${retryMsg.ok ? "text-green-700 bg-green-50" : "text-red-600 bg-red-50"}`}>
+                            {retryMsg.ok ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> : <XCircle className="w-3.5 h-3.5 shrink-0" />}
+                            <span>{retryMsg.text}</span>
+                          </div>
+                        )}
                         <div className="text-xs text-muted-foreground mb-2">
                           Sent to <span className="font-medium text-foreground">{entry.recipientEmail}</span>
                           {" · "}lookback {entry.lookbackDays}d

@@ -722,6 +722,14 @@ export const AlertSendLogEntryTriggeredBy = {
   manual: "manual",
 } as const;
 
+export type AlertSendLogEntryStatus =
+  (typeof AlertSendLogEntryStatus)[keyof typeof AlertSendLogEntryStatus];
+
+export const AlertSendLogEntryStatus = {
+  sent: "sent",
+  failed: "failed",
+} as const;
+
 export interface AlertSendLogEntry {
   id: string;
   sentAt: string;
@@ -730,6 +738,8 @@ export interface AlertSendLogEntry {
   thresholdDays: number;
   lookbackDays: number;
   triggeredBy: AlertSendLogEntryTriggeredBy;
+  status: AlertSendLogEntryStatus;
+  errorMessage?: string | null;
   skus: AlertSendLogSkuSnapshot[];
 }
 

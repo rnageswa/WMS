@@ -1470,6 +1470,8 @@ export const GetVelocityAlertHistoryResponseItem = zod.object({
   thresholdDays: zod.number(),
   lookbackDays: zod.number(),
   triggeredBy: zod.enum(["scheduler", "manual"]),
+  status: zod.enum(["sent", "failed"]),
+  errorMessage: zod.string().nullish(),
   skus: zod.array(
     zod.object({
       skuCode: zod.string(),
@@ -1483,6 +1485,21 @@ export const GetVelocityAlertHistoryResponseItem = zod.object({
 export const GetVelocityAlertHistoryResponse = zod.array(
   GetVelocityAlertHistoryResponseItem,
 );
+
+/**
+ * @summary Retry a failed velocity alert send
+ */
+export const RetryVelocityAlertParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const RetryVelocityAlertResponse = zod.object({
+  sent: zod.boolean(),
+  reason: zod.string().nullable(),
+  message: zod.string().nullable(),
+  skuCount: zod.number().nullable(),
+  to: zod.string().nullable(),
+});
 
 /**
  * @summary Supplier performance metrics derived from purchase order history
