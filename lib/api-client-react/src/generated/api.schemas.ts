@@ -694,6 +694,7 @@ export interface StockVelocityRow {
   currentStock: number;
   reorderThreshold: number;
   reorderRisk: boolean;
+  daysOfStockRemaining: number | null;
   lastMovementAt: string | null;
 }
 
@@ -852,6 +853,13 @@ export type BulkDeletePurchaseOrders200 = {
 };
 
 export type GetStockVelocityReportParams = {
+  /**
+   * Lookback window in days (default 30)
+   */
+  days?: number;
+};
+
+export type GetStockVelocityCsvParams = {
   /**
    * Lookback window in days (default 30)
    */

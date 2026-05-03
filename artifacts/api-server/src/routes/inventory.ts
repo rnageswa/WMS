@@ -563,6 +563,7 @@ router.get("/reports/stock-velocity", async (req, res) => {
       currentStock,
       reorderThreshold: p.reorderThreshold,
       reorderRisk: currentStock <= p.reorderThreshold,
+      daysOfStockRemaining: velocityPerDay > 0 ? Math.round(currentStock / velocityPerDay) : null,
       lastMovementAt: m?.lastMovementAt ? (m.lastMovementAt as Date).toISOString() : null,
     };
   });
@@ -633,22 +634,24 @@ router.get("/reports/stock-velocity-csv", async (req, res) => {
       currentStock,
       reorderThreshold: p.reorderThreshold,
       reorderRisk: currentStock <= p.reorderThreshold ? "Yes" : "No",
+      daysOfStockRemaining: velocityPerDay > 0 ? Math.round(currentStock / velocityPerDay) : null,
       lastMovementAt: m?.lastMovementAt ? (m.lastMovementAt as Date).toISOString().slice(0, 10) : "",
     };
   });
 
   rows.sort((a, b) => b.totalUnitsMoved - a.totalUnitsMoved || a.name.localeCompare(b.name));
 
-  const escape = (v: string | number) => {
+  const escape = (v: string | number | null) => {
+    if (v === null) return "";
     const s = String(v);
     return s.includes(",") || s.includes('"') || s.includes("\n") ? `"${s.replace(/"/g, '""')}"` : s;
   };
 
-  const headers = ["Rank", "SKU", "Product", "Category", "Units In", "Units Out", "Total Moved", "Velocity (units/day)", "Current Stock", "Reorder Threshold", "Reorder Risk", "Last Movement"];
+  const headers = ["Rank", "SKU", "Product", "Category", "Units In", "Units Out", "Total Moved", "Velocity (units/day)", "Current Stock", "Reorder Threshold", "Reorder Risk", "Days of Stock Remaining", "Last Movement"];
   const csvLines = [
     headers.join(","),
     ...rows.map((r, i) =>
-      [i + 1, r.skuCode, r.name, r.category, r.unitsIn, r.unitsOut, r.totalUnitsMoved, r.velocityPerDay, r.currentStock, r.reorderThreshold, r.reorderRisk, r.lastMovementAt]
+      [i + 1, r.skuCode, r.name, r.category, r.unitsIn, r.unitsOut, r.totalUnitsMoved, r.velocityPerDay, r.currentStock, r.reorderThreshold, r.reorderRisk, r.daysOfStockRemaining, r.lastMovementAt]
         .map(escape)
         .join(",")
     ),

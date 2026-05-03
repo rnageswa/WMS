@@ -1319,9 +1319,22 @@ export const GetStockVelocityReportResponse = zod.object({
       currentStock: zod.number(),
       reorderThreshold: zod.number(),
       reorderRisk: zod.boolean(),
+      daysOfStockRemaining: zod.number().nullable(),
       lastMovementAt: zod.string().nullable(),
     }),
   ),
+});
+
+/**
+ * @summary Stock velocity report as CSV download
+ */
+export const getStockVelocityCsvQueryDaysDefault = 30;
+
+export const GetStockVelocityCsvQueryParams = zod.object({
+  days: zod.coerce
+    .number()
+    .default(getStockVelocityCsvQueryDaysDefault)
+    .describe("Lookback window in days (default 30)"),
 });
 
 /**

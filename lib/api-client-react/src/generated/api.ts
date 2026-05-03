@@ -43,6 +43,7 @@ import type {
   DashboardSummary,
   ErrorResponse,
   GetBinActivityParams,
+  GetStockVelocityCsvParams,
   GetStockVelocityReportParams,
   GetZoneActivityParams,
   GoodsReceiptNote,
@@ -4239,6 +4240,109 @@ export function useGetStockVelocityReport<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetStockVelocityReportQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Stock velocity report as CSV download
+ */
+export const getGetStockVelocityCsvUrl = (
+  params?: GetStockVelocityCsvParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/reports/stock-velocity-csv?${stringifiedParams}`
+    : `/api/reports/stock-velocity-csv`;
+};
+
+export const getStockVelocityCsv = async (
+  params?: GetStockVelocityCsvParams,
+  options?: RequestInit,
+): Promise<string> => {
+  return customFetch<string>(getGetStockVelocityCsvUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetStockVelocityCsvQueryKey = (
+  params?: GetStockVelocityCsvParams,
+) => {
+  return [
+    `/api/reports/stock-velocity-csv`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getGetStockVelocityCsvQueryOptions = <
+  TData = Awaited<ReturnType<typeof getStockVelocityCsv>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetStockVelocityCsvParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getStockVelocityCsv>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetStockVelocityCsvQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getStockVelocityCsv>>
+  > = ({ signal }) =>
+    getStockVelocityCsv(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getStockVelocityCsv>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetStockVelocityCsvQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getStockVelocityCsv>>
+>;
+export type GetStockVelocityCsvQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Stock velocity report as CSV download
+ */
+
+export function useGetStockVelocityCsv<
+  TData = Awaited<ReturnType<typeof getStockVelocityCsv>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetStockVelocityCsvParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getStockVelocityCsv>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetStockVelocityCsvQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

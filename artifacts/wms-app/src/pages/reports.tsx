@@ -727,11 +727,11 @@ function StockVelocityTab() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/40 hover:bg-muted/40">
-                  {["#", "SKU", "Product", "Category", "In", "Out", "Total", "Velocity", "Stock", "Risk", "Last Move"].map((h, i) => (
+                  {["#", "SKU", "Product", "Category", "In", "Out", "Total", "Velocity", "Stock", "Days Left", "Risk", "Last Move"].map((h, i) => (
                     <TableHead
                       key={h}
                       className={`text-xs uppercase tracking-wide text-muted-foreground font-semibold ${
-                        i >= 4 && i <= 8 ? "text-right" : ""
+                        i >= 4 && i <= 9 ? "text-right" : ""
                       } ${i === 0 ? "pl-5 w-[1%] whitespace-nowrap" : ""}`}
                     >
                       {h}
@@ -782,6 +782,21 @@ function StockVelocityTab() {
                       <TableCell className="text-right tabular-nums text-sm">
                         <span className={row.reorderRisk ? "text-amber-600 font-semibold" : ""}>{row.currentStock}</span>
                         <span className="text-[10px] text-muted-foreground ml-1">/ {row.reorderThreshold}</span>
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {row.daysOfStockRemaining === null ? (
+                          <span className="text-[11px] text-muted-foreground/50">∞</span>
+                        ) : row.daysOfStockRemaining <= 7 ? (
+                          <Badge className="bg-red-50 text-red-600 border-red-200 hover:bg-red-50 text-[10px] font-bold tabular-nums border">
+                            {row.daysOfStockRemaining}d
+                          </Badge>
+                        ) : row.daysOfStockRemaining <= 30 ? (
+                          <Badge className="bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-50 text-[10px] font-bold tabular-nums border">
+                            {row.daysOfStockRemaining}d
+                          </Badge>
+                        ) : (
+                          <span className="text-[11px] text-muted-foreground tabular-nums">{row.daysOfStockRemaining}d</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         {row.reorderRisk ? (

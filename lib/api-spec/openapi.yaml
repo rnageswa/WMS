@@ -2857,6 +2857,9 @@ components:
           type: integer
         reorderRisk:
           type: boolean
+        daysOfStockRemaining:
+          type: integer
+          nullable: true
         lastMovementAt:
           type: string
           nullable: true
@@ -2873,6 +2876,7 @@ components:
         - currentStock
         - reorderThreshold
         - reorderRisk
+        - daysOfStockRemaining
         - lastMovementAt
 
     StockVelocityReport:
