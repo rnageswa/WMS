@@ -257,6 +257,25 @@ export const CreateZoneBody = zod.object({
 });
 
 /**
+ * @summary Movement counts per bin within a zone
+ */
+export const getBinActivityQueryDaysDefault = 30;
+
+export const GetBinActivityQueryParams = zod.object({
+  zoneId: zod.coerce.string().uuid(),
+  days: zod.coerce.number().default(getBinActivityQueryDaysDefault),
+});
+
+export const GetBinActivityResponseItem = zod.object({
+  binId: zod.string(),
+  binCode: zod.string(),
+  binName: zod.string().nullable(),
+  movementCount: zod.number(),
+  lastMovementAt: zod.string().nullable(),
+});
+export const GetBinActivityResponse = zod.array(GetBinActivityResponseItem);
+
+/**
  * @summary Movement counts per zone for heatmap
  */
 export const getZoneActivityQueryDaysDefault = 30;

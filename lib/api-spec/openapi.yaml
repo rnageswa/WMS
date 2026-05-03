@@ -253,6 +253,33 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /locations/bin-activity:
+    get:
+      operationId: getBinActivity
+      tags: [locations]
+      summary: Movement counts per bin within a zone
+      parameters:
+        - name: zoneId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: days
+          in: query
+          schema:
+            type: integer
+            default: 30
+      responses:
+        "200":
+          description: Bin activity stats
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BinActivityItem"
+
   /locations/zone-activity:
     get:
       operationId: getZoneActivity
@@ -2829,6 +2856,30 @@ components:
           items:
             $ref: "#/components/schemas/SupplierPerformanceRow"
       required: [generatedAt, suppliers]
+
+    # ── Bin Activity ──────────────────────────────────────────────────────────
+
+    BinActivityItem:
+      type: object
+      properties:
+        binId:
+          type: string
+        binCode:
+          type: string
+        binName:
+          type: string
+          nullable: true
+        movementCount:
+          type: integer
+        lastMovementAt:
+          type: string
+          nullable: true
+      required:
+        - binId
+        - binCode
+        - binName
+        - movementCount
+        - lastMovementAt
 
     # ── Zone Activity ─────────────────────────────────────────────────────────
 

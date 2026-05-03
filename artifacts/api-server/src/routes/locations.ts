@@ -16,6 +16,46 @@ import {
 
 const router: IRouter = Router();
 
+// ── GET /locations/bin-activity — movement counts per bin within a zone ───
+
+router.get("/locations/bin-activity", async (req, res) => {
+  const zoneId = req.query.zoneId as string | undefined;
+  if (!zoneId) {
+    res.status(400).json({ message: "zoneId is required" });
+    return;
+  }
+  const days = Math.min(Math.max(parseInt((req.query.days as string) ?? "30", 10) || 30, 1), 365);
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+  const rows = await db
+    .select({
+      binId: binsTable.id,
+      binCode: binsTable.code,
+      binName: binsTable.name,
+      movementCount: count(inventoryMovementsTable.id),
+      lastMovementAt: max(inventoryMovementsTable.createdAt),
+    })
+    .from(binsTable)
+    .leftJoin(
+      inventoryMovementsTable,
+      and(
+        eq(inventoryMovementsTable.binId, binsTable.id),
+        gte(inventoryMovementsTable.createdAt, since),
+      ),
+    )
+    .where(eq(binsTable.zoneId, zoneId))
+    .groupBy(binsTable.id, binsTable.code, binsTable.name)
+    .orderBy(sql`count(${inventoryMovementsTable.id}) desc`, binsTable.code);
+
+  res.json(
+    rows.map((r) => ({
+      ...r,
+      movementCount: Number(r.movementCount),
+      lastMovementAt: r.lastMovementAt ? (r.lastMovementAt as Date).toISOString() : null,
+    })),
+  );
+});
+
 // ── GET /locations/zone-activity — movement counts per zone ────────────────
 
 router.get("/locations/zone-activity", async (req, res) => {

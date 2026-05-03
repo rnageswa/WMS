@@ -19,6 +19,7 @@ import type {
 import type {
   AdjustInventoryBody,
   Bin,
+  BinActivityItem,
   BinWithLocation,
   BulkCancelPurchaseOrders200,
   BulkCancelPurchaseOrdersBody,
@@ -41,6 +42,7 @@ import type {
   CycleCountResult,
   DashboardSummary,
   ErrorResponse,
+  GetBinActivityParams,
   GetZoneActivityParams,
   GoodsReceiptNote,
   HealthStatus,
@@ -1112,6 +1114,100 @@ export const useCreateZone = <
 > => {
   return useMutation(getCreateZoneMutationOptions(options));
 };
+
+/**
+ * @summary Movement counts per bin within a zone
+ */
+export const getGetBinActivityUrl = (params: GetBinActivityParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/locations/bin-activity?${stringifiedParams}`
+    : `/api/locations/bin-activity`;
+};
+
+export const getBinActivity = async (
+  params: GetBinActivityParams,
+  options?: RequestInit,
+): Promise<BinActivityItem[]> => {
+  return customFetch<BinActivityItem[]>(getGetBinActivityUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetBinActivityQueryKey = (params?: GetBinActivityParams) => {
+  return [`/api/locations/bin-activity`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetBinActivityQueryOptions = <
+  TData = Awaited<ReturnType<typeof getBinActivity>>,
+  TError = ErrorType<unknown>,
+>(
+  params: GetBinActivityParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getBinActivity>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetBinActivityQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getBinActivity>>> = ({
+    signal,
+  }) => getBinActivity(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getBinActivity>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetBinActivityQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getBinActivity>>
+>;
+export type GetBinActivityQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Movement counts per bin within a zone
+ */
+
+export function useGetBinActivity<
+  TData = Awaited<ReturnType<typeof getBinActivity>>,
+  TError = ErrorType<unknown>,
+>(
+  params: GetBinActivityParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getBinActivity>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetBinActivityQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Movement counts per zone for heatmap

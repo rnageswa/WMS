@@ -704,6 +704,14 @@ export interface SupplierPerformanceReport {
   suppliers: SupplierPerformanceRow[];
 }
 
+export interface BinActivityItem {
+  binId: string;
+  binCode: string;
+  binName: string | null;
+  movementCount: number;
+  lastMovementAt: string | null;
+}
+
 export interface ZoneActivityItem {
   zoneId: string;
   zoneName: string;
@@ -732,6 +740,11 @@ export type ListProductsParams = {
   search?: string;
   category?: string;
   isActive?: boolean;
+};
+
+export type GetBinActivityParams = {
+  zoneId: string;
+  days?: number;
 };
 
 export type GetZoneActivityParams = {
