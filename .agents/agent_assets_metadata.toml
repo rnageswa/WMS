@@ -1,8 +1,13 @@
 uploads = []
-outputs = []
 
 [[generated]]
 id = "kZ_2dw8Ds4of7Avcvc-l9"
 uri = "file://artifacts/wms-design/public/hero-warehouse.png"
 type = "image"
 title = "generated_image"
+
+[[outputs]]
+id = "X83fF_ZxtbBantME_Qscp"
+uri = "file://.local/outputs/Warehouse-System-Design.pptx"
+type = "slides"
+title = "Warehouse System Design.pptx"
