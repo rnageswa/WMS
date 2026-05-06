@@ -970,7 +970,412 @@ paths:
 
   # ─── Alerts ──────────────────────────────────────────────────────────────────
 
-  /alerts/low-stock:
+    # ── Sales Orders ─────────────────────────────────────────────
+  /sales-orders:
+    get:
+      operationId: listSalesOrders
+      tags: [sales-orders]
+      summary: List sales orders
+      parameters:
+        - name: q
+          in: query
+          description: Search by order number or customer name
+          schema:
+            type: string
+        - name: status
+          in: query
+          description: Filter by status
+          schema:
+            type: string
+            enum: [draft, confirmed, picking, picking_complete, packed, shipped, delivered, cancelled]
+        - name: customer
+          in: query
+          description: Filter by customer name
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Sales order list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SalesOrder"
+    post:
+      operationId: createSalesOrder
+      tags: [sales-orders]
+      summary: Create a new sales order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSalesOrderBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalesOrder"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /sales-orders/{id}:
+    get:
+      operationId: getSalesOrder
+      tags: [sales-orders]
+      summary: Get a single sales order with lines
+      parameters:
+        - $ref: "#/components/parameters/UuidId"
+      responses:
+        "200":
+          description: Sales order detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalesOrderDetail"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      operationId: updateSalesOrder
+      tags: [sales-orders]
+      summary: Update a sales order (draft only)
+      parameters:
+        - $ref: "#/components/parameters/UuidId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSalesOrderBody"
+      responses:
+        "200":
+          description: Updated sales order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalesOrder"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteSalesOrder
+      tags: [sales-orders]
+      summary: Delete a draft sales order
+      parameters:
+        - $ref: "#/components/parameters/UuidId"
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /sales-orders/{id}/confirm:
+    post:
+      operationId: confirmSalesOrder
+      tags: [sales-orders]
+      summary: Confirm order (draft → confirmed)
+      parameters:
+        - $ref: "#/components/parameters/UuidId"
+      responses:
+        "200":
+          description: Confirmed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalesOrder"
+        "400":
+          description: Can only confirm draft orders
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /sales-orders/{id}/start-picking:
+    post:
+      operationId: startPickingSalesOrder
+      tags: [sales-orders]
+      summary: Start picking (confirmed → picking)
+      parameters:
+        - $ref: "#/components/parameters/UuidId"
+      responses:
+        "200":
+          description: Picking started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalesOrder"
+        "400":
+          description: Can only start picking on confirmed orders
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /sales-orders/{id}/complete-picking:
+    post:
+      operationId: completePickingSalesOrder
+      tags: [sales-orders]
+      summary: Complete picking (picking → picking_complete)
+      parameters:
+        - $ref: "#/components/parameters/UuidId"
+      responses:
+        "200":
+          description: Picking complete
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalesOrder"
+        "400":
+          description: Can only complete picking on orders in picking status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /sales-orders/{id}/pack:
+    post:
+      operationId: packSalesOrder
+      tags: [sales-orders]
+      summary: Pack order (picking_complete → packed)
+      parameters:
+        - $ref: "#/components/parameters/UuidId"
+      responses:
+        "200":
+          description: Order packed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalesOrder"
+        "400":
+          description: Can only pack orders with picking complete
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /sales-orders/{id}/ship:
+    post:
+      operationId: shipSalesOrder
+      tags: [sales-orders]
+      summary: Ship order (packed → shipped)
+      parameters:
+        - $ref: "#/components/parameters/UuidId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                trackingNumber:
+                  type: string
+                carrier:
+                  type: string
+      responses:
+        "200":
+          description: Order shipped
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalesOrder"
+        "400":
+          description: Can only ship packed orders
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /sales-orders/{id}/delivered:
+    post:
+      operationId: deliverSalesOrder
+      tags: [sales-orders]
+      summary: Mark as delivered (shipped → delivered)
+      parameters:
+        - $ref: "#/components/parameters/UuidId"
+      responses:
+        "200":
+          description: Order delivered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalesOrder"
+        "400":
+          description: Can only mark shipped orders as delivered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /sales-orders/{id}/cancel:
+    post:
+      operationId: cancelSalesOrder
+      tags: [sales-orders]
+      summary: Cancel sales order
+      parameters:
+        - $ref: "#/components/parameters/UuidId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      responses:
+        "200":
+          description: Order cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalesOrder"
+        "400":
+          description: Cannot cancel shipped or delivered orders
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /sales-orders/{id}/lines/{lineId}/pick:
+    put:
+      operationId: updateSalesOrderLinePick
+      tags: [sales-orders]
+      summary: Update pick quantity for a line
+      parameters:
+        - $ref: "#/components/parameters/UuidId"
+        - name: lineId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [qtyPicked]
+              properties:
+                qtyPicked:
+                  type: integer
+                  minimum: 0
+                binId:
+                  type: string
+                  format: uuid
+      responses:
+        "200":
+          description: Line updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalesOrderLine"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /sales-orders/{id}/pick-list:
+    get:
+      operationId: getSalesOrderPickList
+      tags: [sales-orders]
+      summary: Get pick list for a sales order
+      parameters:
+        - $ref: "#/components/parameters/UuidId"
+      responses:
+        "200":
+          description: Pick list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  orderNumber:
+                    type: string
+                  customerName:
+                    type: string
+                  status:
+                    type: string
+                  lines:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        skuCode:
+                          type: string
+                        productName:
+                          type: string
+                        qtyOrdered:
+                          type: integer
+                        qtyPicked:
+                          type: integer
+                        binCode:
+                          type: string
+                        status:
+                          type: string
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /sales-orders/{id}/packing-slip:
+    get:
+      operationId: getSalesOrderPackingSlip
+      tags: [sales-orders]
+      summary: Get packing slip data for a sales order
+      parameters:
+        - $ref: "#/components/parameters/UuidId"
+      responses:
+        "200":
+          description: Packing slip data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  packingSlipNumber:
+                    type: string
+                  orderNumber:
+                    type: string
+                  customerName:
+                    type: string
+                  status:
+                    type: string
+                  lines:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        skuCode:
+                          type: string
+                        productName:
+                          type: string
+                        qtyPacked:
+                          type: integer
+                        unitPrice:
+                          type: number
+                  summary:
+                    type: object
+                    properties:
+                      totalLines:
+                        type: integer
+                      totalItems:
+                        type: integer
+                      totalValue:
+                        type: number
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+
+/alerts/low-stock:
     get:
       operationId: getLowStockAlerts
       tags: [inventory]
@@ -1549,6 +1954,273 @@ paths:
                 $ref: "#/components/schemas/ScanResult"
         "404":
           $ref: "#/components/responses/NotFound"
+
+  # ─── Picking Tasks ─────────────────────────────────────────────────────
+
+  /picking-tasks:
+    get:
+      operationId: getPickingTasks
+      tags: [picking]
+      summary: List picking tasks
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: assignedTo
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: orderId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: List of picking tasks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PickingTask"
+    post:
+      operationId: createPickingTask
+      tags: [picking]
+      summary: Create picking task from sales order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePickingTaskBody"
+      responses:
+        "201":
+          description: Picking task created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PickingTask"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Sales order not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /picking-tasks/{id}:
+    get:
+      operationId: getPickingTask
+      tags: [picking]
+      summary: Get picking task detail with lines
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Picking task detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PickingTask"
+        "404":
+          description: Task not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /picking-tasks/{id}/assign:
+    put:
+      operationId: assignPickingTask
+      tags: [picking]
+      summary: Assign picking task to picker
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssignPickingTaskBody"
+      responses:
+        "200":
+          description: Task assigned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PickingTask"
+        "400":
+          description: Invalid status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Task not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /picking-tasks/{id}/start:
+    put:
+      operationId: startPickingTask
+      tags: [picking]
+      summary: Start picking task
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Task started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PickingTask"
+        "400":
+          description: Invalid status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Task not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /picking-tasks/{id}/complete:
+    put:
+      operationId: completePickingTask
+      tags: [picking]
+      summary: Complete picking task
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Task completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PickingTask"
+        "400":
+          description: Not all lines picked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Task not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /picking-tasks/{id}/cancel:
+    put:
+      operationId: cancelPickingTask
+      tags: [picking]
+      summary: Cancel picking task
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Task cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PickingTask"
+        "400":
+          description: Cannot cancel completed task
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Task not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /picking-tasks/{id}/lines/{lineId}/pick:
+    put:
+      operationId: pickPickingLine
+      tags: [picking]
+      summary: Update picked quantity for a line
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: lineId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PickPickingLineBody"
+      responses:
+        "200":
+          description: Line updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PickingLine"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Task or line not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
 components:
   parameters:
@@ -3359,6 +4031,185 @@ components:
         totalMovementsToday:
           type: integer
         recentMovements:
+
+    SalesOrder:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        orderNumber:
+          type: string
+        customerName:
+          type: string
+        customerEmail:
+          type: string
+          nullable: true
+        customerPhone:
+          type: string
+          nullable: true
+        shippingAddress:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [draft, confirmed, picking, picking_complete, packed, shipped, delivered, cancelled]
+        notes:
+          type: string
+          nullable: true
+        expectedShipDate:
+          type: string
+          format: date
+          nullable: true
+        shippedAt:
+          type: string
+          format: date-time
+          nullable: true
+        deliveredAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        lineCount:
+          type: integer
+          nullable: true
+        totalQty:
+          type: integer
+          nullable: true
+      required: [id, orderNumber, customerName, status, createdAt, updatedAt]
+
+    SalesOrderLine:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        productId:
+          type: string
+          format: uuid
+        productName:
+          type: string
+          nullable: true
+        skuCode:
+          type: string
+          nullable: true
+        qtyOrdered:
+          type: integer
+        qtyPicked:
+          type: integer
+        qtyPacked:
+          type: integer
+        qtyShipped:
+          type: integer
+        unitPrice:
+          type: number
+          nullable: true
+        status:
+          type: string
+          enum: [pending, picking, picked, packed, shipped, fulfilled]
+      required: [id, productId, qtyOrdered, qtyPicked, status]
+
+    SalesOrderDetail:
+      allOf:
+        - $ref: "#/components/schemas/SalesOrder"
+        - type: object
+          properties:
+            lines:
+              type: array
+              items:
+                $ref: "#/components/schemas/SalesOrderLine"
+            history:
+              type: array
+              items:
+                $ref: "#/components/schemas/SalesOrderHistoryEvent"
+          required: [lines, history]
+
+    SalesOrderHistoryEvent:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        orderId:
+          type: string
+          format: uuid
+        event:
+          type: string
+          enum: [created, confirmed, picking_started, picking_complete, packed, shipped, delivered, cancelled]
+        note:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, orderId, event, createdAt]
+
+    CreateSalesOrderBody:
+      type: object
+      required: [customerName, lines]
+      properties:
+        customerName:
+          type: string
+        customerEmail:
+          type: string
+          nullable: true
+        customerPhone:
+          type: string
+          nullable: true
+        shippingAddress:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        expectedShipDate:
+          type: string
+          format: date
+          nullable: true
+        lines:
+          type: array
+          items:
+            type: object
+            required: [productId, qtyOrdered]
+            properties:
+              productId:
+                type: string
+                format: uuid
+              qtyOrdered:
+                type: integer
+                minimum: 1
+              unitPrice:
+                type: number
+                nullable: true
+          minItems: 1
+
+    UpdateSalesOrderBody:
+      type: object
+      properties:
+        customerName:
+          type: string
+        customerEmail:
+          type: string
+          nullable: true
+        customerPhone:
+          type: string
+          nullable: true
+        shippingAddress:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        expectedShipDate:
+          type: string
+          format: date
+          nullable: true
+
           type: array
           items:
             $ref: "#/components/schemas/InventoryMovement"
@@ -3369,3 +4220,121 @@ components:
         - lowStockCount
         - totalMovementsToday
         - recentMovements
+
+    # ── Picking Tasks ──────────────────────────────────────────────────
+
+    PickingTask:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        orderId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, assigned, in_progress, completed, cancelled]
+        assignedTo:
+          type: string
+          nullable: true
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        orderNumber:
+          type: string
+          nullable: true
+        customerName:
+          type: string
+          nullable: true
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/PickingLine"
+      required: [id, orderId, status, createdAt]
+
+    PickingLine:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        taskId:
+          type: string
+          format: uuid
+        orderLineId:
+          type: string
+          format: uuid
+        productId:
+          type: string
+          format: uuid
+        binId:
+          type: string
+          format: uuid
+          nullable: true
+        qtyToPick:
+          type: integer
+        qtyPicked:
+          type: integer
+        status:
+          type: string
+          enum: [pending, picking, picked, cancelled]
+        pickedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        skuCode:
+          type: string
+          nullable: true
+        productName:
+          type: string
+          nullable: true
+        binCode:
+          type: string
+          nullable: true
+        binName:
+          type: string
+          nullable: true
+      required: [id, taskId, orderLineId, productId, qtyToPick, qtyPicked, status]
+
+    CreatePickingTaskBody:
+      type: object
+      required: [orderId]
+      properties:
+        orderId:
+          type: string
+          format: uuid
+        assignedTo:
+          type: string
+          nullable: true
+
+    AssignPickingTaskBody:
+      type: object
+      required: [assignedTo]
+      properties:
+        assignedTo:
+          type: string
+
+    PickPickingLineBody:
+      type: object
+      required: [qtyPicked]
+      properties:
+        qtyPicked:
+          type: integer
+          minimum: 0
+        binId:
+          type: string
+          format: uuid
+          nullable: true
+

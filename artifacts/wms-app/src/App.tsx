@@ -42,6 +42,13 @@ import SupplierDetailPage from "@/pages/supplier-detail";
 import SupplierPerformancePage from "@/pages/supplier-performance";
 import AdminPage from "@/pages/admin";
 import ReceivingSchedulePage from "@/pages/receiving-schedule";
+import SalesOrdersPage from "@/pages/sales-orders";
+import SalesOrderNewPage from "@/pages/sales-order-new";
+import SalesOrderDetailPage from "@/pages/sales-order-detail";
+import SalesOrderPickListPage from "@/pages/sales-order-pick-list";
+import SalesOrderPackingSlipPage from "@/pages/sales-order-packing-slip";
+import ShippingLabelPage from "@/pages/shipping-label";
+import PickerPage from "@/pages/picker";
 import SignInPage from "@/pages/sign-in";
 import SignUpPage from "@/pages/sign-up";
 import NotFound from "@/pages/not-found";
@@ -219,6 +226,13 @@ function AppRouter() {
             <Route path="/purchase-orders/:id/grn"><AuthGuard><PurchaseOrderGrnPage /></AuthGuard></Route>
             <Route path="/purchase-orders/:id"><AuthGuard><PurchaseOrderDetailPage /></AuthGuard></Route>
             <Route path="/purchase-orders"><AuthGuard><PurchaseOrdersPage /></AuthGuard></Route>
+            <Route path="/sales-orders/new"><AuthGuard><SalesOrderNewPage /></AuthGuard></Route>
+            <Route path="/sales-orders/:id/pick-list"><AuthGuard><SalesOrderPickListPage /></AuthGuard></Route>
+            <Route path="/sales-orders/:id/packing-slip"><AuthGuard><SalesOrderPackingSlipPage /></AuthGuard></Route>
+            <Route path="/sales-orders/:id/shipping-label"><AuthGuard><ShippingLabelPage /></AuthGuard></Route>
+            <Route path="/sales-orders/:id"><AuthGuard><SalesOrderDetailPage /></AuthGuard></Route>
+            <Route path="/sales-orders"><AuthGuard><SalesOrdersPage /></AuthGuard></Route>
+            <Route path="/picker"><AuthGuard><PickerPage /></AuthGuard></Route>
             <Route path="/suppliers/performance"><AuthGuard><SupplierPerformancePage /></AuthGuard></Route>
             <Route path="/suppliers/:id"><AuthGuard><SupplierDetailPage /></AuthGuard></Route>
             <Route path="/suppliers"><AuthGuard><SuppliersPage /></AuthGuard></Route>

@@ -31,7 +31,8 @@ export interface LabelData {
 interface LabelPrintProps {
   open: boolean;
   onClose: () => void;
-  label: LabelData;
+  label?: LabelData;
+  labels?: LabelData[];
 }
 
 function ProductLabel({ label }: { label: LabelData }) {
@@ -103,12 +104,18 @@ const LABEL_SIZES = [
   { id: "62x29", label: '62×29mm (small tag)', width: 234, height: 110 },
 ];
 
-export default function LabelPrint({ open, onClose, label }: LabelPrintProps) {
+export default function LabelPrint({ open, onClose, label, labels }: LabelPrintProps) {
   const [copies, setCopies] = useState(1);
   const [labelSize, setLabelSize] = useState("100x50");
   const previewRef = useRef<HTMLDivElement>(null);
 
+  const allLabels = labels && labels.length > 0 ? labels : (label ? [label] : []);
+
   const handlePrint = () => {
+    if (allLabels.length === 0) {
+      alert("No label data to print.");
+      return;
+    }
     const printWin = window.open("", "_blank", "width=900,height=700");
     if (!printWin) {
       alert("Pop-up blocked. Please allow pop-ups for this site to print labels.");
@@ -121,7 +128,7 @@ export default function LabelPrint({ open, onClose, label }: LabelPrintProps) {
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Labels — ${label.skuCode}</title>
+  <title>Labels — ${allLabels[0]?.skuCode || "labels"}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -204,28 +211,41 @@ export default function LabelPrint({ open, onClose, label }: LabelPrintProps) {
           </div>
 
           {/* Label preview */}
-          <div>
-            <p className="text-xs text-muted-foreground mb-2 font-medium uppercase tracking-wide">Preview</p>
-            <div className="bg-muted/30 rounded-lg border border-border/50 p-5 flex items-center justify-center overflow-hidden">
-              <div ref={previewRef} style={{ transform: "scale(0.95)", transformOrigin: "center" }}>
-                <ProductLabel label={label} />
+          {allLabels.length > 0 ? (
+            <div>
+              <p className="text-xs text-muted-foreground mb-2 font-medium uppercase tracking-wide">
+                Preview {allLabels.length > 1 && `(${allLabels.length} labels)`}
+              </p>
+              <div className="bg-muted/30 rounded-lg border border-border/50 p-5 flex items-center justify-center overflow-hidden max-h-[400px] overflow-y-auto">
+                <div ref={previewRef} style={{ transform: "scale(0.95)", transformOrigin: "center" }}>
+                  {allLabels.map((l, i) => (
+                    <ProductLabel key={i} label={l} />
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>No label data provided.</p>
+            </div>
+          )}
 
-          <p className="text-[11px] text-muted-foreground bg-muted/40 px-3 py-2 rounded-md border border-border/30">
-            <strong>{copies}</strong> label{copies !== 1 ? "s" : ""} will be sent to your printer. The QR code and barcode both encode the SKU <span className="font-mono">{label.skuCode}</span> for scanning.
-          </p>
+          {allLabels.length > 0 && (
+            <p className="text-[11px] text-muted-foreground bg-muted/40 px-3 py-2 rounded-md border border-border/30">
+              <strong>{copies}</strong> copy{copies !== 1 ? "ies" : "y"} of <strong>{allLabels.length}</strong> label{allLabels.length !== 1 ? "s" : ""} will be sent to your printer. The QR code and barcode both encode the SKU for scanning.
+            </p>
+          )}
         </div>
 
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
           <Button
             onClick={handlePrint}
+            disabled={allLabels.length === 0}
             className="gap-1.5 bg-[#E8622A] hover:bg-[#E8622A]/90 text-white"
           >
             <Printer className="w-3.5 h-3.5" />
-            Print {copies} Label{copies !== 1 ? "s" : ""}
+            Print {allLabels.length > 0 ? `${allLabels.length} Labels` : "Labels"}
           </Button>
         </DialogFooter>
       </DialogContent>

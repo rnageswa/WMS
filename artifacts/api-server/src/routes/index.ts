@@ -9,6 +9,8 @@ import { suppliersRouter } from "./suppliers";
 import notificationsRouter from "./notifications";
 import authRouter from "./auth";
 import seedRouter from "./seed";
+import ordersRouter from "./orders";
+import pickingRouter from "./picking";
 
 const router: IRouter = Router();
 
@@ -27,5 +29,7 @@ router.use(inventoryRouter);
 router.use(purchasingRouter);
 router.use(suppliersRouter);
 router.use(notificationsRouter);
+router.use(ordersRouter);
+router.use(pickingRouter);
 
 export default router;

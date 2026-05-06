@@ -54,6 +54,7 @@ export default function Inventory() {
       <PageHeader
         title="Inventory"
         subtitle="Bin-level stock positions"
+        helpKey="/inventory"
         action={
           <Link href="/inventory/adjust">
             <Button size="sm" data-testid="button-adjust">

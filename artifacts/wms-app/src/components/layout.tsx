@@ -1,5 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
+import { getHelpContent } from "@/lib/help-content";
+import { HelpTooltip } from "@/components/help-tooltip";
 import {
   LayoutDashboard,
   Package,
@@ -15,6 +17,7 @@ import {
   BarChart3,
   ClipboardCheck,
   ShoppingCart,
+  ShoppingBag,
   Truck,
   Zap,
   CalendarClock,
@@ -37,6 +40,8 @@ const navItems = [
   { href: "/purchase-orders", label: "Purchase Orders", icon: ShoppingCart },
   { href: "/purchase-orders/schedule", label: "Schedule", icon: CalendarClock },
   { href: "/purchase-orders/reorder", label: "Reorder", icon: Zap, alertBadge: true },
+  { href: "/sales-orders", label: "Sales Orders", icon: ShoppingBag },
+  { href: "/picker", label: "Picker View", icon: ClipboardList },
   { href: "/receiving", label: "Receiving", icon: PackagePlus },
   { href: "/dispatch", label: "Dispatch", icon: PackageMinus },
   { href: "/transfer", label: "Transfer", icon: ArrowLeftRight },
@@ -222,19 +227,27 @@ export function PageHeader({
   title,
   subtitle,
   action,
+  helpKey,
 }: {
   title: string;
   subtitle?: string;
   action?: React.ReactNode;
+  helpKey?: string;
 }) {
+  const [location] = useLocation();
+  const helpContent = helpKey ? getHelpContent(helpKey) : getHelpContent(location);
+  
   return (
     <div className="flex items-center justify-between px-6 py-5 border-b border-border bg-card/50">
-      <div>
+      <div className="flex items-center gap-3">
         <h1 className="text-lg font-semibold text-foreground">{title}</h1>
-        {subtitle && (
-          <p className="text-sm text-muted-foreground mt-0.5">{subtitle}</p>
+        {helpContent && (
+          <HelpTooltip content={helpContent} />
         )}
       </div>
+      {subtitle && !helpContent && (
+        <p className="text-sm text-muted-foreground mt-0.5">{subtitle}</p>
+      )}
       {action && <div>{action}</div>}
     </div>
   );

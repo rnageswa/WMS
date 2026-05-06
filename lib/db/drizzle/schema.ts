@@ -258,3 +258,77 @@ export const warehouses = pgTable("warehouses", {
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 });
+
+// ── Sales Orders ─────────────────────────────────────────────────────────────────
+
+export const salesOrders = pgTable("sales_orders", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	orderNumber: text("order_number").notNull().unique(),
+	customerName: text("customer_name").notNull(),
+	customerId: uuid("customer_id"),
+	customerEmail: text("customer_email"),
+	customerPhone: text("customer_phone"),
+	shippingAddress: text("shipping_address"),
+	status: text().default('draft').notNull(),
+	notes: text("notes"),
+	expectedShipDate: date("expected_ship_date"),
+	shippedAt: timestamp("shipped_at", { withTimezone: true, mode: 'string' }),
+	deliveredAt: timestamp("delivered_at", { withTimezone: true, mode: 'string' }),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+});
+
+export const salesOrderLines = pgTable("sales_order_lines", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	orderId: uuid("order_id").notNull().references(() => salesOrders.id, { onDelete: "cascade" }),
+	productId: uuid("product_id").notNull().references(() => products.id, { onDelete: "restrict" }),
+	qtyOrdered: integer("qty_ordered").notNull(),
+	qtyPicked: integer("qty_picked").notNull().default(0),
+	qtyPacked: integer("qty_packed").notNull().default(0),
+	qtyShipped: integer("qty_shipped").notNull().default(0),
+	unitPrice: numeric("unit_price", { precision: 12, scale: 2 }),
+	status: text().default('pending').notNull(),
+}, (t) => [index("so_lines_order_id_idx").on(t.orderId)]);
+
+export const salesOrderHistory = pgTable("sales_order_history", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	orderId: uuid("order_id").notNull().references(() => salesOrders.id, { onDelete: "cascade" }),
+	event: text().notNull(),
+	note: text("note"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (t) => [index("so_history_order_id_idx").on(t.orderId)]);
+
+export const pickingTasks = pgTable("picking_tasks", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	orderId: uuid("order_id").notNull().references(() => salesOrders.id, { onDelete: "cascade" }),
+	status: text().default('pending').notNull(),
+	assignedTo: text("assigned_to"),
+	startedAt: timestamp("started_at", { withTimezone: true, mode: 'string' }),
+	completedAt: timestamp("completed_at", { withTimezone: true, mode: 'string' }),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+});
+
+export const pickingLines = pgTable("picking_lines", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	taskId: uuid("task_id").notNull().references(() => pickingTasks.id, { onDelete: "cascade" }),
+	orderLineId: uuid("order_line_id").notNull().references(() => salesOrderLines.id, { onDelete: "cascade" }),
+	productId: uuid("product_id").notNull().references(() => products.id, { onDelete: "restrict" }),
+	binId: uuid("bin_id"),
+	qtyToPick: integer("qty_to_pick").notNull(),
+	qtyPicked: integer("qty_picked").notNull().default(0),
+	status: text().default('pending').notNull(),
+	pickedAt: timestamp("picked_at", { withTimezone: true, mode: 'string' }),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (t) => [index("picking_lines_task_id_idx").on(t.taskId)]);
+
+export const shipments = pgTable("shipments", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	orderId: uuid("order_id").references(() => salesOrders.id, { onDelete: "set null" }),
+	trackingNumber: text("tracking_number"),
+	carrier: text("carrier"),
+	shippedAt: timestamp("shipped_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	notes: text("notes"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+});

@@ -67,6 +67,7 @@ export default function Products() {
       <PageHeader
         title="Products"
         subtitle="SKU catalog and product master"
+        helpKey="/products"
         action={
           <Link href="/products/new">
             <Button size="sm" data-testid="button-new-product" className="bg-primary text-primary-foreground hover:bg-primary/90">

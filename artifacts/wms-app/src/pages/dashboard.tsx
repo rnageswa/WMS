@@ -110,6 +110,7 @@ export default function Dashboard() {
       <PageHeader
         title="Dashboard"
         subtitle="Warehouse operations at a glance"
+        helpKey="/dashboard"
       />
       <div className="p-6 space-y-6">
         {/* KPI tiles */}

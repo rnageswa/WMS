@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm/relations";
-import { warehouses, zones, bins, inventoryItems, products, inventoryMovements, suppliers, purchaseOrders, poStatusHistory, poTemplateLines, poTemplates, purchaseOrderLines, skuAlertOverrides } from "./schema";
+import { warehouses, zones, bins, inventoryItems, products, inventoryMovements, suppliers, purchaseOrders, poStatusHistory, poTemplateLines, poTemplates, purchaseOrderLines, skuAlertOverrides, salesOrders, salesOrderLines, salesOrderHistory, pickingTasks, pickingLines, shipments } from "./schema";
 
 export const zonesRelations = relations(zones, ({one, many}) => ({
 	warehouse: one(warehouses, {
@@ -107,5 +107,65 @@ export const skuAlertOverridesRelations = relations(skuAlertOverrides, ({one}) =
 	product: one(products, {
 		fields: [skuAlertOverrides.productId],
 		references: [products.id]
+	}),
+}));
+
+export const salesOrdersRelations = relations(salesOrders, ({many, one}) => ({
+	salesOrderLines: many(salesOrderLines),
+	salesOrderHistory: many(salesOrderHistory),
+	pickingTasks: many(pickingTasks),
+	shipments: many(shipments),
+}));
+
+export const salesOrderLinesRelations = relations(salesOrderLines, ({one, many}) => ({
+	salesOrder: one(salesOrders, {
+		fields: [salesOrderLines.orderId],
+		references: [salesOrders.id]
+	}),
+	product: one(products, {
+		fields: [salesOrderLines.productId],
+		references: [products.id]
+	}),
+	pickingLines: many(pickingLines),
+}));
+
+export const salesOrderHistoryRelations = relations(salesOrderHistory, ({one}) => ({
+	salesOrder: one(salesOrders, {
+		fields: [salesOrderHistory.orderId],
+		references: [salesOrders.id]
+	}),
+}));
+
+export const pickingTasksRelations = relations(pickingTasks, ({one, many}) => ({
+	salesOrder: one(salesOrders, {
+		fields: [pickingTasks.orderId],
+		references: [salesOrders.id]
+	}),
+	pickingLines: many(pickingLines),
+}));
+
+export const pickingLinesRelations = relations(pickingLines, ({one}) => ({
+	pickingTask: one(pickingTasks, {
+		fields: [pickingLines.taskId],
+		references: [pickingTasks.id]
+	}),
+	salesOrderLine: one(salesOrderLines, {
+		fields: [pickingLines.orderLineId],
+		references: [salesOrderLines.id]
+	}),
+	product: one(products, {
+		fields: [pickingLines.productId],
+		references: [products.id]
+	}),
+	bin: one(bins, {
+		fields: [pickingLines.binId],
+		references: [bins.id]
+	}),
+}));
+
+export const shipmentsRelations = relations(shipments, ({one}) => ({
+	salesOrder: one(salesOrders, {
+		fields: [shipments.orderId],
+		references: [salesOrders.id]
 	}),
 }));
