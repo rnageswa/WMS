@@ -26,7 +26,7 @@ router.get("/auth/session-check", (req: any, res) => {
     userIdFromAuth: auth?.userId,
     hasSessionToken,
     hasActiveContext,
-    cookieNames: cookieHeader.split(';').map(c => c.trim().split('=')[0]),
+    cookieNames: (cookieHeader as string).split(';').map((c: string) => c.trim().split('=')[0]),
     allCookies: cookieHeader
   });
 });

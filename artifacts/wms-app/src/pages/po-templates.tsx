@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import {
   useListPoTemplates,
   useDeletePoTemplate,
@@ -40,6 +40,7 @@ import {
 import { formatDistanceToNow } from "date-fns";
 
 export default function PoTemplatesPage() {
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
   const qc = useQueryClient();
   const { data = [], isLoading } = useListPoTemplates();
@@ -112,7 +113,7 @@ export default function PoTemplatesPage() {
                     <TableRow
                       key={tpl.id}
                       className="cursor-pointer hover:bg-muted/40"
-                      onClick={() => window.location.assign(`/wms/purchase-orders/templates/${tpl.id}`)}
+                      onClick={() => setLocation(`/purchase-orders/templates/${tpl.id}`)}
                     >
                       <TableCell className="pl-5">
                         <div className="flex items-center gap-2">

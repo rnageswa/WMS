@@ -369,23 +369,6 @@ router.put("/picking-tasks/:id/lines/:lineId/pick", requireAuth, async (req: any
     })
     .where(eq(salesOrderLinesTable.id, line.orderLineId));
 
-  // Check if all lines picked
-  const remaining = await db
-    .select()
-    .from(pickingLinesTable)
-    .where(and(eq(pickingLinesTable.taskId, id), eq(pickingLinesTable.status, "picking")));
-
-  if (remaining.length === 0) {
-    await db
-      .update(pickingTasksTable)
-      .set({
-        status: "completed",
-        completedAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(eq(pickingTasksTable.id, id));
-  }
-
   res.json(updatedLine);
 });
 

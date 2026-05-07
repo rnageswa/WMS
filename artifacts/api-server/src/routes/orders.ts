@@ -7,6 +7,7 @@ import {
   inventoryItemsTable,
   inventoryMovementsTable,
   binsTable,
+  zonesTable,
   productsTable,
 } from "@workspace/db/schema";
 import { eq, desc, and, like, sql, or } from "drizzle-orm";
@@ -52,7 +53,7 @@ router.get("/sales-orders", requireAuth, async (req: any, res) => {
     );
   }
   if (status) {
-    conditions.push(eq(salesOrdersTable.status, status));
+    conditions.push(eq(salesOrdersTable.status, status as typeof soStatusEnum[number]));
   }
   if (customer) {
     conditions.push(like(salesOrdersTable.customerName, `%${customer}%`));
@@ -164,7 +165,7 @@ router.post("/sales-orders", requireAuth, async (req: any, res) => {
       orderId: order.id,
       productId: line.productId,
       qtyOrdered: line.qtyOrdered,
-      unitPrice: line.unitPrice || null,
+      unitPrice: line.unitPrice != null ? String(line.unitPrice) : null,
       status: "pending" as const,
     }));
     
@@ -427,7 +428,7 @@ router.post("/sales-orders/:id/pack", requireAuth, async (req, res) => {
 });
 
 // POST /sales-orders/:id/ship — ship order (packed -> shipped)
-router.post("/sales-orders/:id/ship", requireAuth, async (req, res) => {
+router.post("/sales-orders/:id/ship", requireAuth, async (req: any, res) => {
   const { id } = req.params;
   const { trackingNumber, carrier } = req.body as { trackingNumber?: string; carrier?: string };
 
@@ -771,14 +772,14 @@ router.get("/sales-orders/export", requireAuth, async (req, res) => {
   for (const order of orders) {
     const orderLines = linesByOrder[order.id] || [];
     if (orderLines.length === 0) {
-      rows.push([order.orderNumber, order.customerName, order.status, order.createdAt, "", "", "", ""]);
+      rows.push([order.orderNumber, order.customerName, order.status, String(order.createdAt), "", "", "", ""]);
     } else {
       for (const line of orderLines) {
         rows.push([
           order.orderNumber,
           order.customerName,
           order.status,
-          order.createdAt,
+          String(order.createdAt),
           "", // SKU - would need join
           line.productId, // Would need join for name
           line.qtyOrdered.toString(),

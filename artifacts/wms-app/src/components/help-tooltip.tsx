@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import type { HelpContent } from "./help-content";
+import type { HelpContent } from "@/lib/help-content";
 
 interface HelpTooltipProps {
   content: HelpContent;

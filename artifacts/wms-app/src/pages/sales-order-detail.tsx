@@ -192,7 +192,7 @@ export default function SalesOrderDetailPage() {
               <ArrowLeft className="w-4 h-4 mr-1" />
               Back
             </Button>
-            {(order.status === "picking" || order.status === "picking_complete" || order.status === "packed" || order.status === "shipped") && (
+            {order.status === "picking" && (
               <Button variant="outline" onClick={() => setLocation(`/picker?orderId=${orderId}`)}>
                 <ClipboardList className="w-4 h-4 mr-1" />
                 Pick List

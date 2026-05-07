@@ -68,11 +68,15 @@ export function useGetPickingTasks(params?: {
 }
 
 // GET /picking-tasks/:id
-export function useGetPickingTask(params: { pathParams: { id: string } }) {
+export function useGetPickingTask(
+  params: { pathParams: { id: string } },
+  options?: { query?: { enabled?: boolean } }
+) {
   return useQuery<PickingTask>({
     queryKey: ["picking-task", params.pathParams.id],
     queryFn: () =>
       customFetch(`/api/picking-tasks/${params.pathParams.id}`, { method: "GET" }),
+    enabled: options?.query?.enabled !== false,
   });
 }
 

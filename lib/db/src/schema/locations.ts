@@ -30,6 +30,7 @@ export const binsTable = pgTable(
       .references(() => zonesTable.id, { onDelete: "cascade" }),
     code: text("code").notNull(),
     name: text("name"),
+    isActive: boolean("is_active").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [unique("bins_zone_code_unique").on(t.zoneId, t.code)],

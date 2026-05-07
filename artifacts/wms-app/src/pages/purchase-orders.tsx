@@ -52,7 +52,7 @@ import {
   Download,
   AlertTriangle,
 } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow, format, isPast, parseISO, differenceInCalendarDays } from "date-fns";
 
@@ -80,6 +80,7 @@ function isCancellable(status: string) {
 }
 
 export default function PurchaseOrdersPage() {
+  const [, setLocation] = useLocation();
   const qc = useQueryClient();
   const { toast } = useToast();
 
@@ -324,7 +325,7 @@ export default function PurchaseOrdersPage() {
                         onClick={(e) => {
                           const target = e.target as HTMLElement;
                           if (target.closest('[role="checkbox"]') || target.closest("button")) return;
-                          window.location.assign(`/wms/purchase-orders/${po.id}`);
+                          setLocation(`/purchase-orders/${po.id}`);
                         }}
                       >
                         <TableCell className="pl-4 w-10" onClick={(e) => e.stopPropagation()}>

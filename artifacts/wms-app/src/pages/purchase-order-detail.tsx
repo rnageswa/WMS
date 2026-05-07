@@ -174,7 +174,7 @@ function BinSelector({
       >
         <SelectTrigger className="h-7 w-40 text-xs"><SelectValue placeholder="Warehouse" /></SelectTrigger>
         <SelectContent>
-          {warehouses.filter((w) => w.isActive).map((w) => (
+          {warehouses.filter((w) => w.isActive !== false).map((w) => (
             <SelectItem key={w.id} value={w.id} className="text-xs">{w.name}</SelectItem>
           ))}
         </SelectContent>
@@ -196,11 +196,17 @@ function BinSelector({
         disabled={!entry.zoneId}
         onValueChange={(v) => onChange(lineId, { binId: v })}
       >
-        <SelectTrigger className="h-7 w-28 text-xs"><SelectValue placeholder="Bin" /></SelectTrigger>
+        <SelectTrigger className="h-7 w-36 text-xs"><SelectValue placeholder="Bin" /></SelectTrigger>
         <SelectContent>
-          {bins.filter((b) => b.isActive).map((b) => (
-            <SelectItem key={b.id} value={b.id} className="text-xs">{b.code}</SelectItem>
-          ))}
+          {bins.length === 0 ? (
+            <div className="px-2 py-1.5 text-xs text-muted-foreground">No bins in this zone</div>
+          ) : (
+            bins.filter((b) => b.isActive !== false).map((b) => (
+              <SelectItem key={b.id} value={b.id} className="text-xs">
+                {b.code}{b.name ? ` — ${b.name}` : ""}
+              </SelectItem>
+            ))
+          )}
         </SelectContent>
       </Select>
     </div>

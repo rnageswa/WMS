@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import {
   useListSuppliers,
   useCreateSupplier,
@@ -43,6 +44,7 @@ import {
 } from "lucide-react";
 
 export default function SuppliersPage() {
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
@@ -165,7 +167,7 @@ export default function SuppliersPage() {
                     <TableRow
                       key={supplier.id}
                       className="cursor-pointer hover:bg-muted/40"
-                      onClick={() => window.location.assign(`/wms/suppliers/${supplier.id}`)}
+                      onClick={() => setLocation(`/suppliers/${supplier.id}`)}
                     >
                       <TableCell>
                         <div>

@@ -58,6 +58,8 @@
     "@types/react-dom": "catalog:",
     "@types/testing-library__jest-dom": "^5.14.9",
     "@vitejs/plugin-react": "catalog:",
+    "@vitest/coverage-v8": "^1.6.1",
+    "@vitest/ui": "^1.6.1",
     "@workspace/api-client-react": "workspace:*",
     "class-variance-authority": "catalog:",
     "clsx": "catalog:",
@@ -69,6 +71,7 @@
     "lucide-react": "catalog:",
     "next-themes": "^0.4.6",
     "react-day-picker": "^9.11.1",
+    "react-hook-form": "^7.71.2",
     "react-icons": "^5.4.0",
     "react-resizable-panels": "^2.1.7",
     "recharts": "^2.15.2",
@@ -84,7 +87,11 @@
   "dependencies": {
     "@clerk/react": "^6.5.0",
     "@clerk/themes": "^2.4.57",
+    "input-otp": "^1.4.2",
     "qrcode.react": "^4.2.0",
-    "react-barcode": "^1.6.1"
+    "react": "catalog:",
+    "react-barcode": "^1.6.1",
+    "react-dom": "catalog:",
+    "wouter": "catalog:"
   }
 }

@@ -150,8 +150,8 @@ router.post("/seed", async (req, res) => {
 
     // 8. PO Lines
     await db.insert(purchaseOrderLinesTable).values([
-      { poId: po1.id, productId: insertedProducts[0].id, qtyOrdered: 100, unitCost: "10.00", status: "ordered" },
-      { poId: po1.id, productId: insertedProducts[1].id, qtyOrdered: 50, unitCost: "24.00", status: "partial" },
+      { poId: po1.id, productId: insertedProducts[0].id, qtyOrdered: 100, unitCost: "10.00", status: "pending" },
+      { poId: po1.id, productId: insertedProducts[1].id, qtyOrdered: 50, unitCost: "24.00", status: "partially_received" },
       { poId: po2.id, productId: insertedProducts[2].id, qtyOrdered: 20, unitCost: "95.00", status: "received" },
       { poId: po3.id, productId: insertedProducts[3].id, qtyOrdered: 200, unitCost: "42.00", status: "pending" },
     ]);
@@ -178,10 +178,10 @@ router.post("/seed", async (req, res) => {
 
     // 11. Inventory Movements
     await db.insert(inventoryMovementsTable).values([
-      { productId: insertedProducts[0].id, binId: bin2.id, movementType: "IN", quantity: 100, reasonCode: "PO_RECEIPT", createdBy: "system" },
-      { productId: insertedProducts[1].id, binId: bin3.id, movementType: "IN", quantity: 50, reasonCode: "PO_RECEIPT", createdBy: "system" },
-      { productId: insertedProducts[2].id, binId: bin4.id, movementType: "OUT", quantity: -5, reasonCode: "SHIPMENT", createdBy: "system" },
-      { productId: insertedProducts[3].id, binId: bin2.id, movementType: "ADJUST", quantity: 10, reasonCode: "COUNT_ADJUST", createdBy: "admin" },
+      { productId: insertedProducts[0].id, binId: bin2.id, movementType: "inbound", quantity: 100, reasonCode: "PO_RECEIPT", createdBy: "system" },
+      { productId: insertedProducts[1].id, binId: bin3.id, movementType: "inbound", quantity: 50, reasonCode: "PO_RECEIPT", createdBy: "system" },
+      { productId: insertedProducts[2].id, binId: bin4.id, movementType: "outbound", quantity: -5, reasonCode: "SHIPMENT", createdBy: "system" },
+      { productId: insertedProducts[3].id, binId: bin2.id, movementType: "adjustment", quantity: 10, reasonCode: "COUNT_ADJUST", createdBy: "admin" },
     ]);
     console.log("✓ Inventory Movements created");
 

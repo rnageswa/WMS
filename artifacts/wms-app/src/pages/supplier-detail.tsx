@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams } from "wouter";
+import { useParams, useLocation } from "wouter";
 import {
   useGetSupplier,
   useUpdateSupplier,
@@ -67,6 +67,7 @@ interface FormState {
 
 export default function SupplierDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
   const qc = useQueryClient();
   const [editing, setEditing] = useState(false);
@@ -341,7 +342,7 @@ export default function SupplierDetailPage() {
                     <TableRow
                       key={po.id}
                       className="cursor-pointer hover:bg-muted/40"
-                      onClick={() => window.location.assign(`/wms/purchase-orders/${po.id}`)}
+                      onClick={() => setLocation(`/purchase-orders/${po.id}`)}
                     >
                       <TableCell className="font-mono text-sm font-semibold">{po.poNumber}</TableCell>
                       <TableCell><PoStatusBadge status={po.status} /></TableCell>
