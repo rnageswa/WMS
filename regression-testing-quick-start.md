@@ -24,7 +24,7 @@ This guide provides step-by-step instructions for executing the regression test 
    ```
 
 2. **Verify Application is Running**
-   - Open browser to http://localhost:3000 (or appropriate port)
+   - Open browser to http://localhost:5173 (or appropriate port)
    - Verify login page is accessible
    - Verify database connection
 

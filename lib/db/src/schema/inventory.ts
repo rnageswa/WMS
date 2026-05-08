@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, integer, timestamp, unique, check } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, integer, numeric, timestamp, unique, check } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { sql } from "drizzle-orm";
 import { z } from "zod/v4";
@@ -16,6 +16,8 @@ export const inventoryItemsTable = pgTable(
       .notNull()
       .references(() => binsTable.id, { onDelete: "restrict" }),
     qtyOnHand: integer("qty_on_hand").notNull().default(0),
+    avgCost: numeric("avg_cost", { precision: 12, scale: 4 }),
+    inventoryValue: numeric("inventory_value", { precision: 14, scale: 2 }),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
@@ -38,6 +40,8 @@ export const inventoryMovementsTable = pgTable("inventory_movements", {
     .$type<(typeof movementTypeEnum)[number]>()
     .notNull(),
   quantity: integer("quantity").notNull(),
+  unitCost: numeric("unit_cost", { precision: 12, scale: 4 }),
+  totalCost: numeric("total_cost", { precision: 14, scale: 2 }),
   reasonCode: text("reason_code"),
   referenceId: uuid("reference_id"),
   referenceType: text("reference_type"),

@@ -27,7 +27,7 @@ The testing framework is now successfully set up with:
 
 ### Environment Setup
 Environment variables are set in `.env` file:
-- PORT=3000
+- PORT=5173
 - BASE_PATH=/
 
 ### Next Steps

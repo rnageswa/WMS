@@ -2,7 +2,7 @@
 ## Complete Application Context & Design Document
 
 **Last Updated:** 2026-05-07
-**Version:** MVP — Phase 1-3 Complete, Phase 4 ~70%
+**Version:** MVP — Phase 1-4 Complete
 
 ---
 
@@ -671,20 +671,29 @@ cd artifacts/wms-app && pnpm build
 |-------|-------|--------|
 | **Phase 1** (Weeks 1-3) | SKU + Inventory + Locations | ✅ Complete |
 | **Phase 2** (Weeks 4-6) | Procurement + Goods Receipt | ✅ Complete |
-| **Phase 3** (Weeks 7-9) | Orders + Picking + Packing + Dispatch | ~95% Complete |
-| **Phase 4** (Weeks 10-11) | Reports + Polish + QA | ~70% Complete |
+| **Phase 3** (Weeks 7-9) | Orders + Picking + Packing + Dispatch | ✅ Complete |
+| **Phase 4** (Weeks 10-11) | Reports + Polish + QA | ✅ Complete |
+| **Phase 5** (Weeks 12-14) | Currency + Costing + Pricing Foundation | 🔄 In Progress |
 
-### Phase 3 Details (95%)
+### Phase 3 Details 
 - Sales Orders: full CRUD, status flow, pick list, packing slip, CSV export
 - Picking Tasks: DB tables, API routes, picker UI with scan-to-pick, per-line location selectors
 - Packing: status transitions, packing slip print
 - Dispatch: 3-step flow with stock validation, atomic outbound movements
 - Shipping Label: print page at `/sales-orders/:id/shipping-label`
 
-### Phase 4 Details (70%)
+### Phase 5 Details (In Progress)
+- **Currency Foundation**: `currencies` table (USD base, INR, EUR), `exchange_rates` table, currency on SO/PO, rate locked at confirmation/ordering
+- **Costing Engine (MAC)**: Moving Average Cost on `inventory_items.avgCost`, `inventory_valuation_log` table, COGS on outbound
+- **Services Layer**: `currency.service.ts`, `costing.service.ts` — extracted from routes for reuse
+- **API Routes**: `/currencies`, `/exchange-rates`, `/convert` endpoints
+- **Frontend**: `CurrencySelector` component on SO/PO creation forms
+- **Key Rule**: Never recalculate historical transactions — rate locked at transaction time
+
+### Phase 4 Details
 - Reports: stock value, stock velocity, supplier performance, low-stock alerts
 - Print patterns: standardized across all print pages
-- QA: pending
+- QA: D:\MyProjects\WMS\WMS\qa-test-plan.md,  D:\MyProjects\WMS\WMS\artifacts\wms-app\README-TESTS.md
 
 ---
 
@@ -720,6 +729,12 @@ cd artifacts/wms-app && pnpm build
 | `lib/db/src/schema/inventory.ts` | Inventory + movement schemas |
 | `lib/db/src/schema/alerts.ts` | Alert settings + log schemas |
 | `lib/api-client-react/src/picking.ts` | Custom picking hooks |
+| `lib/db/src/schema/currency.ts` | Currency + exchange rate schemas |
+| `lib/db/src/schema/costing.ts` | Inventory valuation log schema |
+| `artifacts/api-server/src/services/currency.service.ts` | Currency conversion service |
+| `artifacts/api-server/src/services/costing.service.ts` | MAC costing + COGS service |
+| `artifacts/api-server/src/routes/currency.ts` | Currency API endpoints |
+| `artifacts/wms-app/src/components/currency-selector.tsx` | Reusable currency dropdown |
 
 ---
 

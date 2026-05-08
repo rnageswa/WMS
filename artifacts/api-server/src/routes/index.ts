@@ -11,12 +11,16 @@ import authRouter from "./auth";
 import seedRouter from "./seed";
 import ordersRouter from "./orders";
 import pickingRouter from "./picking";
+import { currencyRouter } from "./currency";
 
 const router: IRouter = Router();
 
 // Public — health check and seed (no auth required for seed in dev)
 router.use(healthRouter);
 router.use(seedRouter);
+
+// Currency read routes (public — no auth needed for listing/converting)
+router.use(currencyRouter);
 
 // Auth routes (has its own requireAuth where needed)
 router.use(authRouter);

@@ -17,6 +17,8 @@ import {
 import { eq, inArray, sql, ne, and, or, ilike, desc } from "drizzle-orm";
 import { z } from "zod";
 import { sendPoEmail } from "../lib/email";
+import { getRate } from "../services/currency.service";
+import { updateInventoryCostAfterReceipt, recordValuation } from "../services/costing.service";
 
 const router: IRouter = Router();
 
@@ -816,6 +818,7 @@ const CreatePoBodyZ = z.object({
   supplierName: z.string().min(1).optional(),
   notes: z.string().optional().nullable(),
   expectedDeliveryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+  currency: z.string().min(2).max(5).optional().default("USD"),
   lines: z.array(CreatePoLineZ).min(1),
 }).refine(
   (d) => d.supplierId || (d.supplierName && d.supplierName.trim().length > 0),
@@ -844,17 +847,19 @@ router.post("/purchase-orders", async (req, res) => {
     resolvedSupplierName = supplier.name;
   }
 
-  let poNumber = generatePoNumber();
-  // Retry once on collision
-  try {
+  const currency = body.data.currency || "USD";
+
+  // Helper: create PO with a given number (extracted for retry")
+  const createPo = async (poNum: string) => {
     const [po] = await db
       .insert(purchaseOrdersTable)
       .values({
-        poNumber,
+        poNumber: poNum,
         supplierId: resolvedSupplierId,
         supplierName: resolvedSupplierName,
         notes: body.data.notes,
         expectedDeliveryDate: body.data.expectedDeliveryDate ?? null,
+        currency,
       })
       .returning();
 
@@ -890,11 +895,22 @@ router.post("/purchase-orders", async (req, res) => {
       note: "Purchase order created",
     });
 
-    res.status(201).json(await formatPo(po, linesWithInfo as any));
+    return formatPo(po, linesWithInfo as any);
+  };
+
+  let poNumber = generatePoNumber();
+  try {
+    res.status(201).json(await createPo(poNumber));
   } catch (err: any) {
     if (err?.code === "23505") {
+      // Retry once with a new PO number
       poNumber = generatePoNumber();
-      res.status(500).json({ error: "PO number collision, please retry" });
+      try {
+        res.status(201).json(await createPo(poNumber));
+      } catch (retryErr: any) {
+        console.error("PO creation retry failed:", retryErr);
+        res.status(500).json({ error: "Failed to create purchase order after retry" });
+      }
     } else {
       throw err;
     }
@@ -1068,9 +1084,23 @@ router.patch("/purchase-orders/:id/status", async (req, res) => {
     return;
   }
 
+  // Lock exchange rate when marking as ordered
+  let exchangeRate: number | null = null;
+  if (body.data.status === "ordered" && po.currency && po.currency !== "USD") {
+    exchangeRate = await getRate(po.currency, "USD");
+    if (exchangeRate == null) {
+      res.status(422).json({ error: `No exchange rate found for ${po.currency} -> USD. Please add a rate before ordering.` });
+      return;
+    }
+  }
+
   const [updated] = await db
     .update(purchaseOrdersTable)
-    .set({ status: body.data.status, updatedAt: new Date() })
+    .set({
+      status: body.data.status,
+      exchangeRate: exchangeRate ? String(exchangeRate) : undefined,
+      updatedAt: new Date(),
+    })
     .where(eq(purchaseOrdersTable.id, req.params.id))
     .returning();
 
@@ -1136,6 +1166,7 @@ router.post("/purchase-orders/:id/receive", async (req, res) => {
   const lineMap = new Map(existingLines.map((l) => [l.id, l]));
 
   let movementsCreated = 0;
+  const receivedLineCosts: { productId: string; binId: string; qty: number; unitCost: number }[] = [];
 
   await db.transaction(async (tx) => {
     for (const rl of body.data.lines) {
@@ -1158,17 +1189,22 @@ router.post("/purchase-orders/:id/receive", async (req, res) => {
           },
         });
 
-      // Record movement
+      // Record movement with cost tracking
+      const poUnitCost = line.unitCost ? parseFloat(line.unitCost) : 0;
       await tx.insert(inventoryMovementsTable).values({
         productId: line.productId,
         binId: rl.binId,
         movementType: "inbound",
         quantity: actualQty,
+        unitCost: line.unitCost,
+        totalCost: poUnitCost > 0 ? String(Math.round(poUnitCost * actualQty * 100) / 100) : null,
         reasonCode: `PO-RECEIPT`,
         referenceType: "purchase_order",
         referenceId: po.id,
       });
       movementsCreated++;
+
+      receivedLineCosts.push({ productId: line.productId, binId: rl.binId, qty: actualQty, unitCost: poUnitCost });
 
       // Update line received qty and status
       const newReceived = line.qtyReceived + actualQty;
@@ -1199,6 +1235,14 @@ router.post("/purchase-orders/:id/receive", async (req, res) => {
       .set({ status: newPoStatus, updatedAt: new Date() })
       .where(eq(purchaseOrdersTable.id, po.id));
   });
+
+  // Update avgCost via MAC and record valuation log for each received line
+  for (const rc of receivedLineCosts) {
+    if (rc.unitCost > 0) {
+      await updateInventoryCostAfterReceipt(rc.productId, rc.binId, rc.qty, rc.unitCost);
+      await recordValuation(rc.productId, null, rc.qty, rc.unitCost);
+    }
+  }
 
   // Return updated PO
   const updatedPo = await db.query.purchaseOrdersTable.findFirst({

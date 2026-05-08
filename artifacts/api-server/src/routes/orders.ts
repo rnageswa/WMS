@@ -13,6 +13,8 @@ import {
 import { eq, desc, and, like, sql, or } from "drizzle-orm";
 import { requireAuth, requireRole, type Role } from "../middlewares/auth";
 import { z } from "zod";
+import { getRate } from "../services/currency.service";
+import { recordOutboundCost } from "../services/costing.service";
 
 const router = Router();
 
@@ -129,6 +131,7 @@ router.post("/sales-orders", requireAuth, async (req: any, res) => {
     shippingAddress: z.string().optional().or(z.literal("")),
     notes: z.string().optional().or(z.literal("")),
     expectedShipDate: z.string().optional().or(z.literal("")),
+    currency: z.string().min(2).max(5).optional().default("USD"),
     lines: z.array(z.object({
       productId: z.string().uuid(),
       qtyOrdered: z.number().int().positive(),
@@ -142,7 +145,7 @@ router.post("/sales-orders", requireAuth, async (req: any, res) => {
     return;
   }
 
-  const { customerName, customerEmail, customerPhone, shippingAddress, notes, expectedShipDate, lines } = parsed.data;
+  const { customerName, customerEmail, customerPhone, shippingAddress, notes, expectedShipDate, currency, lines } = parsed.data;
   const orderNumber = generateOrderNumber();
 
   try {
@@ -156,6 +159,7 @@ router.post("/sales-orders", requireAuth, async (req: any, res) => {
         shippingAddress,
         notes,
         expectedShipDate: expectedShipDate || null,
+        currency,
         status: "draft",
       })
       .returning();
@@ -275,9 +279,23 @@ router.post("/sales-orders/:id/confirm", requireAuth, async (req, res) => {
     return;
   }
 
+  // Lock exchange rate at confirmation time (not for USD base)
+  let exchangeRate: number | null = null;
+  if (order.currency && order.currency !== "USD") {
+    exchangeRate = await getRate(order.currency, "USD");
+    if (exchangeRate == null) {
+      res.status(422).json({ error: `No exchange rate found for ${order.currency} -> USD. Please add a rate before confirming.` });
+      return;
+    }
+  }
+
   const [updated] = await db
     .update(salesOrdersTable)
-    .set({ status: "confirmed", updatedAt: new Date() })
+    .set({
+      status: "confirmed",
+      exchangeRate: exchangeRate ? String(exchangeRate) : null,
+      updatedAt: new Date(),
+    })
     .where(eq(salesOrdersTable.id, id))
     .returning();
 
@@ -448,11 +466,13 @@ router.post("/sales-orders/:id/ship", requireAuth, async (req: any, res) => {
     return;
   }
 
-  // Create inventory movements (outbound)
+  // Create inventory movements (outbound) with COGS tracking
   const lines = await db
     .select()
     .from(salesOrderLinesTable)
     .where(eq(salesOrderLinesTable.orderId, id));
+
+  let totalCOGS = 0;
 
   // Get bins for each product (simplified - just pick first available bin)
   for (const line of lines) {
@@ -465,20 +485,31 @@ router.post("/sales-orders/:id/ship", requireAuth, async (req: any, res) => {
       ))
       .limit(1);
 
-    if (inventoryItem) {
-      // Create outbound movement
-      await db.insert(inventoryMovementsTable).values({
+    if (!inventoryItem) {
+      res.status(422).json({ error: `Insufficient inventory for product ${line.productId}. Required qty: ${line.qtyPacked}` });
+      return;
+    }
+
+    {
+      // Create outbound movement with cost tracking
+      const [movement] = await db.insert(inventoryMovementsTable).values({
         productId: line.productId,
         binId: inventoryItem.binId,
         movementType: "outbound",
         quantity: -line.qtyPacked,
+        unitCost: inventoryItem.avgCost,
+        totalCost: String(Math.round(parseFloat(inventoryItem.avgCost || "0") * line.qtyPacked * 100) / 100),
         reasonCode: `DISPATCH:${order.orderNumber}`,
         referenceId: order.id,
         referenceType: "sales_order",
         createdBy: req.userId,
-      });
+      }).returning();
 
-      // Update inventory
+      // Record COGS in valuation log and update inventory value
+      const cogs = await recordOutboundCost(line.productId, inventoryItem.binId, movement.id, line.qtyPacked);
+      totalCOGS += cogs;
+
+      // Update inventory qty
       await db
         .update(inventoryItemsTable)
         .set({ qtyOnHand: sql`qty_on_hand - ${line.qtyPacked}` })
@@ -488,10 +519,11 @@ router.post("/sales-orders/:id/ship", requireAuth, async (req: any, res) => {
 
   const [updated] = await db
     .update(salesOrdersTable)
-    .set({ 
-      status: "shipped", 
+    .set({
+      status: "shipped",
+      totalCogs: String(Math.round(totalCOGS * 100) / 100),
       shippedAt: new Date(),
-      updatedAt: new Date() 
+      updatedAt: new Date()
     })
     .where(eq(salesOrdersTable.id, id))
     .returning();

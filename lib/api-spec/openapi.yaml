@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: currency
+    description: Currencies and exchange rates
   - name: products
     description: SKU / product management
   - name: locations
@@ -34,6 +36,147 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ─── Currency ───────────────────────────────────────────────────────────────
+
+  /currencies:
+    get:
+      operationId: listCurrencies
+      tags: [currency]
+      summary: List all currencies
+      responses:
+        "200":
+          description: Currency list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Currency"
+    post:
+      operationId: createCurrency
+      tags: [currency]
+      summary: Add a new currency (admin)
+      security:
+        - clerk: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCurrencyBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Currency"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Currency already exists
+
+  /exchange-rates:
+    get:
+      operationId: listExchangeRates
+      tags: [currency]
+      summary: List exchange rates
+      parameters:
+        - name: from
+          in: query
+          description: From currency code
+          schema:
+            type: string
+        - name: to
+          in: query
+          description: To currency code
+          schema:
+            type: string
+        - name: fromDate
+          in: query
+          description: Filter rates effective on or after this date (YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Exchange rate list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ExchangeRate"
+    post:
+      operationId: createExchangeRate
+      tags: [currency]
+      summary: Add an exchange rate (admin)
+      security:
+        - clerk: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateExchangeRateBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExchangeRate"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /convert:
+    get:
+      operationId: convertCurrency
+      tags: [currency]
+      summary: Convert amount between currencies
+      parameters:
+        - name: from
+          in: query
+          required: true
+          description: From currency code
+          schema:
+            type: string
+        - name: to
+          in: query
+          required: true
+          description: To currency code
+          schema:
+            type: string
+        - name: amount
+          in: query
+          required: true
+          description: Amount to convert
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Conversion result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConvertResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Exchange rate not found
 
   # ─── Products ───────────────────────────────────────────────────────────────
 
@@ -2223,6 +2366,11 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
 
 components:
+  securitySchemes:
+    clerk:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
   parameters:
     UuidId:
       name: id
@@ -2772,6 +2920,12 @@ components:
         status:
           type: string
           enum: [draft, ordered, partially_received, received, cancelled]
+        currency:
+          type: string
+          default: USD
+        exchangeRate:
+          type: number
+          nullable: true
         notes:
           type: string
           nullable: true
@@ -2834,6 +2988,9 @@ components:
           type: string
           format: date
           nullable: true
+        currency:
+          type: string
+          default: USD
         lines:
           type: array
           items:
@@ -4054,6 +4211,12 @@ components:
         status:
           type: string
           enum: [draft, confirmed, picking, picking_complete, packed, shipped, delivered, cancelled]
+        currency:
+          type: string
+          default: USD
+        exchangeRate:
+          type: number
+          nullable: true
         notes:
           type: string
           nullable: true
@@ -4171,6 +4334,9 @@ components:
           type: string
           format: date
           nullable: true
+        currency:
+          type: string
+          default: USD
         lines:
           type: array
           items:
@@ -4337,4 +4503,93 @@ components:
           type: string
           format: uuid
           nullable: true
+
+    Currency:
+      type: object
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        symbol:
+          type: string
+        isBase:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required: [code, name, symbol, isBase]
+
+    CreateCurrencyBody:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 2
+          maxLength: 5
+        name:
+          type: string
+          minLength: 1
+        symbol:
+          type: string
+          minLength: 1
+          maxLength: 5
+        isBase:
+          type: boolean
+          default: false
+      required: [code, name, symbol]
+
+    ExchangeRate:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        fromCurrency:
+          type: string
+        toCurrency:
+          type: string
+        rate:
+          type: number
+        effectiveDate:
+          type: string
+          format: date
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, fromCurrency, toCurrency, rate, effectiveDate]
+
+    CreateExchangeRateBody:
+      type: object
+      properties:
+        fromCurrency:
+          type: string
+          minLength: 2
+          maxLength: 5
+        toCurrency:
+          type: string
+          minLength: 2
+          maxLength: 5
+        rate:
+          type: number
+          minimum: 0
+        effectiveDate:
+          type: string
+          format: date
+      required: [fromCurrency, toCurrency, rate, effectiveDate]
+
+    ConvertResponse:
+      type: object
+      properties:
+        from:
+          type: string
+        to:
+          type: string
+        originalAmount:
+          type: number
+        convertedAmount:
+          type: number
+        rate:
+          type: number
+      required: [from, to, originalAmount, convertedAmount, rate]
 

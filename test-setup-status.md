@@ -45,7 +45,7 @@ The testing framework uses:
 ## Test Environment Setup
 
 Environment variables needed:
-- PORT=3000
+- PORT=5173
 - BASE_PATH=/
 
 These are now set in the artifacts\wms-app\.env file.

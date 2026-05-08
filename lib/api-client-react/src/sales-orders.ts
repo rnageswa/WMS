@@ -12,6 +12,8 @@ export interface SalesOrder {
   customerPhone?: string;
   shippingAddress?: string;
   status: string;
+  currency?: string;
+  exchangeRate?: number;
   notes?: string;
   expectedShipDate?: string;
   shippedAt?: string;
@@ -55,6 +57,7 @@ export interface CreateSalesOrderRequest {
   shippingAddress?: string;
   notes?: string;
   expectedShipDate?: string;
+  currency?: string;
   lines: {
     productId: string;
     qtyOrdered: number;

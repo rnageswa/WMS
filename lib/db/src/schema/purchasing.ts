@@ -41,6 +41,8 @@ export const purchaseOrdersTable = pgTable("purchase_orders", {
     .$type<(typeof poStatusEnum)[number]>()
     .notNull()
     .default("draft"),
+  currency: text("currency").notNull().default("USD"),
+  exchangeRate: numeric("exchange_rate", { precision: 12, scale: 6 }),
   notes: text("notes"),
   expectedDeliveryDate: date("expected_delivery_date"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

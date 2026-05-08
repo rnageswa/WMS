@@ -55,7 +55,7 @@ export default defineConfig({
   testDir: './__tests__/e2e',
   timeout: 30000,
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: 'http://localhost:5173',
     trace: 'on-first-retry',
   },
   projects: [
@@ -66,7 +66,7 @@ export default defineConfig({
   ],
   webServer: {
     command: 'npm run dev',
-    url: 'http://localhost:3000',
+    url: 'http://localhost:5173',
     reuseExistingServer: !process.env.CI,
   },
 });
@@ -334,7 +334,7 @@ Create a `.env.test` file:
 ```
 NODE_ENV=test
 DATABASE_URL=postgresql://localhost:5432/wms_test
-API_BASE_URL=http://localhost:3000
+API_BASE_URL=http://localhost:5173
 ```
 
 ## 10. Test Execution

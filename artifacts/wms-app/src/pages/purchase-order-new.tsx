@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation, Link } from "wouter";
+import { CurrencySelector } from "@/components/currency-selector";
 import {
   Plus,
   Trash2,
@@ -65,6 +66,7 @@ export default function PurchaseOrderNewPage() {
 
   const [supplierId, setSupplierId] = useState("");
   const [supplierFreeText, setSupplierFreeText] = useState("");
+  const [currency, setCurrency] = useState("USD");
   const [notes, setNotes] = useState("");
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState("");
   const [lines, setLines] = useState<LineForm[]>([
@@ -242,6 +244,7 @@ export default function PurchaseOrderNewPage() {
         supplierName: resolvedSupplierName || undefined,
         notes: notes.trim() || undefined,
         expectedDeliveryDate: expectedDeliveryDate || undefined,
+        currency,
         lines: lines.map((l) => ({
           productId: l.productId,
           qtyOrdered: l.qtyOrdered,
@@ -447,6 +450,10 @@ export default function PurchaseOrderNewPage() {
                   className="h-9 text-sm"
                   min={new Date().toISOString().slice(0, 10)}
                 />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Currency</Label>
+                <CurrencySelector value={currency} onValueChange={setCurrency} className="h-9 text-sm" />
               </div>
               <div className="space-y-1.5 col-span-2">
                 <Label className="text-xs text-muted-foreground">Notes (optional)</Label>

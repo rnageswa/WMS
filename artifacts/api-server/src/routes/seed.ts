@@ -15,6 +15,8 @@ import {
   velocityAlertSettingsTable,
   skuAlertOverridesTable,
 } from "@workspace/db/schema";
+import { eq } from "drizzle-orm";
+import { seedCurrencies } from "../services/currency.service";
 
 const router = Router();
 
@@ -200,6 +202,23 @@ router.post("/seed", async (req, res) => {
       { productId: insertedProducts[1].id, mode: "always" },
     ]);
     console.log("✓ SKU Alert Overrides created");
+
+    // 14. Currencies & Exchange Rates
+    await seedCurrencies();
+    console.log("✓ Currencies & Exchange Rates created");
+
+    // 15. Seed avgCost on existing inventory items (from PO unitCost)
+    for (const inv of inventoryData) {
+      const product = insertedProducts.find((p) => p.id === inv.productId);
+      if (product) {
+        const cost = product.unitPrice ? parseFloat(product.unitPrice) * 0.6 : 5.00; // Estimate cost as 60% of selling price
+        const value = Math.round(inv.qtyOnHand * cost * 100) / 100;
+        await db.update(inventoryItemsTable)
+          .set({ avgCost: cost.toFixed(4), inventoryValue: value.toFixed(2) })
+          .where(eq(inventoryItemsTable.productId, inv.productId));
+      }
+    }
+    console.log("✓ Inventory avgCost seeded");
 
     res.json({ success: true, message: "Seed completed successfully!" });
   } catch (err: any) {

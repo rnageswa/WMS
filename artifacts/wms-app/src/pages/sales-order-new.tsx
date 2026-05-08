@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, Package, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { CurrencySelector } from "@/components/currency-selector";
 
 function OrderLineItem({
   line,
@@ -117,6 +118,7 @@ export default function NewSalesOrderPage() {
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [shippingAddress, setShippingAddress] = useState("");
+  const [currency, setCurrency] = useState("USD");
   const [notes, setNotes] = useState("");
   const [expectedShipDate, setExpectedShipDate] = useState("");
   const [lines, setLines] = useState<OrderLine[]>([]);
@@ -178,6 +180,7 @@ export default function NewSalesOrderPage() {
           shippingAddress: shippingAddress || undefined,
           notes: notes || undefined,
           expectedShipDate: expectedShipDate || undefined,
+          currency,
           lines: validLines.map((l) => ({
             productId: l.productId,
             qtyOrdered: l.qtyOrdered,
@@ -263,6 +266,10 @@ export default function NewSalesOrderPage() {
                   value={expectedShipDate}
                   onChange={(e) => setExpectedShipDate(e.target.value)}
                 />
+              </div>
+              <div className="space-y-2">
+                <Label>Currency</Label>
+                <CurrencySelector value={currency} onValueChange={setCurrency} />
               </div>
             </div>
             <div className="space-y-2">

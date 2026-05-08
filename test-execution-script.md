@@ -170,7 +170,7 @@ DELETE FROM inventory_movements WHERE reference_id IN (
 
 3. For API testing, use curl or Postman to test endpoints directly:
    ```bash
-   curl -X GET http://localhost:3000/api/products
+   curl -X GET http://localhost:5173/api/products
    ```
 
 4. Verify all functionality works as expected
