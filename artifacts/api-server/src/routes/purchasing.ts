@@ -17,7 +17,7 @@ import {
 import { eq, inArray, sql, ne, and, or, ilike, desc } from "drizzle-orm";
 import { z } from "zod";
 import { sendPoEmail } from "../lib/email";
-import { getRate } from "../services/currency.service";
+import { getRate, getBaseCurrency } from "../services/currency.service";
 import { updateInventoryCostAfterReceipt, recordValuation } from "../services/costing.service";
 
 const router: IRouter = Router();
@@ -39,6 +39,8 @@ async function formatPo(po: typeof purchaseOrdersTable.$inferSelect, lines: (typ
     supplierId: po.supplierId,
     supplierName: po.supplierName,
     status: po.status,
+    currency: po.currency ?? "USD",
+    exchangeRate: po.exchangeRate ? parseFloat(po.exchangeRate) : null,
     notes: po.notes,
     expectedDeliveryDate: po.expectedDeliveryDate ?? null,
     lineCount: lines.length,
@@ -1085,11 +1087,12 @@ router.patch("/purchase-orders/:id/status", async (req, res) => {
   }
 
   // Lock exchange rate when marking as ordered
+  const baseCurrency = await getBaseCurrency();
   let exchangeRate: number | null = null;
-  if (body.data.status === "ordered" && po.currency && po.currency !== "USD") {
-    exchangeRate = await getRate(po.currency, "USD");
+  if (body.data.status === "ordered" && po.currency && po.currency !== baseCurrency) {
+    exchangeRate = await getRate(po.currency, baseCurrency);
     if (exchangeRate == null) {
-      res.status(422).json({ error: `No exchange rate found for ${po.currency} -> USD. Please add a rate before ordering.` });
+      res.status(422).json({ error: `No exchange rate found for ${po.currency} -> ${baseCurrency}. Please add a rate before ordering.` });
       return;
     }
   }

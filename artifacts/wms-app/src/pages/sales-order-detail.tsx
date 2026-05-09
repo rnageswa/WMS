@@ -20,8 +20,9 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Package, Truck, CheckCircle, XCircle, Box, ShoppingCart, Send, FileText, ClipboardList } from "lucide-react";
+import { ArrowLeft, Package, Truck, CheckCircle, XCircle, Box, ShoppingCart, Send, FileText, ClipboardList, DollarSign, TrendingUp } from "lucide-react";
 import { format } from "date-fns";
+import { formatCurrency, getCurrencySymbol } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
 const statusColors: Record<string, string> = {
@@ -341,6 +342,7 @@ export default function SalesOrderDetailPage() {
               {order.expectedShipDate && <div><span className="text-muted-foreground">Expected:</span> {format(new Date(order.expectedShipDate), "MMM d, yyyy")}</div>}
               {order.shippedAt && <div><span className="text-muted-foreground">Shipped:</span> {format(new Date(order.shippedAt), "MMM d, yyyy")}</div>}
               {order.deliveredAt && <div><span className="text-muted-foreground">Delivered:</span> {format(new Date(order.deliveredAt), "MMM d, yyyy")}</div>}
+              <div className="pt-1 border-t mt-2"><span className="text-muted-foreground">Currency:</span> <span className="font-medium">{getCurrencySymbol(order.currency)} {order.currency}</span>{order.exchangeRate && <span className="text-muted-foreground ml-1">(rate: {parseFloat(order.exchangeRate).toFixed(6)})</span>}</div>
             </CardContent>
           </Card>
 
@@ -368,6 +370,9 @@ export default function SalesOrderDetailPage() {
                   <TableHead>Ordered</TableHead>
                   <TableHead>Picked</TableHead>
                   <TableHead>Packed</TableHead>
+                  <TableHead>Unit Price</TableHead>
+                  <TableHead>Cost</TableHead>
+                  <TableHead>Margin</TableHead>
                   <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
@@ -392,6 +397,21 @@ export default function SalesOrderDetailPage() {
                       )}
                     </TableCell>
                     <TableCell>{line.qtyPacked || "—"}</TableCell>
+                    <TableCell>{formatCurrency(line.unitPrice, order.currency)}</TableCell>
+                    <TableCell>{formatCurrency(line.costAtTime, order.currency)}</TableCell>
+                    <TableCell>
+                      {line.unitPrice && line.costAtTime ? (() => {
+                        const price = parseFloat(line.unitPrice);
+                        const cost = parseFloat(line.costAtTime);
+                        const margin = price > 0 ? ((price - cost) / price) * 100 : 0;
+                        const isNeg = margin < 0;
+                        return (
+                          <span className={`font-medium ${isNeg ? "text-red-600" : "text-emerald-600"}`}>
+                            {isNeg ? "" : "+"}{margin.toFixed(1)}%
+                          </span>
+                        );
+                      })() : "—"}
+                    </TableCell>
                     <TableCell>
                       <Badge variant="outline">{line.status}</Badge>
                     </TableCell>
@@ -401,6 +421,46 @@ export default function SalesOrderDetailPage() {
             </Table>
           </CardContent>
         </Card>
+
+        {/* Margin Summary */}
+        {(order as any).lines?.some((l: any) => l.unitPrice && l.costAtTime && l.qtyOrdered) && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="w-4 h-4" />
+                Margin Summary
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {(() => {
+                const linesWithMargin = (order as any).lines.filter((l: any) => l.unitPrice && l.costAtTime && l.qtyOrdered);
+                const totalRevenue = linesWithMargin.reduce((s: number, l: any) => s + parseFloat(l.unitPrice) * l.qtyOrdered, 0);
+                const totalCost = linesWithMargin.reduce((s: number, l: any) => s + parseFloat(l.costAtTime) * l.qtyOrdered, 0);
+                const totalMargin = totalRevenue - totalCost;
+                const marginPct = totalRevenue > 0 ? (totalMargin / totalRevenue) * 100 : 0;
+                const cur = getCurrencySymbol(order.currency);
+                return (
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <div className="text-sm text-muted-foreground">Total Revenue</div>
+                      <div className="text-lg font-semibold">{formatCurrency(totalRevenue, order.currency)}</div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-muted-foreground">Total Cost</div>
+                      <div className="text-lg font-semibold">{formatCurrency(totalCost, order.currency)}</div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-muted-foreground">Margin</div>
+                      <div className={`text-lg font-semibold ${totalMargin < 0 ? "text-red-600" : "text-emerald-600"}`}>
+                        {formatCurrency(totalMargin, order.currency)} ({marginPct.toFixed(1)}%)
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Activity History */}
         {(order as any).history?.length > 0 && (

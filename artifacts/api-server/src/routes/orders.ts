@@ -13,8 +13,9 @@ import {
 import { eq, desc, and, like, sql, or } from "drizzle-orm";
 import { requireAuth, requireRole, type Role } from "../middlewares/auth";
 import { z } from "zod";
-import { getRate } from "../services/currency.service";
+import { getRate, convertCurrency, getBaseCurrency } from "../services/currency.service";
 import { recordOutboundCost } from "../services/costing.service";
+import { getDefaultPrice } from "../services/pricing.service";
 
 const router = Router();
 
@@ -164,13 +165,26 @@ router.post("/sales-orders", requireAuth, async (req: any, res) => {
       })
       .returning();
 
-    // Insert lines
-    const orderLines = lines.map((line) => ({
-      orderId: order.id,
-      productId: line.productId,
-      qtyOrdered: line.qtyOrdered,
-      unitPrice: line.unitPrice != null ? String(line.unitPrice) : null,
-      status: "pending" as const,
+    // Insert lines — auto-fill unitPrice from default price list if missing
+    const baseCurrency = await getBaseCurrency();
+    const orderLines = await Promise.all(lines.map(async (line) => {
+      let unitPrice = line.unitPrice;
+      if (unitPrice == null) {
+        const defaultPrice = await getDefaultPrice(line.productId);
+        if (defaultPrice) unitPrice = defaultPrice.unitPrice;
+      }
+      // Convert price from base currency to order currency if different
+      if (unitPrice != null && currency && currency !== baseCurrency) {
+        const rate = await getRate(baseCurrency, currency);
+        if (rate) unitPrice = Math.round(unitPrice * rate * 100) / 100;
+      }
+      return {
+        orderId: order.id,
+        productId: line.productId,
+        qtyOrdered: line.qtyOrdered,
+        unitPrice: unitPrice != null ? String(unitPrice) : null,
+        status: "pending" as const,
+      };
     }));
     
     await db.insert(salesOrderLinesTable).values(orderLines);
@@ -279,12 +293,13 @@ router.post("/sales-orders/:id/confirm", requireAuth, async (req, res) => {
     return;
   }
 
-  // Lock exchange rate at confirmation time (not for USD base)
+  // Lock exchange rate at confirmation time (not for base currency)
+  const baseCurrency = await getBaseCurrency();
   let exchangeRate: number | null = null;
-  if (order.currency && order.currency !== "USD") {
-    exchangeRate = await getRate(order.currency, "USD");
+  if (order.currency && order.currency !== baseCurrency) {
+    exchangeRate = await getRate(order.currency, baseCurrency);
     if (exchangeRate == null) {
-      res.status(422).json({ error: `No exchange rate found for ${order.currency} -> USD. Please add a rate before confirming.` });
+      res.status(422).json({ error: `No exchange rate found for ${order.currency} -> ${baseCurrency}. Please add a rate before confirming.` });
       return;
     }
   }
@@ -298,6 +313,24 @@ router.post("/sales-orders/:id/confirm", requireAuth, async (req, res) => {
     })
     .where(eq(salesOrdersTable.id, id))
     .returning();
+
+  // Lock costAtTime on each line (avgCost at confirmation time for margin calc)
+  const orderLines = await db
+    .select()
+    .from(salesOrderLinesTable)
+    .where(eq(salesOrderLinesTable.orderId, id));
+
+  for (const ol of orderLines) {
+    const [inv] = await db
+      .select({ avgCost: inventoryItemsTable.avgCost })
+      .from(inventoryItemsTable)
+      .where(eq(inventoryItemsTable.productId, ol.productId))
+      .limit(1);
+    await db
+      .update(salesOrderLinesTable)
+      .set({ costAtTime: inv?.avgCost ? String(inv.avgCost) : null })
+      .where(eq(salesOrderLinesTable.id, ol.id));
+  }
 
   await addHistoryEvent(id, "confirmed", "Order confirmed and ready for picking");
 

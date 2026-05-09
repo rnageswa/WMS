@@ -25,7 +25,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/766</span>
+                <span class='fraction'>0/773</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/766</span>
+                <span class='fraction'>0/773</span>
             </div>
         
             
@@ -829,7 +829,21 @@
 <a name='L764'></a><a href='#L764'>764</a>
 <a name='L765'></a><a href='#L765'>765</a>
 <a name='L766'></a><a href='#L766'>766</a>
-<a name='L767'></a><a href='#L767'>767</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<a name='L767'></a><a href='#L767'>767</a>
+<a name='L768'></a><a href='#L768'>768</a>
+<a name='L769'></a><a href='#L769'>769</a>
+<a name='L770'></a><a href='#L770'>770</a>
+<a name='L771'></a><a href='#L771'>771</a>
+<a name='L772'></a><a href='#L772'>772</a>
+<a name='L773'></a><a href='#L773'>773</a>
+<a name='L774'></a><a href='#L774'>774</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -1672,6 +1686,7 @@
 <span class="cstat-no" title="statement not covered" >} from "lucide-react";</span>
 <span class="cstat-no" title="statement not covered" >import { Link } from "wouter";</span>
 <span class="cstat-no" title="statement not covered" >import { formatDistanceToNow, format, isPast, parseISO, differenceInCalendarDays } from "date-fns";</span>
+<span class="cstat-no" title="statement not covered" >import { formatCurrency, getCurrencySymbol } from "@/lib/utils";</span>
 <span class="cstat-no" title="statement not covered" ></span>
 <span class="cstat-no" title="statement not covered" >type PoStatus = "draft" | "ordered" | "partially_received" | "received" | "cancelled";</span>
 <span class="cstat-no" title="statement not covered" ></span>
@@ -1771,7 +1786,7 @@
 <span class="cstat-no" title="statement not covered" >      &gt;</span>
 <span class="cstat-no" title="statement not covered" >        &lt;SelectTrigger className="h-7 w-40 text-xs"&gt;&lt;SelectValue placeholder="Warehouse" /&gt;&lt;/SelectTrigger&gt;</span>
 <span class="cstat-no" title="statement not covered" >        &lt;SelectContent&gt;</span>
-<span class="cstat-no" title="statement not covered" >          {warehouses.filter((w) =&gt; w.isActive).map((w) =&gt; (</span>
+<span class="cstat-no" title="statement not covered" >          {warehouses.filter((w) =&gt; w.isActive !== false).map((w) =&gt; (</span>
 <span class="cstat-no" title="statement not covered" >            &lt;SelectItem key={w.id} value={w.id} className="text-xs"&gt;{w.name}&lt;/SelectItem&gt;</span>
 <span class="cstat-no" title="statement not covered" >          ))}</span>
 <span class="cstat-no" title="statement not covered" >        &lt;/SelectContent&gt;</span>
@@ -1793,11 +1808,17 @@
 <span class="cstat-no" title="statement not covered" >        disabled={!entry.zoneId}</span>
 <span class="cstat-no" title="statement not covered" >        onValueChange={(v) =&gt; onChange(lineId, { binId: v })}</span>
 <span class="cstat-no" title="statement not covered" >      &gt;</span>
-<span class="cstat-no" title="statement not covered" >        &lt;SelectTrigger className="h-7 w-28 text-xs"&gt;&lt;SelectValue placeholder="Bin" /&gt;&lt;/SelectTrigger&gt;</span>
+<span class="cstat-no" title="statement not covered" >        &lt;SelectTrigger className="h-7 w-36 text-xs"&gt;&lt;SelectValue placeholder="Bin" /&gt;&lt;/SelectTrigger&gt;</span>
 <span class="cstat-no" title="statement not covered" >        &lt;SelectContent&gt;</span>
-<span class="cstat-no" title="statement not covered" >          {bins.filter((b) =&gt; b.isActive).map((b) =&gt; (</span>
-<span class="cstat-no" title="statement not covered" >            &lt;SelectItem key={b.id} value={b.id} className="text-xs"&gt;{b.code}&lt;/SelectItem&gt;</span>
-<span class="cstat-no" title="statement not covered" >          ))}</span>
+<span class="cstat-no" title="statement not covered" >          {bins.length === 0 ? (</span>
+<span class="cstat-no" title="statement not covered" >            &lt;div className="px-2 py-1.5 text-xs text-muted-foreground"&gt;No bins in this zone&lt;/div&gt;</span>
+<span class="cstat-no" title="statement not covered" >          ) : (</span>
+<span class="cstat-no" title="statement not covered" >            bins.filter((b) =&gt; b.isActive !== false).map((b) =&gt; (</span>
+<span class="cstat-no" title="statement not covered" >              &lt;SelectItem key={b.id} value={b.id} className="text-xs"&gt;</span>
+<span class="cstat-no" title="statement not covered" >                {b.code}{b.name ? ` — ${b.name}` : ""}</span>
+<span class="cstat-no" title="statement not covered" >              &lt;/SelectItem&gt;</span>
+<span class="cstat-no" title="statement not covered" >            ))</span>
+<span class="cstat-no" title="statement not covered" >          )}</span>
 <span class="cstat-no" title="statement not covered" >        &lt;/SelectContent&gt;</span>
 <span class="cstat-no" title="statement not covered" >      &lt;/Select&gt;</span>
 <span class="cstat-no" title="statement not covered" >    &lt;/div&gt;</span>
@@ -1967,7 +1988,7 @@
 <span class="cstat-no" title="statement not covered" >    &lt;Layout&gt;</span>
 <span class="cstat-no" title="statement not covered" >      &lt;PageHeader</span>
 <span class="cstat-no" title="statement not covered" >        title={po.poNumber}</span>
-<span class="cstat-no" title="statement not covered" >        subtitle={`${po.supplierName} · ${format(new Date(po.createdAt), "dd MMM yyyy")}`}</span>
+<span class="cstat-no" title="statement not covered" >        subtitle={`${po.supplierName} · ${format(new Date(po.createdAt), "dd MMM yyyy")} · ${(po as any).currency ? `${getCurrencySymbol((po as any).currency)} ${(po as any).currency}` : ""}`}</span>
 <span class="cstat-no" title="statement not covered" >        action={</span>
 <span class="cstat-no" title="statement not covered" >          &lt;div className="flex items-center gap-2 flex-wrap"&gt;</span>
 <span class="cstat-no" title="statement not covered" >            &lt;StatusBadge status={po.status} /&gt;</span>
@@ -2203,7 +2224,7 @@
 <span class="cstat-no" title="statement not covered" >                      &lt;/span&gt;</span>
 <span class="cstat-no" title="statement not covered" >                    &lt;/TableCell&gt;</span>
 <span class="cstat-no" title="statement not covered" >                    &lt;TableCell className="text-right tabular-nums text-sm text-muted-foreground"&gt;</span>
-<span class="cstat-no" title="statement not covered" >                      {line.unitCost != null ? `$${Number(line.unitCost).toFixed(2)}` : "—"}</span>
+<span class="cstat-no" title="statement not covered" >                      {formatCurrency(line.unitCost, (po as any).currency)}</span>
 <span class="cstat-no" title="statement not covered" >                    &lt;/TableCell&gt;</span>
 <span class="cstat-no" title="statement not covered" >                    &lt;TableCell&gt;</span>
 <span class="cstat-no" title="statement not covered" >                      &lt;span className="flex items-center gap-1.5"&gt;</span>
@@ -2368,7 +2389,7 @@
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-05-06T16:33:48.843Z
+                at 2026-05-09T12:19:58.340Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

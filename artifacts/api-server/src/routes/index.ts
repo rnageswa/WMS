@@ -12,6 +12,8 @@ import seedRouter from "./seed";
 import ordersRouter from "./orders";
 import pickingRouter from "./picking";
 import { currencyRouter } from "./currency";
+import { pricingRouter } from "./pricing";
+import replenishmentRouter from "./replenishment";
 
 const router: IRouter = Router();
 
@@ -35,5 +37,7 @@ router.use(suppliersRouter);
 router.use(notificationsRouter);
 router.use(ordersRouter);
 router.use(pickingRouter);
+router.use(pricingRouter);
+router.use(replenishmentRouter);
 
 export default router;

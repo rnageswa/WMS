@@ -51,6 +51,8 @@ import {
   Layers,
   ExternalLink,
 } from "lucide-react";
+import { formatCurrency } from "@/lib/utils";
+import { useBaseCurrency } from "@/hooks/use-base-currency";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -87,9 +89,6 @@ interface CreatedPoInfo {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-const fmtCurrency = (n: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 }).format(n);
 
 function groupKey(g: SuggestionGroup) {
   return g.supplierId ?? g.supplierName ?? "__none__";
@@ -402,6 +401,7 @@ function SupplierGroupCard({
   onCreatePo,
   creating,
   onSaveAsTemplate,
+  baseCurrency,
 }: {
   group: SuggestionGroup;
   itemStates: Map<string, ItemState>;
@@ -411,7 +411,9 @@ function SupplierGroupCard({
   onCreatePo: () => void;
   creating: boolean;
   onSaveAsTemplate: () => void;
+  baseCurrency: string;
 }) {
+  const fmtCurrency = (n: number) => formatCurrency(n, baseCurrency);
   const selectedItems = group.items.filter((item) => itemStates.get(item.productId)?.selected !== false);
   const allSelected = selectedItems.length === group.items.length;
   const someSelected = selectedItems.length > 0;
@@ -675,6 +677,8 @@ function SendAlertDialog({
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function ReorderSuggestionsPage() {
+  const baseCurrency = useBaseCurrency();
+
   const { toast } = useToast();
   const [, navigate] = useLocation();
 
@@ -983,6 +987,7 @@ export default function ReorderSuggestionsPage() {
                   onCreatePo={() => handleCreatePo(group)}
                   creating={creatingGroup === key}
                   onSaveAsTemplate={() => setSaveTemplateGroup(group)}
+                  baseCurrency={baseCurrency}
                 />
               );
             })}

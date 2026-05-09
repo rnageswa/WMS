@@ -72,6 +72,8 @@ import {
   Save,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { formatCurrency } from "@/lib/utils";
+import { useBaseCurrency } from "@/hooks/use-base-currency";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -101,9 +103,6 @@ interface CreatedPoInfo {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-const fmtCurrency = (n: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 }).format(n);
 
 let lineKey = 0;
 const FREE_TEXT = "__free_text__";
@@ -197,6 +196,9 @@ function EmailPoDialog({
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function PoTemplateDetailPage() {
+  const baseCurrency = useBaseCurrency();
+  const fmtCurrency = (n: number) => formatCurrency(n, baseCurrency);
+
   const { id } = useParams<{ id: string }>();
   const { toast } = useToast();
   const [, navigate] = useLocation();

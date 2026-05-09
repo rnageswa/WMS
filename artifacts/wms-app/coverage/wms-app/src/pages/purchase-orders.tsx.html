@@ -25,7 +25,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/443</span>
+                <span class='fraction'>0/447</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/443</span>
+                <span class='fraction'>0/447</span>
             </div>
         
             
@@ -506,7 +506,15 @@
 <a name='L441'></a><a href='#L441'>441</a>
 <a name='L442'></a><a href='#L442'>442</a>
 <a name='L443'></a><a href='#L443'>443</a>
-<a name='L444'></a><a href='#L444'>444</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<a name='L444'></a><a href='#L444'>444</a>
+<a name='L445'></a><a href='#L445'>445</a>
+<a name='L446'></a><a href='#L446'>446</a>
+<a name='L447'></a><a href='#L447'>447</a>
+<a name='L448'></a><a href='#L448'>448</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -1003,9 +1011,10 @@
 <span class="cstat-no" title="statement not covered" >  Download,</span>
 <span class="cstat-no" title="statement not covered" >  AlertTriangle,</span>
 <span class="cstat-no" title="statement not covered" >} from "lucide-react";</span>
-<span class="cstat-no" title="statement not covered" >import { Link } from "wouter";</span>
+<span class="cstat-no" title="statement not covered" >import { Link, useLocation } from "wouter";</span>
 <span class="cstat-no" title="statement not covered" >import { useToast } from "@/hooks/use-toast";</span>
 <span class="cstat-no" title="statement not covered" >import { formatDistanceToNow, format, isPast, parseISO, differenceInCalendarDays } from "date-fns";</span>
+<span class="cstat-no" title="statement not covered" >import { getCurrencySymbol } from "@/lib/utils";</span>
 <span class="cstat-no" title="statement not covered" ></span>
 <span class="cstat-no" title="statement not covered" >type PoStatus = "draft" | "ordered" | "partially_received" | "received" | "cancelled";</span>
 <span class="cstat-no" title="statement not covered" ></span>
@@ -1031,6 +1040,7 @@
 <span class="cstat-no" title="statement not covered" >}</span>
 <span class="cstat-no" title="statement not covered" ></span>
 <span class="cstat-no" title="statement not covered" >export default function PurchaseOrdersPage() {</span>
+<span class="cstat-no" title="statement not covered" >  const [, setLocation] = useLocation();</span>
 <span class="cstat-no" title="statement not covered" >  const qc = useQueryClient();</span>
 <span class="cstat-no" title="statement not covered" >  const { toast } = useToast();</span>
 <span class="cstat-no" title="statement not covered" ></span>
@@ -1247,6 +1257,7 @@
 <span class="cstat-no" title="statement not covered" >                    &lt;TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-semibold"&gt;PO Number&lt;/TableHead&gt;</span>
 <span class="cstat-no" title="statement not covered" >                    &lt;TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-semibold"&gt;Supplier&lt;/TableHead&gt;</span>
 <span class="cstat-no" title="statement not covered" >                    &lt;TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-semibold"&gt;Status&lt;/TableHead&gt;</span>
+<span class="cstat-no" title="statement not covered" >                    &lt;TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-semibold"&gt;Currency&lt;/TableHead&gt;</span>
 <span class="cstat-no" title="statement not covered" >                    &lt;TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-semibold text-right"&gt;Lines&lt;/TableHead&gt;</span>
 <span class="cstat-no" title="statement not covered" >                    &lt;TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-semibold text-right"&gt;Qty&lt;/TableHead&gt;</span>
 <span class="cstat-no" title="statement not covered" >                    &lt;TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-semibold"&gt;</span>
@@ -1275,7 +1286,7 @@
 <span class="cstat-no" title="statement not covered" >                        onClick={(e) =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >                          const target = e.target as HTMLElement;</span>
 <span class="cstat-no" title="statement not covered" >                          if (target.closest('[role="checkbox"]') || target.closest("button")) return;</span>
-<span class="cstat-no" title="statement not covered" >                          window.location.assign(`/wms/purchase-orders/${po.id}`);</span>
+<span class="cstat-no" title="statement not covered" >                          setLocation(`/purchase-orders/${po.id}`);</span>
 <span class="cstat-no" title="statement not covered" >                        }}</span>
 <span class="cstat-no" title="statement not covered" >                      &gt;</span>
 <span class="cstat-no" title="statement not covered" >                        &lt;TableCell className="pl-4 w-10" onClick={(e) =&gt; e.stopPropagation()}&gt;</span>
@@ -1288,6 +1299,7 @@
 <span class="cstat-no" title="statement not covered" >                        &lt;TableCell className="font-mono text-sm font-semibold"&gt;{po.poNumber}&lt;/TableCell&gt;</span>
 <span class="cstat-no" title="statement not covered" >                        &lt;TableCell className="text-sm font-medium"&gt;{po.supplierName}&lt;/TableCell&gt;</span>
 <span class="cstat-no" title="statement not covered" >                        &lt;TableCell&gt;&lt;StatusBadge status={po.status} /&gt;&lt;/TableCell&gt;</span>
+<span class="cstat-no" title="statement not covered" >                        &lt;TableCell&gt;&lt;Badge variant="outline"&gt;{getCurrencySymbol((po as any).currency)} {(po as any).currency}&lt;/Badge&gt;&lt;/TableCell&gt;</span>
 <span class="cstat-no" title="statement not covered" >                        &lt;TableCell className="text-right tabular-nums text-sm"&gt;{po.lineCount}&lt;/TableCell&gt;</span>
 <span class="cstat-no" title="statement not covered" >                        &lt;TableCell className="text-right tabular-nums text-sm"&gt;{po.totalQtyOrdered}&lt;/TableCell&gt;</span>
 <span class="cstat-no" title="statement not covered" >                        &lt;TableCell className="text-xs"&gt;</span>
@@ -1399,7 +1411,7 @@
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-05-06T16:33:48.843Z
+                at 2026-05-09T12:19:58.340Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

@@ -51,6 +51,38 @@ export async function convertCurrency(
 }
 
 /**
+ * Get the base currency code (the one marked is_base = true).
+ * Falls back to "USD" if none found.
+ */
+export async function getBaseCurrency(): Promise<string> {
+  const [base] = await db
+    .select({ code: currenciesTable.code })
+    .from(currenciesTable)
+    .where(eq(currenciesTable.isBase, true))
+    .limit(1);
+  return base?.code ?? "USD";
+}
+
+/**
+ * Set the base currency by code.
+ * Clears is_base on all others, sets it on the given code.
+ * Throws if currency code doesn't exist.
+ */
+export async function setBaseCurrency(code: string): Promise<string> {
+  const existing = await db
+    .select({ code: currenciesTable.code })
+    .from(currenciesTable)
+    .where(eq(currenciesTable.code, code.toUpperCase()))
+    .limit(1);
+  if (!existing.length) {
+    throw new Error(`Currency ${code} not found. Add it first.`);
+  }
+  await db.update(currenciesTable).set({ isBase: false }).where(eq(currenciesTable.isBase, true));
+  await db.update(currenciesTable).set({ isBase: true }).where(eq(currenciesTable.code, code.toUpperCase()));
+  return code.toUpperCase();
+}
+
+/**
  * Seed default currencies and exchange rates.
  */
 export async function seedCurrencies() {

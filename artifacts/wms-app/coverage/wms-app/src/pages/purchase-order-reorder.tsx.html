@@ -25,7 +25,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/1045</span>
+                <span class='fraction'>0/1050</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/1045</span>
+                <span class='fraction'>0/1050</span>
             </div>
         
             
@@ -1108,7 +1108,17 @@
 <a name='L1043'></a><a href='#L1043'>1043</a>
 <a name='L1044'></a><a href='#L1044'>1044</a>
 <a name='L1045'></a><a href='#L1045'>1045</a>
-<a name='L1046'></a><a href='#L1046'>1046</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<a name='L1046'></a><a href='#L1046'>1046</a>
+<a name='L1047'></a><a href='#L1047'>1047</a>
+<a name='L1048'></a><a href='#L1048'>1048</a>
+<a name='L1049'></a><a href='#L1049'>1049</a>
+<a name='L1050'></a><a href='#L1050'>1050</a>
+<a name='L1051'></a><a href='#L1051'>1051</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -2206,6 +2216,8 @@
 <span class="cstat-no" title="statement not covered" >  Layers,</span>
 <span class="cstat-no" title="statement not covered" >  ExternalLink,</span>
 <span class="cstat-no" title="statement not covered" >} from "lucide-react";</span>
+<span class="cstat-no" title="statement not covered" >import { formatCurrency } from "@/lib/utils";</span>
+<span class="cstat-no" title="statement not covered" >import { useBaseCurrency } from "@/hooks/use-base-currency";</span>
 <span class="cstat-no" title="statement not covered" ></span>
 <span class="cstat-no" title="statement not covered" >// ── Types ─────────────────────────────────────────────────────────────────────</span>
 <span class="cstat-no" title="statement not covered" ></span>
@@ -2242,9 +2254,6 @@
 <span class="cstat-no" title="statement not covered" >}</span>
 <span class="cstat-no" title="statement not covered" ></span>
 <span class="cstat-no" title="statement not covered" >// ── Helpers ───────────────────────────────────────────────────────────────────</span>
-<span class="cstat-no" title="statement not covered" ></span>
-<span class="cstat-no" title="statement not covered" >const fmtCurrency = (n: number) =&gt;</span>
-<span class="cstat-no" title="statement not covered" >  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 }).format(n);</span>
 <span class="cstat-no" title="statement not covered" ></span>
 <span class="cstat-no" title="statement not covered" >function groupKey(g: SuggestionGroup) {</span>
 <span class="cstat-no" title="statement not covered" >  return g.supplierId ?? g.supplierName ?? "__none__";</span>
@@ -2557,6 +2566,7 @@
 <span class="cstat-no" title="statement not covered" >  onCreatePo,</span>
 <span class="cstat-no" title="statement not covered" >  creating,</span>
 <span class="cstat-no" title="statement not covered" >  onSaveAsTemplate,</span>
+<span class="cstat-no" title="statement not covered" >  baseCurrency,</span>
 <span class="cstat-no" title="statement not covered" >}: {</span>
 <span class="cstat-no" title="statement not covered" >  group: SuggestionGroup;</span>
 <span class="cstat-no" title="statement not covered" >  itemStates: Map&lt;string, ItemState&gt;;</span>
@@ -2566,7 +2576,9 @@
 <span class="cstat-no" title="statement not covered" >  onCreatePo: () =&gt; void;</span>
 <span class="cstat-no" title="statement not covered" >  creating: boolean;</span>
 <span class="cstat-no" title="statement not covered" >  onSaveAsTemplate: () =&gt; void;</span>
+<span class="cstat-no" title="statement not covered" >  baseCurrency: string;</span>
 <span class="cstat-no" title="statement not covered" >}) {</span>
+<span class="cstat-no" title="statement not covered" >  const fmtCurrency = (n: number) =&gt; formatCurrency(n, baseCurrency);</span>
 <span class="cstat-no" title="statement not covered" >  const selectedItems = group.items.filter((item) =&gt; itemStates.get(item.productId)?.selected !== false);</span>
 <span class="cstat-no" title="statement not covered" >  const allSelected = selectedItems.length === group.items.length;</span>
 <span class="cstat-no" title="statement not covered" >  const someSelected = selectedItems.length &gt; 0;</span>
@@ -2830,6 +2842,8 @@
 <span class="cstat-no" title="statement not covered" >// ── Page ──────────────────────────────────────────────────────────────────────</span>
 <span class="cstat-no" title="statement not covered" ></span>
 <span class="cstat-no" title="statement not covered" >export default function ReorderSuggestionsPage() {</span>
+<span class="cstat-no" title="statement not covered" >  const baseCurrency = useBaseCurrency();</span>
+<span class="cstat-no" title="statement not covered" ></span>
 <span class="cstat-no" title="statement not covered" >  const { toast } = useToast();</span>
 <span class="cstat-no" title="statement not covered" >  const [, navigate] = useLocation();</span>
 <span class="cstat-no" title="statement not covered" ></span>
@@ -3138,6 +3152,7 @@
 <span class="cstat-no" title="statement not covered" >                  onCreatePo={() =&gt; handleCreatePo(group)}</span>
 <span class="cstat-no" title="statement not covered" >                  creating={creatingGroup === key}</span>
 <span class="cstat-no" title="statement not covered" >                  onSaveAsTemplate={() =&gt; setSaveTemplateGroup(group)}</span>
+<span class="cstat-no" title="statement not covered" >                  baseCurrency={baseCurrency}</span>
 <span class="cstat-no" title="statement not covered" >                /&gt;</span>
 <span class="cstat-no" title="statement not covered" >              );</span>
 <span class="cstat-no" title="statement not covered" >            })}</span>
@@ -3205,7 +3220,7 @@
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-05-06T16:33:48.843Z
+                at 2026-05-09T12:19:58.340Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

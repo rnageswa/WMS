@@ -22,6 +22,10 @@ tags:
     description: Inventory movement audit log
   - name: purchasing
     description: Suppliers and purchase orders
+  - name: pricing
+    description: Price lists and product pricing
+  - name: reports
+    description: Financial and operational reports
 
 paths:
   /healthz:
@@ -1965,6 +1969,285 @@ paths:
             text/csv:
               schema:
                 type: string
+
+  # ─── Price Lists ─────────────────────────────────────────────────────────────
+
+  /price-lists:
+    get:
+      operationId: listPriceLists
+      tags: [pricing]
+      summary: List all price lists
+      parameters:
+        - name: isActive
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: List of price lists
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PriceList"
+    post:
+      operationId: createPriceList
+      tags: [pricing]
+      summary: Create a price list (admin)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePriceListBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PriceList"
+
+  /price-lists/{id}:
+    put:
+      operationId: updatePriceList
+      tags: [pricing]
+      summary: Update a price list (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UuidId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePriceListBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PriceList"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deletePriceList
+      tags: [pricing]
+      summary: Soft-delete a price list (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UuidId"
+      responses:
+        "200":
+          description: Deactivated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PriceList"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /price-lists/{id}/items:
+    get:
+      operationId: listPriceListItems
+      tags: [pricing]
+      summary: List items in a price list
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UuidId"
+      responses:
+        "200":
+          description: List of price list items with product info
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PriceListItemDetail"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      operationId: createPriceListItem
+      tags: [pricing]
+      summary: Add item to price list (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UuidId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePriceListItemBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PriceListItem"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Duplicate price tier
+
+  /price-lists/{id}/items/{itemId}:
+    put:
+      operationId: updatePriceListItem
+      tags: [pricing]
+      summary: Update a price list item (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UuidId"
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePriceListItemBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PriceListItem"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deletePriceListItem
+      tags: [pricing]
+      summary: Remove item from price list (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UuidId"
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /price-lists/default/{productId}:
+    get:
+      operationId: getDefaultPrice
+      tags: [pricing]
+      summary: Get default price for a product
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Default price info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DefaultPriceResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ─── Financial Reports ───────────────────────────────────────────────────────
+
+  /reports/cogs:
+    get:
+      operationId: getCogsReport
+      tags: [reports]
+      summary: COGS report by date range
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: productId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: customer
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: COGS report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/COGSReport"
+
+  /reports/margin:
+    get:
+      operationId: getMarginReport
+      tags: [reports]
+      summary: Margin report for shipped/delivered orders
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: customer
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Margin report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarginReport"
+
+  /dashboard/financial:
+    get:
+      operationId: getFinancialDashboard
+      tags: [reports, inventory]
+      summary: Financial KPI summary for dashboard
+      responses:
+        "200":
+          description: Financial dashboard data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FinancialDashboard"
 
   # ─── Cycle Count ─────────────────────────────────────────────────────────────
 
@@ -4592,4 +4875,317 @@ components:
         rate:
           type: number
       required: [from, to, originalAmount, convertedAmount, rate]
+
+    # ── Pricing ───────────────────────────────────────────────────────────────
+
+    PriceList:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        currency:
+          type: string
+        isDefault:
+          type: boolean
+        isActive:
+          type: boolean
+        validFrom:
+          type: string
+          format: date
+        validTo:
+          type: string
+          format: date
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, name, currency, isDefault, isActive, validFrom, createdAt, updatedAt]
+
+    CreatePriceListBody:
+      type: object
+      properties:
+        name:
+          type: string
+        currency:
+          type: string
+        isDefault:
+          type: boolean
+        validFrom:
+          type: string
+          format: date
+        validTo:
+          type: string
+          format: date
+          nullable: true
+      required: [name, validFrom]
+
+    UpdatePriceListBody:
+      type: object
+      properties:
+        name:
+          type: string
+        currency:
+          type: string
+        isDefault:
+          type: boolean
+        isActive:
+          type: boolean
+        validFrom:
+          type: string
+          format: date
+        validTo:
+          type: string
+          format: date
+          nullable: true
+
+    PriceListItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        priceListId:
+          type: string
+          format: uuid
+        productId:
+          type: string
+          format: uuid
+        unitPrice:
+          type: string
+        minQty:
+          type: integer
+        maxQty:
+          type: integer
+          nullable: true
+        currency:
+          type: string
+        validFrom:
+          type: string
+          format: date
+        validTo:
+          type: string
+          format: date
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, priceListId, productId, unitPrice, minQty, currency, validFrom, createdAt, updatedAt]
+
+    PriceListItemDetail:
+      allOf:
+        - $ref: "#/components/schemas/PriceListItem"
+        - type: object
+          properties:
+            skuCode:
+              type: string
+              nullable: true
+            productName:
+              type: string
+              nullable: true
+
+    CreatePriceListItemBody:
+      type: object
+      properties:
+        productId:
+          type: string
+          format: uuid
+        unitPrice:
+          type: number
+        minQty:
+          type: integer
+        maxQty:
+          type: integer
+          nullable: true
+        currency:
+          type: string
+        validFrom:
+          type: string
+          format: date
+        validTo:
+          type: string
+          format: date
+          nullable: true
+      required: [productId, unitPrice, validFrom]
+
+    UpdatePriceListItemBody:
+      type: object
+      properties:
+        unitPrice:
+          type: number
+        minQty:
+          type: integer
+        maxQty:
+          type: integer
+          nullable: true
+        currency:
+          type: string
+        validFrom:
+          type: string
+          format: date
+        validTo:
+          type: string
+          format: date
+          nullable: true
+
+    DefaultPriceResponse:
+      type: object
+      properties:
+        unitPrice:
+          type: number
+        currency:
+          type: string
+        priceListId:
+          type: string
+          format: uuid
+        priceListName:
+          type: string
+      required: [unitPrice, currency, priceListId, priceListName]
+
+    # ── Reports ───────────────────────────────────────────────────────────────
+
+    COGSReport:
+      type: object
+      properties:
+        totalCOGS:
+          type: number
+        count:
+          type: integer
+        from:
+          type: string
+          format: date-time
+          nullable: true
+        to:
+          type: string
+          format: date-time
+          nullable: true
+        lines:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              productId:
+                type: string
+                format: uuid
+              skuCode:
+                type: string
+              productName:
+                type: string
+              quantity:
+                type: integer
+              unitCost:
+                type: string
+              totalCost:
+                type: string
+              referenceId:
+                type: string
+                format: uuid
+                nullable: true
+              referenceType:
+                type: string
+                nullable: true
+              createdAt:
+                type: string
+                format: date-time
+              customerName:
+                type: string
+                nullable: true
+              orderNumber:
+                type: string
+                nullable: true
+      required: [totalCOGS, count, lines]
+
+    MarginReport:
+      type: object
+      properties:
+        totalRevenue:
+          type: number
+        totalCost:
+          type: number
+        totalMargin:
+          type: number
+        totalMarginPct:
+          type: number
+        orderCount:
+          type: integer
+        from:
+          type: string
+          format: date-time
+          nullable: true
+        to:
+          type: string
+          format: date-time
+          nullable: true
+        orders:
+          type: array
+          items:
+            type: object
+            properties:
+              orderId:
+                type: string
+                format: uuid
+              orderNumber:
+                type: string
+              customerName:
+                type: string
+              status:
+                type: string
+              shippedAt:
+                type: string
+                format: date-time
+                nullable: true
+              revenue:
+                type: number
+              cost:
+                type: number
+              margin:
+                type: number
+              marginPct:
+                type: number
+      required: [totalRevenue, totalCost, totalMargin, totalMarginPct, orderCount, orders]
+
+    FinancialDashboard:
+      type: object
+      properties:
+        totalInventoryValue:
+          type: number
+        cogsThisMonth:
+          type: number
+        avgMarginThisMonth:
+          type: number
+        monthOrderCount:
+          type: integer
+        valueByWarehouse:
+          type: array
+          items:
+            type: object
+            properties:
+              warehouseId:
+                type: string
+                format: uuid
+              warehouseName:
+                type: string
+              totalValue:
+                type: number
+        cogsTrend:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+              cogs:
+                type: number
+      required: [totalInventoryValue, cogsThisMonth, avgMarginThisMonth, monthOrderCount, valueByWarehouse, cogsTrend]
 

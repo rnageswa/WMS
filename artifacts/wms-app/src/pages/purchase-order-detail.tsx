@@ -75,6 +75,7 @@ import {
 } from "lucide-react";
 import { Link } from "wouter";
 import { formatDistanceToNow, format, isPast, parseISO, differenceInCalendarDays } from "date-fns";
+import { formatCurrency, getCurrencySymbol } from "@/lib/utils";
 
 type PoStatus = "draft" | "ordered" | "partially_received" | "received" | "cancelled";
 
@@ -376,7 +377,7 @@ export default function PurchaseOrderDetailPage() {
     <Layout>
       <PageHeader
         title={po.poNumber}
-        subtitle={`${po.supplierName} · ${format(new Date(po.createdAt), "dd MMM yyyy")}`}
+        subtitle={`${po.supplierName} · ${format(new Date(po.createdAt), "dd MMM yyyy")} · ${(po as any).currency ? `${getCurrencySymbol((po as any).currency)} ${(po as any).currency}` : ""}`}
         action={
           <div className="flex items-center gap-2 flex-wrap">
             <StatusBadge status={po.status} />
@@ -612,7 +613,7 @@ export default function PurchaseOrderDetailPage() {
                       </span>
                     </TableCell>
                     <TableCell className="text-right tabular-nums text-sm text-muted-foreground">
-                      {line.unitCost != null ? `$${Number(line.unitCost).toFixed(2)}` : "—"}
+                      {formatCurrency(line.unitCost, (po as any).currency)}
                     </TableCell>
                     <TableCell>
                       <span className="flex items-center gap-1.5">

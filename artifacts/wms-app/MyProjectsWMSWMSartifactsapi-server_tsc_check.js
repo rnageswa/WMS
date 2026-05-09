@@ -1,0 +1,1 @@
+const cp = require("child_process"); const r = cp.execSync("npx tsc -p tsconfig.json --noEmit", {encoding:"utf8", timeout:120000}); require("fs").writeFileSync("_tsc_out.txt", r);

@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import {
   useGetDashboardSummary,
   useGetLowStockAlerts,
@@ -26,9 +27,26 @@ import {
   Clock,
   CalendarCheck2,
   CalendarX2,
+  DollarSign,
+  TrendingUp,
+  BarChart3,
+  Percent,
 } from "lucide-react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+} from "recharts";
 import { formatDistanceToNow, format, parseISO } from "date-fns";
 import { Link } from "wouter";
+import { useBaseCurrency } from "@/hooks/use-base-currency";
+import { formatCurrency, getCurrencySymbol } from "@/lib/utils";
 
 function movementIcon(type: string) {
   if (type === "inbound") return <ArrowDownRight className="w-3.5 h-3.5 text-emerald-500" />;
@@ -61,11 +79,20 @@ function SeverityPill({ severity }: { severity: string }) {
 }
 
 export default function Dashboard() {
+  const baseCurrency = useBaseCurrency();
   const { data, isLoading } = useGetDashboardSummary();
   const { data: alertData, isLoading: alertsLoading } = useGetLowStockAlerts({
     query: { queryKey: getGetLowStockAlertsQueryKey() },
   });
   const { data: aging, isLoading: agingLoading } = useGetPurchaseOrderAging();
+  const [finData, setFinData] = useState<any>(null);
+
+  useEffect(() => {
+    fetch("/api/dashboard/financial")
+      .then((r) => r.json())
+      .then(setFinData)
+      .catch(() => {});
+  }, []);
 
   const alerts = alertData?.alerts ?? [];
   const hasAlerts = alerts.length > 0;
@@ -102,6 +129,41 @@ export default function Dashboard() {
       icon: Activity,
       color: "text-accent",
       bg: "bg-accent/10",
+    },
+  ];
+
+  const financialKpis = [
+    {
+      label: "Inventory Value",
+      value: finData ? formatCurrency(finData.totalInventoryValue || 0, baseCurrency) : "—",
+      sub: "total across all bins",
+      icon: DollarSign,
+      color: "text-emerald-600",
+      bg: "bg-emerald-50",
+    },
+    {
+      label: "COGS (Month)",
+      value: finData ? formatCurrency(finData.cogsThisMonth || 0, baseCurrency) : "—",
+      sub: `${finData?.monthOrderCount ?? 0} orders shipped`,
+      icon: BarChart3,
+      color: "text-blue-600",
+      bg: "bg-blue-50",
+    },
+    {
+      label: "Avg Margin (Month)",
+      value: finData ? `${finData.avgMarginThisMonth.toFixed(1)}%` : "—",
+      sub: "blended across orders",
+      icon: Percent,
+      color: (finData?.avgMarginThisMonth ?? 0) >= 0 ? "text-emerald-600" : "text-red-600",
+      bg: (finData?.avgMarginThisMonth ?? 0) >= 0 ? "bg-emerald-50" : "bg-red-50",
+    },
+    {
+      label: "Low Stock Value",
+      value: finData ? formatCurrency(finData.lowStockValue || 0, baseCurrency) : "—",
+      sub: `${data?.lowStockCount ?? 0} items below threshold`,
+      icon: TrendingDown,
+      color: (finData?.lowStockValue || 0) > 0 ? "text-amber-600" : "text-muted-foreground",
+      bg: (finData?.lowStockValue || 0) > 0 ? "bg-amber-50" : "bg-muted",
     },
   ];
 
@@ -144,6 +206,70 @@ export default function Dashboard() {
             </Card>
           ))}
         </div>
+
+        {/* Financial KPI tiles */}
+        <div>
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Financial Overview</h2>
+          <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+            {financialKpis.map((kpi) => (
+              <Card key={kpi.label} className="border-border/60">
+                <CardContent className="pt-5 pb-4 px-5">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">{kpi.label}</p>
+                      <p className="text-2xl font-bold mt-1 text-foreground">{kpi.value}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{kpi.sub}</p>
+                    </div>
+                    <div className={`w-9 h-9 rounded-lg ${kpi.bg} flex items-center justify-center shrink-0`}>
+                      <kpi.icon className={`w-4.5 h-4.5 ${kpi.color}`} />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+
+        {/* Financial charts */}
+        {finData && (
+          <div className="grid grid-cols-2 gap-6">
+            {/* Inventory value by warehouse */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">Inventory Value by Warehouse</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={finData.valueByWarehouse}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis dataKey="warehouseName" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${getCurrencySymbol(baseCurrency)}${(v / 1000).toFixed(0)}k`} />
+                    <Tooltip formatter={(v: number) => formatCurrency(v, baseCurrency)} />
+                    <Bar dataKey="totalValue" fill="#E8622A" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            {/* COGS trend */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">COGS Trend (30 Days)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={200}>
+                  <LineChart data={finData.cogsTrend}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                    <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${getCurrencySymbol(baseCurrency)}${v.toFixed(0)}`} />
+                    <Tooltip formatter={(v: number) => formatCurrency(v, baseCurrency)} />
+                    <Line type="monotone" dataKey="cogs" stroke="#2563eb" strokeWidth={2} dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Low-stock alert panel — only shown when there are alerts */}
         {(alertsLoading || hasAlerts) && (

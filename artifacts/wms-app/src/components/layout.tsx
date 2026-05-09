@@ -24,6 +24,9 @@ import {
   Shield,
   LogOut,
   User,
+  BrainCircuit,
+  Navigation,
+  BarChart4,
 } from "lucide-react";
 import {
   useGetLowStockAlerts,
@@ -50,6 +53,12 @@ const navItems = [
   { href: "/locations", label: "Locations", icon: MapPin },
   { href: "/movements", label: "Movements", icon: ClipboardList },
   { href: "/reports", label: "Reports", icon: BarChart3 },
+];
+
+const intelNavItems = [
+  { href: "/smart-replenishment", label: "Smart Replenishment", icon: BrainCircuit },
+  { href: "/smart-picking", label: "Smart Picking", icon: Navigation },
+  { href: "/demand-forecast", label: "Demand Forecast", icon: BarChart4 },
 ];
 
 const ROLE_COLORS: Record<string, string> = {
@@ -153,14 +162,14 @@ function UserFooter() {
         </div>
       </div>
 
-      {/* Admin link (admin only) */}
+      {/* Admin Console link (admin only) */}
       {role === "admin" && (
         <Link
           href="/admin"
           className="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/60 transition-colors"
         >
           <Shield className="w-3.5 h-3.5" />
-          User Management
+          Admin Console
         </Link>
       )}
 
@@ -212,6 +221,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
               alertCount={item.alertBadge ? alertCount : 0}
               hasCritical={item.alertBadge ? hasCritical : false}
             />
+          ))}
+          {/* Intelligence section */}
+          <div className="pt-3 pb-1">
+            <p className="px-3 text-[10px] font-bold text-sidebar-foreground/40 uppercase tracking-wider">
+              Intelligence
+            </p>
+          </div>
+          {intelNavItems.map((item) => (
+            <NavItem key={item.href} {...item} />
           ))}
         </nav>
         <UserFooter />

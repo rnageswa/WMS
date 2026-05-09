@@ -41,6 +41,10 @@ import SuppliersPage from "@/pages/suppliers";
 import SupplierDetailPage from "@/pages/supplier-detail";
 import SupplierPerformancePage from "@/pages/supplier-performance";
 import AdminPage from "@/pages/admin";
+import AdminSettingsPage from "@/pages/admin-settings";
+import PriceListsPage from "@/pages/price-lists";
+import PriceListNewPage from "@/pages/price-list-new";
+import PriceListDetailPage from "@/pages/price-list-detail";
 import ReceivingSchedulePage from "@/pages/receiving-schedule";
 import SalesOrdersPage from "@/pages/sales-orders";
 import SalesOrderNewPage from "@/pages/sales-order-new";
@@ -49,6 +53,9 @@ import SalesOrderPickListPage from "@/pages/sales-order-pick-list";
 import SalesOrderPackingSlipPage from "@/pages/sales-order-packing-slip";
 import ShippingLabelPage from "@/pages/shipping-label";
 import PickerPage from "@/pages/picker";
+import SmartReplenishment from "@/pages/smart-replenishment";
+import SmartPicking from "@/pages/smart-picking";
+import DemandForecast from "@/pages/demand-forecast";
 import SignInPage from "@/pages/sign-in";
 import SignUpPage from "@/pages/sign-up";
 import NotFound from "@/pages/not-found";
@@ -233,10 +240,17 @@ function AppRouter() {
             <Route path="/sales-orders/:id"><AuthGuard><SalesOrderDetailPage /></AuthGuard></Route>
             <Route path="/sales-orders"><AuthGuard><SalesOrdersPage /></AuthGuard></Route>
             <Route path="/picker"><AuthGuard><PickerPage /></AuthGuard></Route>
+            <Route path="/smart-replenishment"><AuthGuard><SmartReplenishment /></AuthGuard></Route>
+            <Route path="/smart-picking"><AuthGuard><SmartPicking /></AuthGuard></Route>
+            <Route path="/demand-forecast"><AuthGuard><DemandForecast /></AuthGuard></Route>
             <Route path="/suppliers/performance"><AuthGuard><SupplierPerformancePage /></AuthGuard></Route>
             <Route path="/suppliers/:id"><AuthGuard><SupplierDetailPage /></AuthGuard></Route>
             <Route path="/suppliers"><AuthGuard><SuppliersPage /></AuthGuard></Route>
+            <Route path="/admin/settings"><AuthGuard><AdminSettingsPage /></AuthGuard></Route>
             <Route path="/admin"><AuthGuard><AdminPage /></AuthGuard></Route>
+            <Route path="/price-lists/new"><AuthGuard><PriceListNewPage /></AuthGuard></Route>
+            <Route path="/price-lists/:id"><AuthGuard><PriceListDetailPage /></AuthGuard></Route>
+            <Route path="/price-lists"><AuthGuard><PriceListsPage /></AuthGuard></Route>
 
             <Route component={NotFound} />
           </Switch>

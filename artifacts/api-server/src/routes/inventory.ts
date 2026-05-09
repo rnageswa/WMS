@@ -8,6 +8,8 @@ import {
   zonesTable,
   warehousesTable,
   purchaseOrdersTable,
+  salesOrdersTable,
+  salesOrderLinesTable,
 } from "@workspace/db/schema";
 import { eq, and, sql, gte, lte, count, max, type SQL } from "drizzle-orm";
 import { AdjustInventoryBody } from "@workspace/api-zod";
@@ -726,6 +728,239 @@ router.get("/reports/inventory-csv", async (_req, res) => {
   res.setHeader("Content-Type", "text/csv");
   res.setHeader("Content-Disposition", `attachment; filename="wareiq-inventory-${date}.csv"`);
   res.send(csvLines.join("\n"));
+});
+
+// ── GET /dashboard/financial — Financial KPI summary ──────────────────────────
+
+router.get("/dashboard/financial", async (_req, res) => {
+  // Total inventory value — computed as unitPrice * qtyOnHand (matches reports)
+  const [invValue] = await db
+    .select({
+      total: sql<string>`COALESCE(SUM(COALESCE(${productsTable.unitPrice}, 0) * ${inventoryItemsTable.qtyOnHand}), 0)`,
+    })
+    .from(inventoryItemsTable)
+    .innerJoin(productsTable, eq(inventoryItemsTable.productId, productsTable.id));
+
+  // COGS this month
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const [cogsMonth] = await db
+    .select({ total: sql<string>`COALESCE(SUM(${salesOrdersTable.totalCogs}), 0)` })
+    .from(salesOrdersTable)
+    .where(and(
+      sql`${salesOrdersTable.status} IN ('shipped', 'delivered')`,
+      gte(salesOrdersTable.shippedAt, monthStart),
+    ));
+
+  // Avg margin this month (from shipped/delivered orders)
+  const monthOrders = await db
+    .select({ id: salesOrdersTable.id })
+    .from(salesOrdersTable)
+    .where(and(
+      sql`${salesOrdersTable.status} IN ('shipped', 'delivered')`,
+      gte(salesOrdersTable.shippedAt, monthStart),
+    ));
+
+  let totalRevenue = 0;
+  let totalCost = 0;
+  for (const o of monthOrders) {
+    const lines = await db
+      .select({ unitPrice: salesOrderLinesTable.unitPrice, costAtTime: salesOrderLinesTable.costAtTime, qtyShipped: salesOrderLinesTable.qtyShipped, qtyOrdered: salesOrderLinesTable.qtyOrdered })
+      .from(salesOrderLinesTable)
+      .where(eq(salesOrderLinesTable.orderId, o.id));
+    for (const l of lines) {
+      const qty = l.qtyShipped || l.qtyOrdered;
+      totalRevenue += parseFloat(l.unitPrice || "0") * qty;
+      totalCost += parseFloat(l.costAtTime || "0") * qty;
+    }
+  }
+  const avgMarginPct = totalRevenue > 0 ? ((totalRevenue - totalCost) / totalRevenue) * 100 : 0;
+
+  // Inventory value by warehouse — using unitPrice * qtyOnHand (matches reports)
+  const valueByWarehouse = await db
+    .select({
+      warehouseId: warehousesTable.id,
+      warehouseName: warehousesTable.name,
+      totalValue: sql<string>`COALESCE(SUM(COALESCE(${productsTable.unitPrice}, 0) * ${inventoryItemsTable.qtyOnHand}), 0)`,
+    })
+    .from(inventoryItemsTable)
+    .innerJoin(productsTable, eq(inventoryItemsTable.productId, productsTable.id))
+    .innerJoin(binsTable, eq(inventoryItemsTable.binId, binsTable.id))
+    .innerJoin(zonesTable, eq(binsTable.zoneId, zonesTable.id))
+    .innerJoin(warehousesTable, eq(zonesTable.warehouseId, warehousesTable.id))
+    .groupBy(warehousesTable.id, warehousesTable.name)
+    .orderBy(sql`SUM(COALESCE(${productsTable.unitPrice}, 0) * ${inventoryItemsTable.qtyOnHand}) DESC`);
+
+  // COGS trend — daily for last 30 days
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const dailyCOGS = await db
+    .select({
+      date: sql<string>`DATE(${inventoryMovementsTable.createdAt})`,
+      cogs: sql<string>`COALESCE(SUM(${inventoryMovementsTable.totalCost}), 0)`,
+    })
+    .from(inventoryMovementsTable)
+    .where(and(
+      eq(inventoryMovementsTable.movementType, "outbound"),
+      gte(inventoryMovementsTable.createdAt, thirtyDaysAgo),
+    ))
+    .groupBy(sql`DATE(${inventoryMovementsTable.createdAt})`)
+    .orderBy(sql`DATE(${inventoryMovementsTable.createdAt})`);
+
+  // Low stock value — total retail value of items below reorder threshold
+  const [lowStockValue] = await db
+    .select({
+      total: sql<string>`COALESCE(SUM(COALESCE(${productsTable.unitPrice}, 0) * ${inventoryItemsTable.qtyOnHand}), 0)`,
+    })
+    .from(inventoryItemsTable)
+    .innerJoin(productsTable, eq(inventoryItemsTable.productId, productsTable.id))
+    .where(sql`${inventoryItemsTable.qtyOnHand} <= ${productsTable.reorderThreshold}`);
+
+  res.json({
+    totalInventoryValue: parseFloat(invValue?.total || "0"),
+    cogsThisMonth: parseFloat(cogsMonth?.total || "0"),
+    avgMarginThisMonth: Math.round(avgMarginPct * 10) / 10,
+    monthOrderCount: monthOrders.length,
+    valueByWarehouse: valueByWarehouse.map((w) => ({
+      ...w,
+      totalValue: parseFloat(w.totalValue),
+    })),
+    cogsTrend: dailyCOGS.map((d) => ({
+      date: d.date,
+      cogs: parseFloat(d.cogs),
+    })),
+    lowStockValue: parseFloat(lowStockValue?.total || "0"),
+  });
+});
+
+// ── GET /reports/cogs — COGS report by date range ──────────────────────────────
+
+router.get("/reports/cogs", async (req, res) => {
+  const { from, to, productId, customer } = req.query as {
+    from?: string; to?: string; productId?: string; customer?: string;
+  };
+
+  const conditions = [eq(inventoryMovementsTable.movementType, "outbound")];
+  if (from) conditions.push(gte(inventoryMovementsTable.createdAt, new Date(from)));
+  if (to) conditions.push(lte(inventoryMovementsTable.createdAt, new Date(to)));
+  if (productId) conditions.push(eq(inventoryMovementsTable.productId, productId));
+
+  const movements = await db
+    .select({
+      id: inventoryMovementsTable.id,
+      productId: inventoryMovementsTable.productId,
+      skuCode: productsTable.skuCode,
+      productName: productsTable.name,
+      quantity: inventoryMovementsTable.quantity,
+      unitCost: inventoryMovementsTable.unitCost,
+      totalCost: inventoryMovementsTable.totalCost,
+      referenceId: inventoryMovementsTable.referenceId,
+      referenceType: inventoryMovementsTable.referenceType,
+      createdAt: inventoryMovementsTable.createdAt,
+    })
+    .from(inventoryMovementsTable)
+    .innerJoin(productsTable, eq(inventoryMovementsTable.productId, productsTable.id))
+    .where(and(...conditions))
+    .orderBy(sql`${inventoryMovementsTable.createdAt} DESC`);
+
+  // Enrich with SO customer info for sales order movements
+  const enriched = await Promise.all(movements.map(async (m) => {
+    let customerName: string | null = null;
+    let orderNumber: string | null = null;
+    if (m.referenceType === "sales_order" && m.referenceId) {
+      const [so] = await db
+        .select({ customerName: salesOrdersTable.customerName, orderNumber: salesOrdersTable.orderNumber })
+        .from(salesOrdersTable)
+        .where(eq(salesOrdersTable.id, m.referenceId))
+        .limit(1);
+      if (so) {
+        customerName = so.customerName;
+        orderNumber = so.orderNumber;
+      }
+    }
+    return { ...m, customerName, orderNumber };
+  }));
+
+  // Apply customer filter post-join
+  const filtered = customer
+    ? enriched.filter((m) => m.customerName?.toLowerCase().includes(customer.toLowerCase()))
+    : enriched;
+
+  const totalCOGS = filtered.reduce((s, m) => s + parseFloat(m.totalCost || "0"), 0);
+
+  res.json({
+    totalCOGS: Math.round(totalCOGS * 100) / 100,
+    count: filtered.length,
+    from: from || null,
+    to: to || null,
+    lines: filtered,
+  });
+});
+
+// ── GET /reports/margin — Margin report by date range ─────────────────────────
+
+router.get("/reports/margin", async (req, res) => {
+  const { from, to, customer } = req.query as {
+    from?: string; to?: string; customer?: string;
+  };
+
+  // Get shipped/delivered orders in date range
+  const soConditions = [
+    sql`${salesOrdersTable.status} IN ('shipped', 'delivered')`,
+  ];
+  if (from) soConditions.push(gte(salesOrdersTable.shippedAt, new Date(from)));
+  if (to) soConditions.push(lte(salesOrdersTable.shippedAt, new Date(to)));
+  if (customer) soConditions.push(sql`${salesOrdersTable.customerName} ILIKE ${`%${customer}%`}`);
+
+  const orders = await db
+    .select()
+    .from(salesOrdersTable)
+    .where(and(...soConditions))
+    .orderBy(sql`${salesOrdersTable.shippedAt} DESC`);
+
+  const orderMargins = await Promise.all(orders.map(async (o) => {
+    const lines = await db
+      .select({
+        unitPrice: salesOrderLinesTable.unitPrice,
+        costAtTime: salesOrderLinesTable.costAtTime,
+        qtyOrdered: salesOrderLinesTable.qtyOrdered,
+        qtyShipped: salesOrderLinesTable.qtyShipped,
+      })
+      .from(salesOrderLinesTable)
+      .where(eq(salesOrderLinesTable.orderId, o.id));
+
+    const revenue = lines.reduce((s, l) => s + parseFloat(l.unitPrice || "0") * (l.qtyShipped || l.qtyOrdered), 0);
+    const cost = lines.reduce((s, l) => s + parseFloat(l.costAtTime || "0") * (l.qtyShipped || l.qtyOrdered), 0);
+    const margin = revenue - cost;
+    const marginPct = revenue > 0 ? (margin / revenue) * 100 : 0;
+
+    return {
+      orderId: o.id,
+      orderNumber: o.orderNumber,
+      customerName: o.customerName,
+      status: o.status,
+      shippedAt: o.shippedAt,
+      revenue: Math.round(revenue * 100) / 100,
+      cost: Math.round(cost * 100) / 100,
+      margin: Math.round(margin * 100) / 100,
+      marginPct: Math.round(marginPct * 10) / 10,
+    };
+  }));
+
+  const totalRevenue = orderMargins.reduce((s, o) => s + o.revenue, 0);
+  const totalCost = orderMargins.reduce((s, o) => s + o.cost, 0);
+  const totalMargin = totalRevenue - totalCost;
+  const totalMarginPct = totalRevenue > 0 ? (totalMargin / totalRevenue) * 100 : 0;
+
+  res.json({
+    totalRevenue: Math.round(totalRevenue * 100) / 100,
+    totalCost: Math.round(totalCost * 100) / 100,
+    totalMargin: Math.round(totalMargin * 100) / 100,
+    totalMarginPct: Math.round(totalMarginPct * 10) / 10,
+    orderCount: orderMargins.length,
+    from: from || null,
+    to: to || null,
+    orders: orderMargins,
+  });
 });
 
 // ── GET /dashboard/summary ────────────────────────────────────────────────────

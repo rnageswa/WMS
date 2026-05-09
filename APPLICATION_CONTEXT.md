@@ -1,8 +1,8 @@
 # WareIQ — Warehouse Management System (WMS)
 ## Complete Application Context & Design Document
 
-**Last Updated:** 2026-05-07
-**Version:** MVP — Phase 1-4 Complete
+**Last Updated:** 2026-05-09
+**Version:** MVP — Phase 1-5 Complete + Admin Console
 
 ---
 
@@ -496,7 +496,8 @@ All routes protected by Clerk auth (redirect to `/sign-in` if not authenticated)
 | `/suppliers` | SuppliersPage | Suppliers |
 | `/suppliers/:id` | SupplierDetailPage | Suppliers |
 | `/suppliers/performance` | SupplierPerformancePage | Suppliers |
-| `/admin` | AdminPage | Admin |
+| `/admin` | AdminPage (Admin Console) | Admin |
+| `/admin/settings` | AdminSettingsPage | Admin |
 | `/sign-in` | SignInPage | Auth |
 | `/sign-up` | SignUpPage | Auth |
 | `*` | NotFound | 404 |
@@ -673,7 +674,7 @@ cd artifacts/wms-app && pnpm build
 | **Phase 2** (Weeks 4-6) | Procurement + Goods Receipt | ✅ Complete |
 | **Phase 3** (Weeks 7-9) | Orders + Picking + Packing + Dispatch | ✅ Complete |
 | **Phase 4** (Weeks 10-11) | Reports + Polish + QA | ✅ Complete |
-| **Phase 5** (Weeks 12-14) | Currency + Costing + Pricing Foundation | 🔄 In Progress |
+| **Phase 5** (Weeks 12-14) | Currency + Costing + Pricing Foundation | ✅ Complete |
 
 ### Phase 3 Details 
 - Sales Orders: full CRUD, status flow, pick list, packing slip, CSV export
@@ -682,13 +683,56 @@ cd artifacts/wms-app && pnpm build
 - Dispatch: 3-step flow with stock validation, atomic outbound movements
 - Shipping Label: print page at `/sales-orders/:id/shipping-label`
 
-### Phase 5 Details (In Progress)
+## 12.5 Admin Console
+
+The Admin Console (`/admin`) is the central system administration hub, accessible only to users with the `admin` role. It uses a tabbed layout (similar to Reports) with three sections:
+
+| Tab | Icon | Purpose |
+|-----|------|---------|
+| User Management | Users | View all signed-in users, assign roles (admin/operator/viewer) |
+| Currency Settings | Coins | Set base currency, add currencies, manage currency list |
+| Pricing & Costing | Tags | Quick links to Price Lists, COGS Report, Margin Report, Exchange Rates; overview of pricing/costing concepts |
+
+**Navigation:** Sidebar → "Admin Console" (shield icon, admin-only). Previously called "User Management".
+
+**Currency Behavior:**
+- Base currency configurable at `/admin` → Currency Settings tab (or `/admin/settings`)
+- All monetary values across the app reflect the base currency via `useBaseCurrency()` hook
+- `formatCurrency()` defaults to base currency; pages use the hook instead of hardcoded "USD"
+- Exchange rates locked at transaction time (SO confirm / PO order) — historical values never recalculated
+
+**Pricing & Costing Access:**
+
+| Screen | Route | How to Access |
+|--------|-------|---------------|
+| Price Lists | `/price-lists` | Admin Console → Pricing & Costing → Price Lists card, or direct URL |
+| Price List Detail | `/price-lists/:id` | Click on a price list row |
+| New Price List | `/price-lists/new` | "New Price List" button on Price Lists page |
+| COGS Report | `/reports` → COGS tab | Admin Console → Pricing & Costing → COGS Report card, or Reports → COGS tab |
+| Margin Report | `/reports` → Margin tab | Admin Console → Pricing & Costing → Margin Report card, or Reports → Margin tab |
+| Exchange Rates | `/admin/settings` | Admin Console → Currency Settings → Exchange Rates card |
+
+**Key Pricing Concepts:**
+- Price Lists: multiple tiers (Retail, Wholesale, VIP), each with own currency
+- Default price list auto-applies on Sales Order creation
+- `costAtTime` locked at order confirm — prevents margin drift
+- MAC (Moving Average Cost): recalculated on each inbound receipt
+- COGS: computed on outbound (dispatch/ship), stored in `inventory_valuation_log`
+- Margin: Revenue − COGS, shown on SO detail and aggregate reports
+
+---
+
+### Phase 5 Details (Complete)
 - **Currency Foundation**: `currencies` table (USD base, INR, EUR), `exchange_rates` table, currency on SO/PO, rate locked at confirmation/ordering
-- **Costing Engine (MAC)**: Moving Average Cost on `inventory_items.avgCost`, `inventory_valuation_log` table, COGS on outbound
-- **Services Layer**: `currency.service.ts`, `costing.service.ts` — extracted from routes for reuse
-- **API Routes**: `/currencies`, `/exchange-rates`, `/convert` endpoints
-- **Frontend**: `CurrencySelector` component on SO/PO creation forms
-- **Key Rule**: Never recalculate historical transactions — rate locked at transaction time
+- **Costing Engine (MAC)**: Moving Average Cost on `inventory_items.avgCost`, `inventory_valuation_log` table, COGS on outbound, `totalCogs` on sales_orders
+- **Pricing Engine**: `price_lists` + `price_list_items` tables, default price auto-fetch on SO create, `costAtTime` locked at confirm, margin display on SO detail, COGS + margin reports
+- **Services Layer**: `currency.service.ts`, `costing.service.ts`, `pricing.service.ts` — extracted from routes for reuse
+- **API Routes**: `/currencies`, `/exchange-rates`, `/convert`, `/price-lists/*`, `/reports/cogs`, `/reports/margin`, `/dashboard/financial` endpoints
+- **Frontend**: `CurrencySelector` on SO/PO forms, price list CRUD pages (list/new/detail), margin summary on SO detail, COGS + Margin report tabs, financial KPI tiles + charts on dashboard
+- **Financial Dashboard**: `GET /api/dashboard/financial` — totalInventoryValue, cogsThisMonth, avgMarginThisMonth, valueByWarehouse (bar chart), cogsTrend 30-day (line chart)
+- **API Client**: `lib/api-client-react/src/pricing.ts` — 9 hand-written hooks (CRUD + default price lookup) with cache invalidation; types in `api.schemas.ts`
+- **OpenAPI Spec**: Full pricing paths, report paths, financial dashboard schemas in `lib/api-spec/openapi.yaml`
+- **Key Rule**: Never recalculate historical transactions — rate locked at transaction time; costAtTime locked at confirm
 
 ### Phase 4 Details
 - Reports: stock value, stock velocity, supplier performance, low-stock alerts
@@ -729,13 +773,88 @@ cd artifacts/wms-app && pnpm build
 | `lib/db/src/schema/inventory.ts` | Inventory + movement schemas |
 | `lib/db/src/schema/alerts.ts` | Alert settings + log schemas |
 | `lib/api-client-react/src/picking.ts` | Custom picking hooks |
+| `lib/api-client-react/src/pricing.ts` | Custom pricing hooks (9 hooks, cache invalidation) |
+| `lib/db/src/schema/pricing.ts` | Price list + price list item schemas |
+| `artifacts/api-server/src/routes/pricing.ts` | Price list CRUD endpoints |
+| `artifacts/api-server/src/services/pricing.service.ts` | Default price lookup service |
+| `artifacts/wms-app/src/pages/admin.tsx` | Admin Console (tabs: Users, Currency, Pricing & Costing) |
+| `artifacts/wms-app/src/pages/dashboard.tsx` | Financial KPI tiles + charts |
 | `lib/db/src/schema/currency.ts` | Currency + exchange rate schemas |
 | `lib/db/src/schema/costing.ts` | Inventory valuation log schema |
 | `artifacts/api-server/src/services/currency.service.ts` | Currency conversion service |
 | `artifacts/api-server/src/services/costing.service.ts` | MAC costing + COGS service |
 | `artifacts/api-server/src/routes/currency.ts` | Currency API endpoints |
 | `artifacts/wms-app/src/components/currency-selector.tsx` | Reusable currency dropdown |
+| `artifacts/wms-app/src/hooks/use-base-currency.ts` | Hook: fetches base currency, used by all pages for formatting |
 
 ---
 
-*This document is the single source of truth for the WareIQ WMS application architecture, design, and implementation details. Update when making significant changes.*
+---
+
+## Phase 6: Automation + Intelligence (Completed)
+
+### Features Implemented
+
+#### 1. Smart Replenishment (`/smart-replenishment`)
+- **Backend:** New `replenishment.ts` API route with endpoints:
+  - `GET /replenishment/calculate/:productId` — Per-product reorder calculation using 30-day outbound demand, lead time, and safety stock.
+  - `GET /replenishment/recommendations` — Lists all active products below their reorder point with severity (`critical` / `warning`), shortfall, suggested quantity, and predicted stockout date.
+  - `GET /replenishment/generate-pr` — Generates purchase requisition suggestions grouped by supplier with line-level details.
+  - `GET /replenishment/forecast/:productId` — Returns 30-day historical demand, 7-day moving average, and a 30-day forward forecast with confidence scores.
+  - `GET /alerts/inventory-anomalies` — Detects negative inventory, zero-stock items, and unpicked orders stuck >24h.
+  - `PUT /alerts/inventory-anomalies/:id/resolve` — Marks an anomaly alert as resolved.
+- **Frontend Page:** `smart-replenishment.tsx`
+  - Table view with filtering by severity (`critical` / `warning`) and search (product name / SKU).
+  - Summary cards showing total recommendations, critical count, and warning count.
+  - Actions column with "Create PO" button per recommendation.
+  - Uses `@tanstack/react-query`, shadcn/ui `Table`, `Badge`, `Button`, `Card`, and `useBaseCurrency` hook.
+
+#### 2. Smart Picking (`/smart-picking`)
+- **Frontend Page:** `smart-picking.tsx`
+  - Displays pick batch suggestions (batch picks, zone picks, single-item express picks).
+  - Table with batch details: orders, items, estimated time, distance, zones, and status.
+  - Route optimization panel with a visual path preview (A → B → C).
+  - Summary metrics for pending picks, active batches, total orders, and estimated total distance.
+  - Picking optimization tips card.
+  - Fully interactive: clicking a batch highlights it and shows its optimized route.
+
+#### 3. Demand Forecast (`/demand-forecast`)
+- **Frontend Page:** `demand-forecast.tsx`
+  - Product dropdown selector (fetches from `GET /api/products`).
+  - Fetches forecast data from `GET /api/replenishment/forecast/:productId`.
+  - Summary cards: 30-day average demand, suggested reorder point, suggested order quantity.
+  - Historical demand bar chart (30 days, actual units per day).
+  - 7-day moving average chart overlay.
+  - Predicted demand bar chart (30 days forward) with confidence scores.
+  - Simple CSS/DIV-based charts (no external chart library needed).
+  - Legend and date labels for all chart sections.
+
+#### 4. Navigation & Routes
+- **App.tsx:** Registered three new protected routes:
+  - `/smart-replenishment` → `SmartReplenishment`
+  - `/smart-picking` → `SmartPicking`
+  - `/demand-forecast` → `DemandForecast`
+- **Layout (Sidebar):** New "Intelligence" section added below the main nav items with Lucide icons:
+  - `BrainCircuit` for Smart Replenishment
+  - `Navigation` for Smart Picking
+  - `BarChart4` for Demand Forecast
+- **Backend Routes:** `replenishment.ts` route imported and mounted in `routes/index.ts` after `pricingRouter`.
+
+### Technical Notes
+- All frontend pages follow the existing shadcn/ui + Tailwind CSS patterns (`bg-background`, `text-foreground`, etc.).
+- Uses standard `fetch` with `credentials: "include"` for authenticated API calls.
+- `useBaseCurrency` hook is used for currency formatting on the Smart Replenishment page.
+- The new `replenishment.ts` backend route was cleaned to remove unused Drizzle imports (`count`, `asc`).
+
+### Files Created / Modified
+| Action | File |
+|--------|------|
+| Created | `artifacts/api-server/src/routes/replenishment.ts` |
+| Modified | `artifacts/api-server/src/routes/index.ts` (import + mount route) |
+| Created | `artifacts/wms-app/src/pages/smart-replenishment.tsx` |
+| Created | `artifacts/wms-app/src/pages/smart-picking.tsx` |
+| Created | `artifacts/wms-app/src/pages/demand-forecast.tsx` |
+| Modified | `artifacts/wms-app/src/App.tsx` (new routes + imports) |
+| Modified | `artifacts/wms-app/src/components/layout.tsx` (sidebar nav items) |
+| Modified | `APPLICATION_CONTEXT.md` (this section) |
+

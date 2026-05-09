@@ -1,0 +1,14 @@
+step 1: start
+__dirname: D:\MyProjects\WMS\WMS
+cwd: D:\MyProjects\WMS\WMS\lib\db
+OUTER ERROR: ENOENT: no such file or directory, open 'D:\MyProjects\WMS\WMS\lib\db\.env'
+Error: ENOENT: no such file or directory, open 'D:\MyProjects\WMS\WMS\lib\db\.env'
+    at Object.readFileSync (node:fs:436:20)
+    at Object.<anonymous> (D:\MyProjects\WMS\WMS\test-db.cjs:14:25)
+    at Module._compile (node:internal/modules/cjs/loader:1829:14)
+    at Object..js (node:internal/modules/cjs/loader:1969:10)
+    at Module.load (node:internal/modules/cjs/loader:1552:32)
+    at Module._load (node:internal/modules/cjs/loader:1354:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47

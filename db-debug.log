@@ -1,0 +1,9 @@
+step 1: start
+__dirname: D:\MyProjects\WMS\WMS
+cwd: D:\MyProjects\WMS\WMS
+step 2: env loaded, len=1162
+step 3: DB=set
+step 4: pg loaded, Client=function
+step 5: client created
+step 6: connected!
+step 7: result=[{"x":1}]

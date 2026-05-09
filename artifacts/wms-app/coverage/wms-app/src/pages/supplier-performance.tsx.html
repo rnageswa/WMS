@@ -25,7 +25,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/291</span>
+                <span class='fraction'>0/294</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/291</span>
+                <span class='fraction'>0/294</span>
             </div>
         
             
@@ -354,7 +354,13 @@
 <a name='L289'></a><a href='#L289'>289</a>
 <a name='L290'></a><a href='#L290'>290</a>
 <a name='L291'></a><a href='#L291'>291</a>
-<a name='L292'></a><a href='#L292'>292</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<a name='L292'></a><a href='#L292'>292</a>
+<a name='L293'></a><a href='#L293'>293</a>
+<a name='L294'></a><a href='#L294'>294</a>
+<a name='L295'></a><a href='#L295'>295</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -674,6 +680,8 @@
 <span class="cstat-no" title="statement not covered" >  Minus,</span>
 <span class="cstat-no" title="statement not covered" >} from "lucide-react";</span>
 <span class="cstat-no" title="statement not covered" >import { format, parseISO } from "date-fns";</span>
+<span class="cstat-no" title="statement not covered" >import { formatCurrency } from "@/lib/utils";</span>
+<span class="cstat-no" title="statement not covered" >import { useBaseCurrency } from "@/hooks/use-base-currency";</span>
 <span class="cstat-no" title="statement not covered" ></span>
 <span class="cstat-no" title="statement not covered" >type Row = {</span>
 <span class="cstat-no" title="statement not covered" >  supplierId: string | null;</span>
@@ -709,12 +717,13 @@
 <span class="cstat-no" title="statement not covered" >  );</span>
 <span class="cstat-no" title="statement not covered" >}</span>
 <span class="cstat-no" title="statement not covered" ></span>
-<span class="cstat-no" title="statement not covered" >function fmt$(n: number | null) {</span>
-<span class="cstat-no" title="statement not covered" >  if (n === null) return "—";</span>
-<span class="cstat-no" title="statement not covered" >  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);</span>
-<span class="cstat-no" title="statement not covered" >}</span>
-<span class="cstat-no" title="statement not covered" ></span>
 <span class="cstat-no" title="statement not covered" >export default function SupplierPerformancePage() {</span>
+<span class="cstat-no" title="statement not covered" >  const baseCurrency = useBaseCurrency();</span>
+<span class="cstat-no" title="statement not covered" >  const fmt = (n: number | null) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    if (n === null) return "—";</span>
+<span class="cstat-no" title="statement not covered" >    return formatCurrency(n, baseCurrency);</span>
+<span class="cstat-no" title="statement not covered" >  };</span>
+<span class="cstat-no" title="statement not covered" ></span>
 <span class="cstat-no" title="statement not covered" >  const { data, isLoading } = useGetSupplierPerformanceReport();</span>
 <span class="cstat-no" title="statement not covered" >  const suppliers: Row[] = data?.suppliers ?? [];</span>
 <span class="cstat-no" title="statement not covered" ></span>
@@ -785,7 +794,7 @@
 <span class="cstat-no" title="statement not covered" >            },</span>
 <span class="cstat-no" title="statement not covered" >            {</span>
 <span class="cstat-no" title="statement not covered" >              label: "Total Spend",</span>
-<span class="cstat-no" title="statement not covered" >              value: isLoading ? null : fmt$(totalSpend || null),</span>
+<span class="cstat-no" title="statement not covered" >              value: isLoading ? null : fmt(totalSpend || null),</span>
 <span class="cstat-no" title="statement not covered" >              icon: &lt;DollarSign className="w-4 h-4 text-muted-foreground" /&gt;,</span>
 <span class="cstat-no" title="statement not covered" >            },</span>
 <span class="cstat-no" title="statement not covered" >            {</span>
@@ -911,7 +920,7 @@
 <span class="cstat-no" title="statement not covered" >                        &lt;RateCell value={row.fillRate} /&gt;</span>
 <span class="cstat-no" title="statement not covered" >                      &lt;/TableCell&gt;</span>
 <span class="cstat-no" title="statement not covered" >                      &lt;TableCell className="text-right tabular-nums font-medium"&gt;</span>
-<span class="cstat-no" title="statement not covered" >                        {row.totalSpend !== null ? fmt$(row.totalSpend) : &lt;span className="text-muted-foreground font-normal"&gt;—&lt;/span&gt;}</span>
+<span class="cstat-no" title="statement not covered" >                        {row.totalSpend !== null ? fmt(row.totalSpend) : &lt;span className="text-muted-foreground font-normal"&gt;—&lt;/span&gt;}</span>
 <span class="cstat-no" title="statement not covered" >                      &lt;/TableCell&gt;</span>
 <span class="cstat-no" title="statement not covered" >                      &lt;TableCell className="text-right pr-5 text-muted-foreground text-xs"&gt;</span>
 <span class="cstat-no" title="statement not covered" >                        {row.lastOrderDate</span>
@@ -943,7 +952,7 @@
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-05-06T16:33:48.843Z
+                at 2026-05-09T12:19:58.340Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

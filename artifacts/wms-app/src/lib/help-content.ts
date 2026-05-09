@@ -12,7 +12,7 @@ export interface HelpSection {
 export const helpContent: Record<string, HelpContent> = {
   "/dashboard": {
     title: "Dashboard",
-    description: "Overview of your warehouse operations with key metrics and alerts.",
+    description: "Overview of your warehouse operations with key metrics, financial KPIs, and alerts.",
     sections: [
       {
         title: "Key Metrics",
@@ -21,6 +21,15 @@ export const helpContent: Record<string, HelpContent> = {
           "Total Bins: Number of storage locations across all warehouses",
           "Low Stock: Products that have fallen below their reorder threshold",
           "Today's Movements: Number of inventory transactions today"
+        ]
+      },
+      {
+        title: "Financial KPIs",
+        content: [
+          "Total Inventory Value: Sum of all stock × unit price across all warehouses",
+          "COGS This Month: Cost of goods sold on shipped/delivered orders",
+          "Avg Margin: Average profit margin percentage across all fulfilled orders",
+          "Value by Warehouse: Bar chart showing inventory value distribution per warehouse"
         ]
       },
       {
@@ -425,6 +434,91 @@ export const helpContent: Record<string, HelpContent> = {
       {
         title: "Scanner Support",
         content: "Compatible with USB and Bluetooth barcode scanners. The input field auto-focuses after each scan for rapid picking."
+      }
+    ]
+  },
+  "/smart-replenishment": {
+    title: "Smart Replenishment",
+    description: "AI-driven reorder suggestions based on demand, stock levels, and lead times.",
+    sections: [
+      {
+        title: "Recommendations",
+        content: [
+          "Severity: Critical (red) = out of stock or zero; Warning (amber) = below reorder point",
+          "Current Stock: total on-hand across all bins",
+          "Reorder Point: automatically calculated as (avg daily demand × lead time) + safety stock",
+          "Shortfall: how many units are needed to reach the reorder point",
+          "Suggested Qty: recommended purchase quantity based on 2× reorder point cover"
+        ]
+      },
+      {
+        title: "Filters",
+        content: "Use the search box to filter by product name or SKU. Use the severity dropdown to show only Critical or Warning items. Click 'Clear filters' to reset."
+      },
+      {
+        title: "Actions",
+        content: "Click 'Create PO' next to a recommendation to start a purchase order with the suggested quantity pre-filled. Use 'Generate PRs' to batch-create draft purchase requisitions for all recommendations."
+      },
+      {
+        title: "Refreshing Data",
+        content: "Click the 'Refresh' button to re-run the demand calculations. Recommendations update every time the page reloads or when 'Generate PRs' is clicked."
+      }
+    ]
+  },
+  "/smart-picking": {
+    title: "Smart Picking",
+    description: "Optimize pick routes, batch orders by zone, and minimize travel distance.",
+    sections: [
+      {
+        title: "Pick Batches",
+        content: [
+          "Type: Batch (multiple orders), Zone (single zone), Single (express picks)",
+          "Orders: number of sales orders included in the batch",
+          "Items: total line items to be picked",
+          "Est. Time: calculated based on walking distance and item count"
+        ]
+      },
+      {
+        title: "Route Optimization",
+        content: "Click any batch row to view its optimized picking path. The visual shows steps from Start → Zone → Pack. Travel distance and estimated time are displayed. Click 'Start Picking' to launch the batch."
+      },
+      {
+        title: "Optimization Tips",
+        content: [
+          "Batch by Zone: group orders sharing the same zones to minimize cross-warehouse walking",
+          "Express Priority: fast-track critical or urgent orders first",
+          "Fragile Handling: group fragile items separately for careful handling"
+        ]
+      }
+    ]
+  },
+  "/demand-forecast": {
+    title: "Demand Forecast",
+    description: "Predict future demand using historical data and moving averages.",
+    sections: [
+      {
+        title: "Product Selection",
+        content: "Select a product from the dropdown to load its demand forecast. The selector shows SKU code and product name. All forecasts are calculated from outbound inventory movements over the last 30 days."
+      },
+      {
+        title: "Summary Cards",
+        content: [
+          "30-Day Average: mean daily outbound demand over the last 30 days",
+          "Suggested Reorder Point: calculated to cover ~2 weeks of demand at current velocity",
+          "Suggested Order Qty: calculated to cover ~4 weeks of demand"
+        ]
+      },
+      {
+        title: "Charts",
+        content: [
+          "Historical Demand (Blue): Actual units consumed per day over the last 30 days",
+          "7-Day Moving Average (Green): Smoothed demand to remove daily noise",
+          "Predicted Demand (Orange): Forward-looking 30-day forecast based on current velocity"
+        ]
+      },
+      {
+        title: "Reading the Forecast",
+        content: "If predicted demand is consistently above average, expect a demand spike and consider increasing stock. If below average, demand may be slowing and overstock risk increases. The predicted chart uses a flat 30-day average model; advanced ML forecasting is on the roadmap for Phase 6.3."
       }
     ]
   }

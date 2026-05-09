@@ -526,6 +526,138 @@ export interface CommitReceiptResult {
   movements: InventoryMovement[];
 }
 
+// ── Pricing ──────────────────────────────────────────────────────────────────────
+
+export interface PriceList {
+  id: string;
+  name: string;
+  currency: string;
+  isDefault: boolean;
+  isActive: boolean;
+  validFrom: string;
+  validTo?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PriceListItem {
+  id: string;
+  priceListId: string;
+  productId: string;
+  skuCode?: string | null;
+  productName?: string | null;
+  unitPrice: string;
+  minQty: number;
+  maxQty?: number | null;
+  currency: string;
+  validFrom: string;
+  validTo?: string | null;
+  createdAt: string;
+}
+
+export interface CreatePriceListBody {
+  name: string;
+  currency?: string;
+  isDefault?: boolean;
+  validFrom: string;
+  validTo?: string | null;
+}
+
+export interface UpdatePriceListBody {
+  name?: string;
+  currency?: string;
+  isDefault?: boolean;
+  isActive?: boolean;
+  validFrom?: string;
+  validTo?: string | null;
+}
+
+export interface CreatePriceListItemBody {
+  productId: string;
+  unitPrice: number;
+  minQty?: number;
+  maxQty?: number | null;
+  currency?: string;
+  validFrom: string;
+  validTo?: string | null;
+}
+
+export interface UpdatePriceListItemBody {
+  unitPrice?: number;
+  minQty?: number;
+  maxQty?: number | null;
+  currency?: string;
+  validFrom?: string;
+  validTo?: string | null;
+}
+
+export interface DefaultPriceResponse {
+  unitPrice: number;
+  currency: string;
+  priceListId: string;
+  priceListName: string;
+}
+
+export interface COGSReport {
+  generatedAt: string;
+  totalCogs: number;
+  totalMovements: number;
+  from?: string;
+  to?: string;
+  items: Array<{
+    productId: string;
+    skuCode: string;
+    productName: string;
+    totalQty: number;
+    totalCost: number;
+  }>;
+}
+
+export interface MarginOrder {
+  orderId: string;
+  orderNumber: string;
+  customerName: string;
+  totalRevenue: number;
+  totalCost: number;
+  margin: number;
+  marginPct: number;
+  status: string;
+  shippedAt?: string;
+  createdAt: string;
+}
+
+export interface MarginReport {
+  generatedAt: string;
+  totalRevenue: number;
+  totalCost: number;
+  totalMargin: number;
+  avgMarginPct: number;
+  orderCount: number;
+  orders: MarginOrder[];
+}
+
+export interface WarehouseValue {
+  warehouseId: string;
+  warehouseName: string;
+  totalValue: number;
+  itemCount: number;
+}
+
+export interface CogsTrendPoint {
+  date: string;
+  dailyCogs: number;
+  orderCount: number;
+}
+
+export interface FinancialDashboard {
+  generatedAt: string;
+  totalInventoryValue: number;
+  cogsThisMonth: number;
+  avgMarginThisMonth: number;
+  valueByWarehouse: WarehouseValue[];
+  cogsTrend: CogsTrendPoint[];
+}
+
 export type ScanResultBin = BinWithLocation & {
   inventory: InventoryItem[];
 };

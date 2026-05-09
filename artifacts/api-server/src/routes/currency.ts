@@ -3,7 +3,7 @@ import { db } from "@workspace/db";
 import { currenciesTable, exchangeRatesTable } from "@workspace/db/schema";
 import { eq, and, desc, gte } from "drizzle-orm";
 import { z } from "zod";
-import { convertCurrency, getRate } from "../services/currency.service";
+import { convertCurrency, getRate, getBaseCurrency, setBaseCurrency } from "../services/currency.service";
 import { requireAuth, requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
@@ -16,6 +16,33 @@ router.get("/currencies", async (_req, res) => {
     .from(currenciesTable)
     .orderBy(currenciesTable.code);
   res.json(currencies);
+});
+
+// ── GET /currencies/base — get base currency (public) ──────────────────────────
+
+router.get("/currencies/base", async (_req, res) => {
+  try {
+    const code = await getBaseCurrency();
+    res.json({ code });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── PUT /currencies/base — set base currency (admin) ───────────────────────────
+
+router.put("/currencies/base", requireAuth, requireRole("admin"), async (req, res) => {
+  const body = z.object({ code: z.string().min(2).max(5) }).safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: "Validation error", details: body.error.flatten() });
+    return;
+  }
+  try {
+    const code = await setBaseCurrency(body.data.code);
+    res.json({ code });
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
 });
 
 // ── POST /currencies — add a currency (admin) ─────────────────────────────────
@@ -44,6 +71,26 @@ router.post("/currencies", requireAuth, requireRole("admin"), async (req, res) =
       res.status(500).json({ error: err.message });
     }
   }
+});
+
+// ── DELETE /currencies/:code — delete a currency (admin) ──────────────────────
+
+router.delete("/currencies/:code", requireAuth, requireRole("admin"), async (req, res) => {
+  const { code } = req.params;
+
+  const [existing] = await db.select().from(currenciesTable).where(eq(currenciesTable.code, code.toUpperCase())).limit(1);
+  if (!existing) {
+    res.status(404).json({ error: "Currency not found" });
+    return;
+  }
+
+  if (existing.isBase) {
+    res.status(400).json({ error: "Cannot delete base currency. Change base first." });
+    return;
+  }
+
+  await db.delete(currenciesTable).where(eq(currenciesTable.code, code.toUpperCase()));
+  res.status(204).send();
 });
 
 // ── GET /exchange-rates — list rates (public) ──────────────────────────────────

@@ -75,6 +75,7 @@ export const salesOrderLinesTable = pgTable(
     qtyPacked: integer("qty_packed").notNull().default(0),
     qtyShipped: integer("qty_shipped").notNull().default(0),
     unitPrice: numeric("unit_price", { precision: 12, scale: 2 }),
+    costAtTime: numeric("cost_at_time", { precision: 12, scale: 2 }),
     status: text("status")
       .$type<(typeof soLineStatusEnum)[number]>()
       .notNull()

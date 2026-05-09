@@ -25,7 +25,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/705</span>
+                <span class='fraction'>0/713</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/705</span>
+                <span class='fraction'>0/713</span>
             </div>
         
             
@@ -768,7 +768,15 @@
 <a name='L703'></a><a href='#L703'>703</a>
 <a name='L704'></a><a href='#L704'>704</a>
 <a name='L705'></a><a href='#L705'>705</a>
-<a name='L706'></a><a href='#L706'>706</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<a name='L706'></a><a href='#L706'>706</a>
+<a name='L707'></a><a href='#L707'>707</a>
+<a name='L708'></a><a href='#L708'>708</a>
+<a name='L709'></a><a href='#L709'>709</a>
+<a name='L710'></a><a href='#L710'>710</a>
+<a name='L711'></a><a href='#L711'>711</a>
+<a name='L712'></a><a href='#L712'>712</a>
+<a name='L713'></a><a href='#L713'>713</a>
+<a name='L714'></a><a href='#L714'>714</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -1473,7 +1481,15 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js"><span class="cstat-no" title="statement not covered" >import { useState } from "react";<span class="fstat-no" title="function not covered" ><span class="branch-0 cbranch-no" title="branch not covered" ></span></span></span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js"><span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ><span class="branch-0 cbranch-no" title="branch not covered" >import { useState } from "react";</span></span></span>
 <span class="cstat-no" title="statement not covered" >import {</span>
 <span class="cstat-no" title="statement not covered" >  useCreatePurchaseOrder,</span>
 <span class="cstat-no" title="statement not covered" >  useCreatePoTemplate,</span>
@@ -1508,6 +1524,8 @@
 <span class="cstat-no" title="statement not covered" >} from "@/components/ui/select";</span>
 <span class="cstat-no" title="statement not covered" >import { useToast } from "@/hooks/use-toast";</span>
 <span class="cstat-no" title="statement not covered" >import { useLocation, Link } from "wouter";</span>
+<span class="cstat-no" title="statement not covered" >import { CurrencySelector } from "@/components/currency-selector";</span>
+<span class="cstat-no" title="statement not covered" >import { getCurrencySymbol } from "@/lib/utils";</span>
 <span class="cstat-no" title="statement not covered" >import {</span>
 <span class="cstat-no" title="statement not covered" >  Plus,</span>
 <span class="cstat-no" title="statement not covered" >  Trash2,</span>
@@ -1540,6 +1558,7 @@
 <span class="cstat-no" title="statement not covered" ></span>
 <span class="cstat-no" title="statement not covered" >  const [supplierId, setSupplierId] = useState("");</span>
 <span class="cstat-no" title="statement not covered" >  const [supplierFreeText, setSupplierFreeText] = useState("");</span>
+<span class="cstat-no" title="statement not covered" >  const [currency, setCurrency] = useState("USD");</span>
 <span class="cstat-no" title="statement not covered" >  const [notes, setNotes] = useState("");</span>
 <span class="cstat-no" title="statement not covered" >  const [expectedDeliveryDate, setExpectedDeliveryDate] = useState("");</span>
 <span class="cstat-no" title="statement not covered" >  const [lines, setLines] = useState&lt;LineForm[]&gt;([</span>
@@ -1717,6 +1736,7 @@
 <span class="cstat-no" title="statement not covered" >        supplierName: resolvedSupplierName || undefined,</span>
 <span class="cstat-no" title="statement not covered" >        notes: notes.trim() || undefined,</span>
 <span class="cstat-no" title="statement not covered" >        expectedDeliveryDate: expectedDeliveryDate || undefined,</span>
+<span class="cstat-no" title="statement not covered" >        currency,</span>
 <span class="cstat-no" title="statement not covered" >        lines: lines.map((l) =&gt; ({</span>
 <span class="cstat-no" title="statement not covered" >          productId: l.productId,</span>
 <span class="cstat-no" title="statement not covered" >          qtyOrdered: l.qtyOrdered,</span>
@@ -1923,6 +1943,10 @@
 <span class="cstat-no" title="statement not covered" >                  min={new Date().toISOString().slice(0, 10)}</span>
 <span class="cstat-no" title="statement not covered" >                /&gt;</span>
 <span class="cstat-no" title="statement not covered" >              &lt;/div&gt;</span>
+<span class="cstat-no" title="statement not covered" >              &lt;div className="space-y-1.5"&gt;</span>
+<span class="cstat-no" title="statement not covered" >                &lt;Label className="text-xs text-muted-foreground"&gt;Currency&lt;/Label&gt;</span>
+<span class="cstat-no" title="statement not covered" >                &lt;CurrencySelector value={currency} onValueChange={setCurrency} className="h-9 text-sm" /&gt;</span>
+<span class="cstat-no" title="statement not covered" >              &lt;/div&gt;</span>
 <span class="cstat-no" title="statement not covered" >              &lt;div className="space-y-1.5 col-span-2"&gt;</span>
 <span class="cstat-no" title="statement not covered" >                &lt;Label className="text-xs text-muted-foreground"&gt;Notes (optional)&lt;/Label&gt;</span>
 <span class="cstat-no" title="statement not covered" >                &lt;Textarea</span>
@@ -1996,7 +2020,7 @@
 <span class="cstat-no" title="statement not covered" >                /&gt;</span>
 <span class="cstat-no" title="statement not covered" >                &lt;div className="relative"&gt;</span>
 <span class="cstat-no" title="statement not covered" >                  &lt;span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-xs"&gt;</span>
-<span class="cstat-no" title="statement not covered" >                    $</span>
+<span class="cstat-no" title="statement not covered" >                    {getCurrencySymbol(currency)}</span>
 <span class="cstat-no" title="statement not covered" >                  &lt;/span&gt;</span>
 <span class="cstat-no" title="statement not covered" >                  &lt;Input</span>
 <span class="cstat-no" title="statement not covered" >                    type="number"</span>
@@ -2005,7 +2029,7 @@
 <span class="cstat-no" title="statement not covered" >                    value={line.unitCost}</span>
 <span class="cstat-no" title="statement not covered" >                    onChange={(e) =&gt; updateLine(line.key, { unitCost: e.target.value })}</span>
 <span class="cstat-no" title="statement not covered" >                    placeholder="0.00"</span>
-<span class="cstat-no" title="statement not covered" >                    className="h-8 text-sm text-right font-mono pl-5"</span>
+<span class="cstat-no" title="statement not covered" >                    className="h-8 text-sm text-right font-mono pl-6"</span>
 <span class="cstat-no" title="statement not covered" >                  /&gt;</span>
 <span class="cstat-no" title="statement not covered" >                &lt;/div&gt;</span>
 <span class="cstat-no" title="statement not covered" >                &lt;Button</span>
@@ -2185,7 +2209,7 @@
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-05-06T16:33:48.843Z
+                at 2026-05-09T12:19:58.340Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

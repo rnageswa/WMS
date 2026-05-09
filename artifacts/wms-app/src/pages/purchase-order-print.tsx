@@ -9,6 +9,7 @@ import { format, parseISO } from "date-fns";
 import { Printer, ArrowLeft, Loader2 } from "lucide-react";
 import { Link } from "wouter";
 import { QRCodeSVG } from "qrcode.react";
+import { formatCurrency, getCurrencySymbol } from "@/lib/utils";
 
 type PoLine = {
   id: string;
@@ -29,12 +30,8 @@ const STATUS_LABELS: Record<string, string> = {
   cancelled: "Cancelled",
 };
 
-function fmt$(n: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-  }).format(n);
+function fmt(n: number, currency: string = "USD") {
+  return formatCurrency(n, currency);
 }
 
 export default function PurchaseOrderPrintPage() {
@@ -205,6 +202,7 @@ export default function PurchaseOrderPrintPage() {
                     : "Not specified",
                 },
                 { label: "Status", value: STATUS_LABELS[po.status] ?? po.status },
+                { label: "Currency", value: `${getCurrencySymbol((po as any).currency)} ${(po as any).currency}` },
               ].map(({ label, value }) => (
                 <div key={label} className="flex justify-between text-sm">
                   <span style={{ color: "#6b7280" }}>{label}</span>
@@ -247,10 +245,10 @@ export default function PurchaseOrderPrintPage() {
                     {hasUnitCosts && (
                       <>
                         <td style={{ padding: "10px 12px", textAlign: "right", color: "#6b7280" }}>
-                          {line.unitCost ? fmt$(parseFloat(line.unitCost)) : "—"}
+                          {line.unitCost ? fmt(parseFloat(line.unitCost), (po as any).currency) : "—"}
                         </td>
                         <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 600, color: "#111827" }}>
-                          {lineTotal !== null ? fmt$(lineTotal) : "—"}
+                          {lineTotal !== null ? fmt(lineTotal, (po as any).currency) : "—"}
                         </td>
                       </>
                     )}
@@ -265,7 +263,7 @@ export default function PurchaseOrderPrintPage() {
                     Subtotal
                   </td>
                   <td colSpan={2} style={{ padding: "12px 12px", textAlign: "right", fontSize: "16px", fontWeight: 700, color: "#0f2540" }}>
-                    {fmt$(subtotal)}
+                    {fmt(subtotal, (po as any).currency)}
                   </td>
                 </tr>
               </tfoot>

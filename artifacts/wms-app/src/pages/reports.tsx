@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "wouter";
+import { format } from "date-fns";
 import {
   useGetStockValueReport,
   useGetSupplierPerformanceReport,
@@ -77,19 +78,17 @@ import {
   MousePointerClick,
   RefreshCw,
   XCircle,
+  Receipt,
+  Percent,
 } from "lucide-react";
+import { formatCurrency } from "@/lib/utils";
+import { useBaseCurrency } from "@/hooks/use-base-currency";
 
 const CHART_COLORS = [
   "#0F2540", "#E8622A", "#2563eb", "#16a34a",
   "#9333ea", "#db2777", "#d97706", "#0891b2",
   "#65a30d", "#7c3aed",
 ];
-
-const fmt = (n: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
-
-const fmtFull = (n: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 }).format(n);
 
 // ─── Stock Value types ────────────────────────────────────────────────────────
 
@@ -121,14 +120,14 @@ interface ReportData {
   products: ProductRow[];
 }
 
-function ChartTooltip({ active, payload, label }: any) {
+function ChartTooltip({ active, payload, label, fmt: fmtFn }: any) {
   if (!active || !payload?.length) return null;
   const d = payload[0].payload as CategoryRow;
   return (
     <div className="bg-white border border-border rounded-lg shadow-lg p-3 text-sm">
       <p className="font-semibold text-foreground mb-1">{label}</p>
       <p className="text-muted-foreground">{d.productCount} products · {d.totalUnits.toLocaleString()} units</p>
-      <p className="font-bold text-foreground mt-0.5">{fmt(d.totalValue)}</p>
+      <p className="font-bold text-foreground mt-0.5">{fmtFn(d.totalValue)}</p>
       {d.lowStockCount > 0 && (
         <p className="text-amber-600 text-xs mt-0.5">{d.lowStockCount} low-stock</p>
       )}
@@ -184,6 +183,9 @@ function SupplierTooltip({ active, payload }: any) {
 // ─── Stock Value Tab ──────────────────────────────────────────────────────────
 
 function StockValueTab() {
+  const baseCurrency = useBaseCurrency();
+  const fmt = (n: number) => formatCurrency(n, baseCurrency);
+  const fmtFull = (n: number) => formatCurrency(n, baseCurrency);
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const { data, isLoading } = useGetStockValueReport();
   const report = data as ReportData | undefined;
@@ -249,7 +251,7 @@ function StockValueTab() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
                 <XAxis dataKey="category" tick={{ fontSize: 12, fill: "#6b7280" }} axisLine={false} tickLine={false} />
                 <YAxis tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} width={48} />
-                <Tooltip content={<ChartTooltip />} cursor={{ fill: "#f8fafc" }} />
+                <Tooltip content={<ChartTooltip fmt={fmt} />} cursor={{ fill: "#f8fafc" }} />
                 <Bar dataKey="totalValue" radius={[4, 4, 0, 0]}>
                   {report.categories.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
                 </Bar>
@@ -349,6 +351,8 @@ function StockValueTab() {
 // ─── Supplier Performance Tab ─────────────────────────────────────────────────
 
 function SupplierPerformanceTab() {
+  const baseCurrency = useBaseCurrency();
+  const fmt = (n: number) => formatCurrency(n, baseCurrency);
   const { data, isLoading } = useGetSupplierPerformanceReport();
   const report = data as { generatedAt: string; suppliers: SupplierRow[] } | undefined;
   const suppliers = report?.suppliers ?? [];
@@ -584,6 +588,7 @@ function VelocityTooltip({ active, payload }: any) {
 }
 
 function StockVelocityTab() {
+  const baseCurrency = useBaseCurrency();
   const [days, setDays] = useState(30);
   const { data, isLoading } = useGetStockVelocityReport({ days });
 
@@ -1534,9 +1539,243 @@ function AlertHistoryCard() {
   );
 }
 
+// ─── COGS Tab ─────────────────────────────────────────────────────────────────
+
+function COGSTab() {
+  const baseCurrency = useBaseCurrency();
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [customer, setCustomer] = useState("");
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+
+  const fetchReport = async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (from) params.set("from", from);
+      if (to) params.set("to", to);
+      if (customer) params.set("customer", customer);
+      const res = await fetch(`/api/reports/cogs?${params}`);
+      setData(await res.json());
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex gap-3 items-end">
+            <div>
+              <Label className="text-xs">From</Label>
+              <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs">To</Label>
+              <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs">Customer</Label>
+              <Input value={customer} onChange={(e) => setCustomer(e.target.value)} placeholder="Filter by customer" />
+            </div>
+            <Button onClick={fetchReport} disabled={loading}>
+              {loading ? "Loading..." : "Generate"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {data && (
+        <>
+          <div className="grid grid-cols-3 gap-4">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-sm text-muted-foreground">Total COGS</div>
+                <div className="text-2xl font-bold">{formatCurrency(data.totalCOGS, baseCurrency)}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-sm text-muted-foreground">Movements</div>
+                <div className="text-2xl font-bold">{data.count}</div>
+              </CardContent>
+            </Card>
+          </div>
+          {data.lines?.length > 0 && (
+            <Card>
+              <CardHeader><CardTitle className="text-sm">COGS Detail</CardTitle></CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>SKU</TableHead>
+                      <TableHead>Product</TableHead>
+                      <TableHead>Customer</TableHead>
+                      <TableHead>Qty</TableHead>
+                      <TableHead>Unit Cost</TableHead>
+                      <TableHead>Total Cost</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data.lines.map((l: any) => (
+                      <TableRow key={l.id}>
+                        <TableCell>{format(new Date(l.createdAt), "MMM d, yyyy")}</TableCell>
+                        <TableCell><Badge variant="outline">{l.skuCode || "—"}</Badge></TableCell>
+                        <TableCell>{l.productName || l.productId}</TableCell>
+                        <TableCell>{l.customerName || "—"}</TableCell>
+                        <TableCell>{Math.abs(l.quantity)}</TableCell>
+                        <TableCell>{formatCurrency(l.unitCost, baseCurrency)}</TableCell>
+                        <TableCell>{formatCurrency(l.totalCost, baseCurrency)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Margin Tab ───────────────────────────────────────────────────────────────
+
+function MarginTab() {
+  const baseCurrency = useBaseCurrency();
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [customer, setCustomer] = useState("");
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+
+  const fetchReport = async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (from) params.set("from", from);
+      if (to) params.set("to", to);
+      if (customer) params.set("customer", customer);
+      const res = await fetch(`/api/reports/margin?${params}`);
+      setData(await res.json());
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex gap-3 items-end">
+            <div>
+              <Label className="text-xs">From</Label>
+              <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs">To</Label>
+              <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs">Customer</Label>
+              <Input value={customer} onChange={(e) => setCustomer(e.target.value)} placeholder="Filter by customer" />
+            </div>
+            <Button onClick={fetchReport} disabled={loading}>
+              {loading ? "Loading..." : "Generate"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {data && (
+        <>
+          <div className="grid grid-cols-4 gap-4">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-sm text-muted-foreground">Revenue</div>
+                <div className="text-2xl font-bold">{formatCurrency(data.totalRevenue, baseCurrency)}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-sm text-muted-foreground">Cost</div>
+                <div className="text-2xl font-bold">{formatCurrency(data.totalCost, baseCurrency)}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-sm text-muted-foreground">Margin</div>
+                <div className={`text-2xl font-bold ${data.totalMargin < 0 ? "text-red-600" : "text-emerald-600"}`}>
+                  {formatCurrency(data.totalMargin, baseCurrency)}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-sm text-muted-foreground">Margin %</div>
+                <div className={`text-2xl font-bold ${data.totalMarginPct < 0 ? "text-red-600" : "text-emerald-600"}`}>
+                  {data.totalMarginPct.toFixed(1)}%
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+          {data.orders?.length > 0 && (
+            <Card>
+              <CardHeader><CardTitle className="text-sm">Order Margins ({data.orderCount} orders)</CardTitle></CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Order</TableHead>
+                      <TableHead>Customer</TableHead>
+                      <TableHead>Shipped</TableHead>
+                      <TableHead>Revenue</TableHead>
+                      <TableHead>Cost</TableHead>
+                      <TableHead>Margin</TableHead>
+                      <TableHead>Margin %</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data.orders.map((o: any) => (
+                      <TableRow key={o.orderId}>
+                        <TableCell className="font-medium">{o.orderNumber}</TableCell>
+                        <TableCell>{o.customerName}</TableCell>
+                        <TableCell>{o.shippedAt ? format(new Date(o.shippedAt), "MMM d, yyyy") : "—"}</TableCell>
+                        <TableCell>{formatCurrency(o.revenue, baseCurrency)}</TableCell>
+                        <TableCell>{formatCurrency(o.cost, baseCurrency)}</TableCell>
+                        <TableCell className={o.margin < 0 ? "text-red-600" : "text-emerald-600"}>
+                          {formatCurrency(o.margin, baseCurrency)}
+                        </TableCell>
+                        <TableCell className={o.marginPct < 0 ? "text-red-600" : "text-emerald-600"}>
+                          {o.marginPct.toFixed(1)}%
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ReportsPage() {
+  const baseCurrency = useBaseCurrency();
+  const fmt = (n: number) => formatCurrency(n, baseCurrency);
+  const fmtFull = (n: number) => formatCurrency(n, baseCurrency);
+
   return (
     <Layout>
       <PageHeader
@@ -1558,6 +1797,14 @@ export default function ReportsPage() {
               <Zap className="w-3.5 h-3.5" />
               Stock Velocity
             </TabsTrigger>
+            <TabsTrigger value="cogs" className="gap-1.5">
+              <Receipt className="w-3.5 h-3.5" />
+              COGS
+            </TabsTrigger>
+            <TabsTrigger value="margin" className="gap-1.5">
+              <Percent className="w-3.5 h-3.5" />
+              Margin
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="stock-value">
             <StockValueTab />
@@ -1567,6 +1814,12 @@ export default function ReportsPage() {
           </TabsContent>
           <TabsContent value="stock-velocity">
             <StockVelocityTab />
+          </TabsContent>
+          <TabsContent value="cogs">
+            <COGSTab />
+          </TabsContent>
+          <TabsContent value="margin">
+            <MarginTab />
           </TabsContent>
         </Tabs>
       </div>

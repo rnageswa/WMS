@@ -25,7 +25,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/327</span>
+                <span class='fraction'>0/325</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/327</span>
+                <span class='fraction'>0/325</span>
             </div>
         
             
@@ -388,9 +388,7 @@
 <a name='L323'></a><a href='#L323'>323</a>
 <a name='L324'></a><a href='#L324'>324</a>
 <a name='L325'></a><a href='#L325'>325</a>
-<a name='L326'></a><a href='#L326'>326</a>
-<a name='L327'></a><a href='#L327'>327</a>
-<a name='L328'></a><a href='#L328'>328</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<a name='L326'></a><a href='#L326'>326</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -715,9 +713,7 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js"><span class="cstat-no" title="statement not covered" >import { useEffect } from "react";<span class="fstat-no" title="function not covered" ><span class="branch-0 cbranch-no" title="branch not covered" ></span></span></span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js"><span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ><span class="branch-0 cbranch-no" title="branch not covered" >import { useEffect } from "react";</span></span></span>
 <span class="cstat-no" title="statement not covered" >import { useParams } from "wouter";</span>
 <span class="cstat-no" title="statement not covered" >import {</span>
 <span class="cstat-no" title="statement not covered" >  useGetPurchaseOrder,</span>
@@ -728,6 +724,7 @@
 <span class="cstat-no" title="statement not covered" >import { Printer, ArrowLeft, Loader2 } from "lucide-react";</span>
 <span class="cstat-no" title="statement not covered" >import { Link } from "wouter";</span>
 <span class="cstat-no" title="statement not covered" >import { QRCodeSVG } from "qrcode.react";</span>
+<span class="cstat-no" title="statement not covered" >import { formatCurrency, getCurrencySymbol } from "@/lib/utils";</span>
 <span class="cstat-no" title="statement not covered" ></span>
 <span class="cstat-no" title="statement not covered" >type PoLine = {</span>
 <span class="cstat-no" title="statement not covered" >  id: string;</span>
@@ -748,12 +745,8 @@
 <span class="cstat-no" title="statement not covered" >  cancelled: "Cancelled",</span>
 <span class="cstat-no" title="statement not covered" >};</span>
 <span class="cstat-no" title="statement not covered" ></span>
-<span class="cstat-no" title="statement not covered" >function fmt$(n: number) {</span>
-<span class="cstat-no" title="statement not covered" >  return new Intl.NumberFormat("en-US", {</span>
-<span class="cstat-no" title="statement not covered" >    style: "currency",</span>
-<span class="cstat-no" title="statement not covered" >    currency: "USD",</span>
-<span class="cstat-no" title="statement not covered" >    minimumFractionDigits: 2,</span>
-<span class="cstat-no" title="statement not covered" >  }).format(n);</span>
+<span class="cstat-no" title="statement not covered" >function fmt(n: number, currency: string = "USD") {</span>
+<span class="cstat-no" title="statement not covered" >  return formatCurrency(n, currency);</span>
 <span class="cstat-no" title="statement not covered" >}</span>
 <span class="cstat-no" title="statement not covered" ></span>
 <span class="cstat-no" title="statement not covered" >export default function PurchaseOrderPrintPage() {</span>
@@ -924,6 +917,7 @@
 <span class="cstat-no" title="statement not covered" >                    : "Not specified",</span>
 <span class="cstat-no" title="statement not covered" >                },</span>
 <span class="cstat-no" title="statement not covered" >                { label: "Status", value: STATUS_LABELS[po.status] ?? po.status },</span>
+<span class="cstat-no" title="statement not covered" >                { label: "Currency", value: `${getCurrencySymbol((po as any).currency)} ${(po as any).currency}` },</span>
 <span class="cstat-no" title="statement not covered" >              ].map(({ label, value }) =&gt; (</span>
 <span class="cstat-no" title="statement not covered" >                &lt;div key={label} className="flex justify-between text-sm"&gt;</span>
 <span class="cstat-no" title="statement not covered" >                  &lt;span style={{ color: "#6b7280" }}&gt;{label}&lt;/span&gt;</span>
@@ -966,10 +960,10 @@
 <span class="cstat-no" title="statement not covered" >                    {hasUnitCosts &amp;&amp; (</span>
 <span class="cstat-no" title="statement not covered" >                      &lt;&gt;</span>
 <span class="cstat-no" title="statement not covered" >                        &lt;td style={{ padding: "10px 12px", textAlign: "right", color: "#6b7280" }}&gt;</span>
-<span class="cstat-no" title="statement not covered" >                          {line.unitCost ? fmt$(parseFloat(line.unitCost)) : "—"}</span>
+<span class="cstat-no" title="statement not covered" >                          {line.unitCost ? fmt(parseFloat(line.unitCost), (po as any).currency) : "—"}</span>
 <span class="cstat-no" title="statement not covered" >                        &lt;/td&gt;</span>
 <span class="cstat-no" title="statement not covered" >                        &lt;td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 600, color: "#111827" }}&gt;</span>
-<span class="cstat-no" title="statement not covered" >                          {lineTotal !== null ? fmt$(lineTotal) : "—"}</span>
+<span class="cstat-no" title="statement not covered" >                          {lineTotal !== null ? fmt(lineTotal, (po as any).currency) : "—"}</span>
 <span class="cstat-no" title="statement not covered" >                        &lt;/td&gt;</span>
 <span class="cstat-no" title="statement not covered" >                      &lt;/&gt;</span>
 <span class="cstat-no" title="statement not covered" >                    )}</span>
@@ -984,7 +978,7 @@
 <span class="cstat-no" title="statement not covered" >                    Subtotal</span>
 <span class="cstat-no" title="statement not covered" >                  &lt;/td&gt;</span>
 <span class="cstat-no" title="statement not covered" >                  &lt;td colSpan={2} style={{ padding: "12px 12px", textAlign: "right", fontSize: "16px", fontWeight: 700, color: "#0f2540" }}&gt;</span>
-<span class="cstat-no" title="statement not covered" >                    {fmt$(subtotal)}</span>
+<span class="cstat-no" title="statement not covered" >                    {fmt(subtotal, (po as any).currency)}</span>
 <span class="cstat-no" title="statement not covered" >                  &lt;/td&gt;</span>
 <span class="cstat-no" title="statement not covered" >                &lt;/tr&gt;</span>
 <span class="cstat-no" title="statement not covered" >              &lt;/tfoot&gt;</span>
@@ -1051,7 +1045,7 @@
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-05-06T16:33:48.843Z
+                at 2026-05-09T12:19:58.340Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

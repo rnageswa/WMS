@@ -34,6 +34,7 @@ export interface SalesOrderLine {
   qtyPacked: number;
   qtyShipped: number;
   unitPrice?: number;
+  costAtTime?: number;
   status: string;
 }
 

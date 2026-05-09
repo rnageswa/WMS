@@ -25,7 +25,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/334</span>
+                <span class='fraction'>0/342</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/334</span>
+                <span class='fraction'>0/342</span>
             </div>
         
             
@@ -396,7 +396,23 @@
 <a name='L331'></a><a href='#L331'>331</a>
 <a name='L332'></a><a href='#L332'>332</a>
 <a name='L333'></a><a href='#L333'>333</a>
-<a name='L334'></a><a href='#L334'>334</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<a name='L334'></a><a href='#L334'>334</a>
+<a name='L335'></a><a href='#L335'>335</a>
+<a name='L336'></a><a href='#L336'>336</a>
+<a name='L337'></a><a href='#L337'>337</a>
+<a name='L338'></a><a href='#L338'>338</a>
+<a name='L339'></a><a href='#L339'>339</a>
+<a name='L340'></a><a href='#L340'>340</a>
+<a name='L341'></a><a href='#L341'>341</a>
+<a name='L342'></a><a href='#L342'>342</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -743,6 +759,8 @@
 <span class="cstat-no" title="statement not covered" >import { Badge } from "@/components/ui/badge";</span>
 <span class="cstat-no" title="statement not covered" >import { Plus, Trash2, Package, ArrowLeft } from "lucide-react";</span>
 <span class="cstat-no" title="statement not covered" >import { useToast } from "@/hooks/use-toast";</span>
+<span class="cstat-no" title="statement not covered" >import { CurrencySelector } from "@/components/currency-selector";</span>
+<span class="cstat-no" title="statement not covered" >import { getCurrencySymbol } from "@/lib/utils";</span>
 <span class="cstat-no" title="statement not covered" ></span>
 <span class="cstat-no" title="statement not covered" >function OrderLineItem({</span>
 <span class="cstat-no" title="statement not covered" >  line,</span>
@@ -799,7 +817,7 @@
 <span class="cstat-no" title="statement not covered" >            step="0.01"</span>
 <span class="cstat-no" title="statement not covered" >            value={line.unitPrice || ""}</span>
 <span class="cstat-no" title="statement not covered" >            onChange={(e) =&gt; onUpdate(line.id, "unitPrice", parseFloat(e.target.value) || undefined)}</span>
-<span class="cstat-no" title="statement not covered" >            placeholder="0.00"</span>
+<span class="cstat-no" title="statement not covered" >            placeholder={`${getCurrencySymbol(currency)} 0.00`}</span>
 <span class="cstat-no" title="statement not covered" >          /&gt;</span>
 <span class="cstat-no" title="statement not covered" >        &lt;/div&gt;</span>
 <span class="cstat-no" title="statement not covered" >        &lt;div className="flex items-end pb-1"&gt;</span>
@@ -848,6 +866,7 @@
 <span class="cstat-no" title="statement not covered" >  const [customerEmail, setCustomerEmail] = useState("");</span>
 <span class="cstat-no" title="statement not covered" >  const [customerPhone, setCustomerPhone] = useState("");</span>
 <span class="cstat-no" title="statement not covered" >  const [shippingAddress, setShippingAddress] = useState("");</span>
+<span class="cstat-no" title="statement not covered" >  const [currency, setCurrency] = useState("USD");</span>
 <span class="cstat-no" title="statement not covered" >  const [notes, setNotes] = useState("");</span>
 <span class="cstat-no" title="statement not covered" >  const [expectedShipDate, setExpectedShipDate] = useState("");</span>
 <span class="cstat-no" title="statement not covered" >  const [lines, setLines] = useState&lt;OrderLine[]&gt;([]);</span>
@@ -909,6 +928,7 @@
 <span class="cstat-no" title="statement not covered" >          shippingAddress: shippingAddress || undefined,</span>
 <span class="cstat-no" title="statement not covered" >          notes: notes || undefined,</span>
 <span class="cstat-no" title="statement not covered" >          expectedShipDate: expectedShipDate || undefined,</span>
+<span class="cstat-no" title="statement not covered" >          currency,</span>
 <span class="cstat-no" title="statement not covered" >          lines: validLines.map((l) =&gt; ({</span>
 <span class="cstat-no" title="statement not covered" >            productId: l.productId,</span>
 <span class="cstat-no" title="statement not covered" >            qtyOrdered: l.qtyOrdered,</span>
@@ -995,6 +1015,10 @@
 <span class="cstat-no" title="statement not covered" >                  onChange={(e) =&gt; setExpectedShipDate(e.target.value)}</span>
 <span class="cstat-no" title="statement not covered" >                /&gt;</span>
 <span class="cstat-no" title="statement not covered" >              &lt;/div&gt;</span>
+<span class="cstat-no" title="statement not covered" >              &lt;div className="space-y-2"&gt;</span>
+<span class="cstat-no" title="statement not covered" >                &lt;Label&gt;Currency&lt;/Label&gt;</span>
+<span class="cstat-no" title="statement not covered" >                &lt;CurrencySelector value={currency} onValueChange={setCurrency} /&gt;</span>
+<span class="cstat-no" title="statement not covered" >              &lt;/div&gt;</span>
 <span class="cstat-no" title="statement not covered" >            &lt;/div&gt;</span>
 <span class="cstat-no" title="statement not covered" >            &lt;div className="space-y-2"&gt;</span>
 <span class="cstat-no" title="statement not covered" >              &lt;Label&gt;Shipping Address&lt;/Label&gt;</span>
@@ -1053,7 +1077,7 @@
 <span class="cstat-no" title="statement not covered" >                  {lines.length} line(s)</span>
 <span class="cstat-no" title="statement not covered" >                &lt;/div&gt;</span>
 <span class="cstat-no" title="statement not covered" >                &lt;div className="text-sm font-medium"&gt;</span>
-<span class="cstat-no" title="statement not covered" >                  Total: {lines.reduce((sum, l) =&gt; sum + (l.qtyOrdered || 0), 0)} units</span>
+<span class="cstat-no" title="statement not covered" >                  Total: {lines.reduce((sum, l) =&gt; sum + (l.qtyOrdered || 0), 0)} units · Est: {getCurrencySymbol(currency)}{lines.reduce((sum, l) =&gt; sum + (l.qtyOrdered || 0) * (l.unitPrice || 0), 0).toFixed(2)}</span>
 <span class="cstat-no" title="statement not covered" >                &lt;/div&gt;</span>
 <span class="cstat-no" title="statement not covered" >              &lt;/div&gt;</span>
 <span class="cstat-no" title="statement not covered" >            )}</span>
@@ -1069,7 +1093,7 @@
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-05-06T16:33:48.843Z
+                at 2026-05-09T12:19:58.340Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

@@ -14,6 +14,8 @@ import {
   inventoryMovementsTable,
   velocityAlertSettingsTable,
   skuAlertOverridesTable,
+  priceListsTable,
+  priceListItemsTable,
 } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 import { seedCurrencies } from "../services/currency.service";
@@ -219,6 +221,35 @@ router.post("/seed", async (req, res) => {
       }
     }
     console.log("✓ Inventory avgCost seeded");
+
+    // 16. Default price list with sample prices
+    const existingPl = await db.select().from(priceListsTable).where(eq(priceListsTable.isDefault, true)).limit(1);
+    if (existingPl.length === 0) {
+      const today = new Date().toISOString().split("T")[0];
+      const [pl] = await db.insert(priceListsTable).values({
+        name: "Standard",
+        currency: "USD",
+        isDefault: true,
+        isActive: true,
+        validFrom: today,
+      }).returning();
+
+      // Add prices for all products (use product.unitPrice or default)
+      for (const p of insertedProducts) {
+        const basePrice = p.unitPrice ? parseFloat(p.unitPrice) : 10.00;
+        await db.insert(priceListItemsTable).values({
+          priceListId: pl.id,
+          productId: p.id,
+          unitPrice: String(basePrice),
+          minQty: 1,
+          currency: "USD",
+          validFrom: today,
+        });
+      }
+      console.log("✓ Default Price List seeded with product prices");
+    } else {
+      console.log("✓ Price list already seeded, skipping");
+    }
 
     res.json({ success: true, message: "Seed completed successfully!" });
   } catch (err: any) {

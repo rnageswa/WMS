@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, Package, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { CurrencySelector } from "@/components/currency-selector";
+import { getCurrencySymbol } from "@/lib/utils";
 
 function OrderLineItem({
   line,
@@ -69,7 +70,7 @@ function OrderLineItem({
             step="0.01"
             value={line.unitPrice || ""}
             onChange={(e) => onUpdate(line.id, "unitPrice", parseFloat(e.target.value) || undefined)}
-            placeholder="0.00"
+            placeholder={`${getCurrencySymbol(currency)} 0.00`}
           />
         </div>
         <div className="flex items-end pb-1">
@@ -329,7 +330,7 @@ export default function NewSalesOrderPage() {
                   {lines.length} line(s)
                 </div>
                 <div className="text-sm font-medium">
-                  Total: {lines.reduce((sum, l) => sum + (l.qtyOrdered || 0), 0)} units
+                  Total: {lines.reduce((sum, l) => sum + (l.qtyOrdered || 0), 0)} units · Est: {getCurrencySymbol(currency)}{lines.reduce((sum, l) => sum + (l.qtyOrdered || 0) * (l.unitPrice || 0), 0).toFixed(2)}
                 </div>
               </div>
             )}

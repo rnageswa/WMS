@@ -27,6 +27,8 @@ import {
   Minus,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
+import { formatCurrency } from "@/lib/utils";
+import { useBaseCurrency } from "@/hooks/use-base-currency";
 
 type Row = {
   supplierId: string | null;
@@ -62,12 +64,13 @@ function RateCell({ value, inverse = false }: { value: number | null; inverse?: 
   );
 }
 
-function fmt$(n: number | null) {
-  if (n === null) return "—";
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
-}
-
 export default function SupplierPerformancePage() {
+  const baseCurrency = useBaseCurrency();
+  const fmt = (n: number | null) => {
+    if (n === null) return "—";
+    return formatCurrency(n, baseCurrency);
+  };
+
   const { data, isLoading } = useGetSupplierPerformanceReport();
   const suppliers: Row[] = data?.suppliers ?? [];
 
@@ -138,7 +141,7 @@ export default function SupplierPerformancePage() {
             },
             {
               label: "Total Spend",
-              value: isLoading ? null : fmt$(totalSpend || null),
+              value: isLoading ? null : fmt(totalSpend || null),
               icon: <DollarSign className="w-4 h-4 text-muted-foreground" />,
             },
             {
@@ -264,7 +267,7 @@ export default function SupplierPerformancePage() {
                         <RateCell value={row.fillRate} />
                       </TableCell>
                       <TableCell className="text-right tabular-nums font-medium">
-                        {row.totalSpend !== null ? fmt$(row.totalSpend) : <span className="text-muted-foreground font-normal">—</span>}
+                        {row.totalSpend !== null ? fmt(row.totalSpend) : <span className="text-muted-foreground font-normal">—</span>}
                       </TableCell>
                       <TableCell className="text-right pr-5 text-muted-foreground text-xs">
                         {row.lastOrderDate

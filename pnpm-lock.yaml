@@ -170,6 +170,9 @@ importers:
       typescript:
         specifier: ~5.9.2
         version: 5.9.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@25.3.5)(@vitest/ui@1.6.1)(jsdom@24.1.3)(lightningcss@1.31.1)
     optionalDependencies:
       '@esbuild/win32-x64':
         specifier: 0.27.3

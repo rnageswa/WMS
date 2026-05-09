@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, Plus, Search, X, Package } from "lucide-react";
 import { format } from "date-fns";
+import { getCurrencySymbol } from "@/lib/utils";
 
 const statusColors: Record<string, string> = {
   draft: "bg-gray-100 text-gray-700",
@@ -132,6 +133,7 @@ export default function SalesOrdersPage() {
                 <TableHead>Status</TableHead>
                 <TableHead>Lines</TableHead>
                 <TableHead>Total Qty</TableHead>
+                <TableHead>Currency</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead className="w-[50px]"></TableHead>
               </TableRow>
@@ -139,13 +141,13 @@ export default function SalesOrdersPage() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     Loading...
                   </TableCell>
                 </TableRow>
               ) : orders?.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
                     <p>No orders found</p>
                     <p className="text-sm">Create your first sales order to get started</p>
@@ -178,6 +180,7 @@ export default function SalesOrdersPage() {
                     </TableCell>
                     <TableCell>{order.lineCount || 0}</TableCell>
                     <TableCell>{order.totalQty || 0}</TableCell>
+                    <TableCell><Badge variant="outline">{getCurrencySymbol(order.currency)} {order.currency}</Badge></TableCell>
                     <TableCell>{format(new Date(order.createdAt), "MMM d, yyyy")}</TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <DropdownMenu>

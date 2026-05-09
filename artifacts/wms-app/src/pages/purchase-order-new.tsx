@@ -34,6 +34,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useLocation, Link } from "wouter";
 import { CurrencySelector } from "@/components/currency-selector";
+import { getCurrencySymbol } from "@/lib/utils";
 import {
   Plus,
   Trash2,
@@ -528,7 +529,7 @@ export default function PurchaseOrderNewPage() {
                 />
                 <div className="relative">
                   <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">
-                    $
+                    {getCurrencySymbol(currency)}
                   </span>
                   <Input
                     type="number"
@@ -537,7 +538,7 @@ export default function PurchaseOrderNewPage() {
                     value={line.unitCost}
                     onChange={(e) => updateLine(line.key, { unitCost: e.target.value })}
                     placeholder="0.00"
-                    className="h-8 text-sm text-right font-mono pl-5"
+                    className="h-8 text-sm text-right font-mono pl-6"
                   />
                 </div>
                 <Button

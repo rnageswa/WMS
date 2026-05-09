@@ -55,6 +55,7 @@ import {
 import { Link, useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow, format, isPast, parseISO, differenceInCalendarDays } from "date-fns";
+import { getCurrencySymbol } from "@/lib/utils";
 
 type PoStatus = "draft" | "ordered" | "partially_received" | "received" | "cancelled";
 
@@ -297,6 +298,7 @@ export default function PurchaseOrdersPage() {
                     <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">PO Number</TableHead>
                     <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Supplier</TableHead>
                     <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Status</TableHead>
+                    <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Currency</TableHead>
                     <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-semibold text-right">Lines</TableHead>
                     <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-semibold text-right">Qty</TableHead>
                     <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">
@@ -338,6 +340,7 @@ export default function PurchaseOrdersPage() {
                         <TableCell className="font-mono text-sm font-semibold">{po.poNumber}</TableCell>
                         <TableCell className="text-sm font-medium">{po.supplierName}</TableCell>
                         <TableCell><StatusBadge status={po.status} /></TableCell>
+                        <TableCell><Badge variant="outline">{getCurrencySymbol((po as any).currency)} {(po as any).currency}</Badge></TableCell>
                         <TableCell className="text-right tabular-nums text-sm">{po.lineCount}</TableCell>
                         <TableCell className="text-right tabular-nums text-sm">{po.totalQtyOrdered}</TableCell>
                         <TableCell className="text-xs">
