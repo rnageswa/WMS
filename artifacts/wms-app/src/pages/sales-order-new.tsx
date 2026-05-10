@@ -18,11 +18,13 @@ import { getCurrencySymbol } from "@/lib/utils";
 function OrderLineItem({
   line,
   products,
+  currency,
   onUpdate,
   onRemove,
 }: {
   line: OrderLine;
   products: any[];
+  currency: string;
   onUpdate: (id: string, field: string, value: any) => void;
   onRemove: (id: string) => void;
 }) {
@@ -317,6 +319,7 @@ export default function NewSalesOrderPage() {
                     key={line.id}
                     line={line}
                     products={products}
+                    currency={currency}
                     onUpdate={updateLine}
                     onRemove={removeLine}
                   />

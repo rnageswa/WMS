@@ -1,6 +1,9 @@
 import app from "./app";
 import { logger } from "./lib/logger";
-import { startScheduler } from "./lib/scheduler";
+import { startSchedulers } from "./schedulers";
+
+// Import workers to register them (they run in-process with BullMQ)
+import "./workers";
 
 const rawPort = process.env["PORT"];
 
@@ -23,5 +26,5 @@ app.listen(port, (err) => {
   }
 
   logger.info({ port }, "Server listening");
-  startScheduler();
+  startSchedulers();
 });

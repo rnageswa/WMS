@@ -438,7 +438,7 @@ export default function SalesOrderDetailPage() {
                 const totalCost = linesWithMargin.reduce((s: number, l: any) => s + parseFloat(l.costAtTime) * l.qtyOrdered, 0);
                 const totalMargin = totalRevenue - totalCost;
                 const marginPct = totalRevenue > 0 ? (totalMargin / totalRevenue) * 100 : 0;
-                const cur = getCurrencySymbol(order.currency);
+                const cur = getCurrencySymbol(order.currency || 'USD');
                 return (
                   <div className="grid grid-cols-3 gap-4">
                     <div>

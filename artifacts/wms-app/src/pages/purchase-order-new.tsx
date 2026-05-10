@@ -32,7 +32,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { useLocation, Link } from "wouter";
+import { useLocation, Link, useSearch } from "wouter";
 import { CurrencySelector } from "@/components/currency-selector";
 import { getCurrencySymbol } from "@/lib/utils";
 import {
@@ -70,8 +70,13 @@ export default function PurchaseOrderNewPage() {
   const [currency, setCurrency] = useState("USD");
   const [notes, setNotes] = useState("");
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState("");
+  const searchStr = useSearch();
+  const searchParams = new URLSearchParams(searchStr);
+  const prefilledProductId = searchParams.get("productId") ?? "";
+  const prefilledQty = parseInt(searchParams.get("qty") ?? "1", 10);
+
   const [lines, setLines] = useState<LineForm[]>([
-    { key: lineKey++, productId: "", qtyOrdered: 1, unitCost: "" },
+    { key: lineKey++, productId: prefilledProductId, qtyOrdered: prefilledQty || 1, unitCost: "" },
   ]);
 
   // Template pre-fill state

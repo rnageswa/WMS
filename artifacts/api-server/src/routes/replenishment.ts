@@ -4,21 +4,37 @@ import {
   productsTable,
   inventoryItemsTable,
   inventoryMovementsTable,
-  reorderPointSettingsTable,
-  demandHistoryTable,
-  replenishmentRecommendationsTable,
-  alertEventsTable,
   binsTable,
   zonesTable,
   warehousesTable,
   salesOrdersTable,
   salesOrderLinesTable,
   pickingTasksTable,
+  purchaseOrdersTable,
+  purchaseOrderLinesTable,
+  poStatusHistoryTable,
+  suppliersTable,
+} from "@workspace/db/schema";
+import {
+  reorderPointSettingsTable,
+  demandHistoryTable,
+  replenishmentRecommendationsTable,
+  alertEventsTable,
 } from "@workspace/db/schema";
 import { eq, and, sql, gte, lte, desc } from "drizzle-orm";
 import { z } from "zod";
 
 const router = Router();
+
+// ── Helper: Generate a PO number ───────────────────────────────────────────
+
+function generatePoNumber() {
+  const date = new Date();
+  const yy = String(date.getFullYear()).slice(-2);
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const rand = Math.floor(1000 + Math.random() * 9000);
+  return `PO-${yy}${mm}-${rand}`;
+}
 
 // ── Helper: Calculate total stock per product ──────────────────────────────
 
@@ -119,7 +135,7 @@ router.get("/replenishment/recommendations", async (_req, res) => {
     })
   );
 
-  const filtered = recommendations.filter(Boolean);
+  const filtered = recommendations.filter((r): r is NonNullable<typeof r> => r != null);
   res.json({
     generatedAt: new Date().toISOString(),
     totalRecommendations: filtered.length,
@@ -129,12 +145,13 @@ router.get("/replenishment/recommendations", async (_req, res) => {
   });
 });
 
-// ── GET /replenishment/generate-pr — Generate purchase requisition suggestions ─
+// ── POST /replenishment/generate-pr — Create draft POs for products below reorder point ─
 
-router.get("/replenishment/generate-pr", async (_req, res) => {
+router.post("/replenishment/generate-pr", async (_req, res) => {
+  // 1. Find all active products below reorder point
   const products = await db.select().from(productsTable).where(eq(productsTable.isActive, true));
 
-  const prLines = await Promise.all(
+  const belowThreshold = await Promise.all(
     products.map(async (product) => {
       const currentStock = await getProductStock(product.id);
       const settings = await db
@@ -148,24 +165,91 @@ router.get("/replenishment/generate-pr", async (_req, res) => {
         const suggestedQty = settings[0]?.suggestedOrderQty ?? Math.max(reorderPoint - currentStock + reorderPoint, 1);
         return {
           productId: product.id,
-          skuCode: product.skuCode,
-          name: product.name,
-          currentStock,
-          reorderPoint,
           suggestedQty,
-          unitCost: null, // would come from last PO or supplier catalog
         };
       }
       return null;
     })
   );
 
-  const lines = prLines.filter(Boolean);
-  res.json({
-    generatedAt: new Date().toISOString(),
-    lineCount: lines.length,
-    lines,
-  });
+  const lines = belowThreshold.filter(Boolean) as { productId: string; suggestedQty: number }[];
+
+  if (lines.length === 0) {
+    res.json({ createdCount: 0, poIds: [] });
+    return;
+  }
+
+  // 2. Find most recent PO per product to determine supplier and unit cost
+  const productsWithSupplier = await Promise.all(
+    lines.map(async (line) => {
+      const lastPORows = await db
+        .select({
+          supplierId: purchaseOrdersTable.supplierId,
+          supplierName: purchaseOrdersTable.supplierName,
+          unitCost: purchaseOrderLinesTable.unitCost,
+        })
+        .from(purchaseOrderLinesTable)
+        .innerJoin(purchaseOrdersTable, eq(purchaseOrderLinesTable.poId, purchaseOrdersTable.id))
+        .where(eq(purchaseOrderLinesTable.productId, line.productId))
+        .orderBy(desc(purchaseOrdersTable.createdAt))
+        .limit(1);
+
+      return {
+        ...line,
+        supplierId: lastPORows[0]?.supplierId ?? null,
+        supplierName: lastPORows[0]?.supplierName ?? null,
+        unitCost: lastPORows[0]?.unitCost ?? null,
+      };
+    })
+  );
+
+  // 3. Group by supplier
+  const grouped = new Map<string, typeof productsWithSupplier>();
+  for (const item of productsWithSupplier) {
+    const key = item.supplierId ?? item.supplierName ?? "unknown";
+    const existing = grouped.get(key) ?? [];
+    existing.push(item);
+    grouped.set(key, existing);
+  }
+
+  // 4. Create draft PO per supplier group
+  const createdPoIds: string[] = [];
+
+  for (const [, items] of grouped) {
+    const firstItem = items[0];
+    const poNumber = generatePoNumber();
+
+    const [po] = await db
+      .insert(purchaseOrdersTable)
+      .values({
+        poNumber,
+        status: "draft",
+        supplierId: firstItem.supplierId,
+        supplierName: firstItem.supplierName ?? "Automatic Reorder",
+      })
+      .returning();
+
+    if (po) {
+      createdPoIds.push(po.id);
+
+      await db.insert(purchaseOrderLinesTable).values(
+        items.map((item) => ({
+          poId: po.id,
+          productId: item.productId,
+          qtyOrdered: item.suggestedQty,
+          unitCost: item.unitCost,
+        }))
+      );
+
+      await db.insert(poStatusHistoryTable).values({
+        poId: po.id,
+        event: "created",
+        note: "Auto-generated from Smart Replenishment",
+      });
+    }
+  }
+
+  res.json({ createdCount: createdPoIds.length, poIds: createdPoIds });
 });
 
 // ── GET /replenishment/forecast/:productId — Demand forecast for a product ──
@@ -280,11 +364,10 @@ router.get("/alerts/inventory-anomalies", async (_req, res) => {
     .innerJoin(productsTable, eq(inventoryItemsTable.productId, productsTable.id))
     .where(eq(inventoryItemsTable.qtyOnHand, 0));
 
-  const zeroStockIds = new Set(zeroStockItems.map(i => i.productId));
-  const seen = new Set<string>();
+  const seenZero = new Set<string>();
   for (const item of zeroStockItems) {
-    if (seen.has(item.productId)) continue;
-    seen.add(item.productId);
+    if (seenZero.has(item.productId)) continue;
+    seenZero.add(item.productId);
     anomalies.push({
       type: "zero_stock",
       severity: "critical",
@@ -337,7 +420,7 @@ router.get("/alerts/inventory-anomalies", async (_req, res) => {
 
 router.put("/alerts/inventory-anomalies/:id/resolve", async (req, res) => {
   const { id } = req.params;
-  const resolvedBy = req.auth?.userId || "system";
+  const resolvedBy = (req as any).auth?.userId || "system";
 
   const [updated] = await db
     .update(alertEventsTable)

@@ -136,22 +136,27 @@ export default function SmartReplenishmentPage() {
     });
   };
 
-  const handleGeneratePRs = () => {
-    qc.fetchQuery({
-      queryKey: ["replenishment", "generate-pr"],
-      queryFn: async () => {
-        const res = await fetch("/api/replenishment/generate-pr", {
-          credentials: "include",
-        });
-        if (!res.ok) throw new Error("Failed to generate PR");
-        return res.json();
-      },
-    });
-    setPrGenerated(true);
-    toast({
-      title: "Purchase requisitions generated",
-      description: "Draft PO suggestions have been created.",
-    });
+  const handleGeneratePRs = async () => {
+    try {
+      const res = await fetch("/api/replenishment/generate-pr", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!res.ok) throw new Error("Failed to generate PRs");
+      const data = await res.json();
+      setPrGenerated(true);
+      toast({
+        title: "Purchase requisitions created",
+        description: `${data.createdCount} draft PO(s) created.`,
+      });
+    } catch (err: any) {
+      toast({
+        title: "Failed to generate PRs",
+        description: err.message,
+        variant: "destructive",
+      });
+    }
   };
 
   return (

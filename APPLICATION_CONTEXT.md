@@ -2,7 +2,7 @@
 ## Complete Application Context & Design Document
 
 **Last Updated:** 2026-05-09
-**Version:** MVP — Phase 1-5 Complete + Admin Console
+**Version:** MVP — Phase 1-6 Complete + Admin Console
 
 ---
 
@@ -858,3 +858,170 @@ The Admin Console (`/admin`) is the central system administration hub, accessibl
 | Modified | `artifacts/wms-app/src/components/layout.tsx` (sidebar nav items) |
 | Modified | `APPLICATION_CONTEXT.md` (this section) |
 
+---
+
+## Phase 6.1: Enterprise Intelligence — Engine Architecture (In Progress)
+
+### New Backend Architecture
+
+Routes are now thin controllers. Business logic lives in engines.
+
+```
+artifacts/api-server/src/
+├── domain/           # Shared business types (Money, DateRange, etc.)
+├── engines/
+│   ├── replenishment/
+│   │   ├── engine.ts           # Main orchestrator: runs full replenishment check
+│   │   ├── demand-classifier.ts # Stable/Seasonal/Intermittent/Erratic/New per SKU
+│   │   ├── safety-stock.ts     # SS = Z × √(LT × σD² + D² × σLT²)
+│   │   ├── eoq.ts              # EOQ = √(2DS/H) with MOQ, carton/pallet rounding
+│   │   ├── supplier-aware.ts   # Lead-time variance, fill-rate, reliability scoring
+│   │   ├── anomaly-detector.ts # Negative stock, zero stock, stuck orders
+│   │   └── index.ts
+│   ├── slotting/
+│   │   ├── engine.ts           # Bin scoring, velocity profiles, heatmap, co-pick
+│   │   └── index.ts
+│   ├── forecasting/
+│   │   ├── engine.ts           # Seasonality, trend, Holt-Winters
+│   │   └── index.ts
+│   └── planning/
+│       ├── engine.ts           # Inventory plans, distribution plans, procurement forecasts
+│       └── index.ts
+├── events/
+│   ├── types.ts                # Domain event types + payloads
+│   ├── bus.ts                  # In-process event bus (subscribe/emit)
+│   ├── factory.ts              # createEvent() helper
+│   └── index.ts
+├── workers/
+│   ├── queue.ts                # BullMQ queue definitions + scheduled jobs
+│   ├── replenishment.worker.ts # Replenishment job processor
+│   ├── alert.worker.ts         # Alert/anomaly job processor
+│   ├── slotting.worker.ts      # Slotting optimization job processor
+│   ├── forecasting.worker.ts   # Forecast update job processor
+│   ├── planning.worker.ts      # Planning cycle job processor
+│   └── index.ts
+├── repositories/
+│   ├── base.ts                 # Base repository class
+│   ├── product.repository.ts   # Product data access
+│   ├── inventory.repository.ts # Inventory + movement data access
+│   ├── supplier.repository.ts  # Supplier + performance data access
+│   ├── order.repository.ts     # Sales order data access
+│   └── index.ts
+├── schedulers/
+│   └── index.ts                # BullMQ scheduler (replaces lib/scheduler.ts)
+├── services/                   # Existing: currency, costing, pricing
+├── routes/
+│   ├── index.ts                # Route mounting (now includes enginesRouter)
+│   ├── engines.ts              # NEW: Thin controllers for all engines
+│   └── ... (existing routes, to be refactored)
+├── lib/                        # Existing: logger, email, velocity-alert, scheduler
+├── middlewares/                # Existing: auth, clerkProxy
+├── app.ts                      # Unchanged
+└── index.ts                    # Now imports workers + starts BullMQ schedulers
+```
+
+### New Database Schemas (`lib/db/src/schema/phase6.ts`)
+
+| Table | Purpose |
+|-------|---------|
+| `replenishment_policies` | Per-product: demand type, service level, safety stock params, EOQ params |
+| `supplier_performance` | Per-supplier: on-time rate, fill rate, lead time stats, reliability score |
+| `inventory_targets` | Per product per warehouse: min/max/target stock, days of supply |
+| `bin_attributes` | Per bin: capacity, weight limit, temp zone, hazmat, travel/access scores |
+| `slotting_rules` | Configurable rules: conditions → actions for slotting |
+| `velocity_profiles` | Per product per bin: picks 7/30/90 days, velocity class |
+| `forecast_snapshots` | Per product per date: forecast outputs, model metadata |
+| `domain_events` | Event log: type, payload, status, processing |
+| `job_queue` | Background job tracking |
+| `workflow_rules` | Automation rules: trigger event → action |
+| `inventory_plans` | Per product per warehouse: projected stock, ATP, stockout risk |
+| `distribution_plans` | Inter-warehouse transfer suggestions |
+| `procurement_forecasts` | Per product per supplier: forecasted qty, container optimization |
+
+### New API Routes (mounted at `/api/engines/*`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/engines/replenishment/run` | Run full replenishment check |
+| GET | `/engines/replenishment/classify` | Classify all products by demand type |
+| POST | `/engines/suppliers/performance` | Update all supplier performance scores |
+| POST | `/engines/slotting/run` | Run slotting optimization |
+| GET | `/engines/slotting/heatmap` | Get bin heatmap data |
+| GET | `/engines/slotting/co-pick` | Co-pick proximity analysis |
+| GET | `/engines/forecast/:productId` | Forecast for a product |
+| POST | `/engines/forecast/update-all` | Batch update all forecasts |
+| POST | `/engines/planning/run` | Run full planning cycle |
+| GET | `/engines/planning/inventory` | Get inventory plans |
+| GET | `/engines/planning/distribution` | Get distribution/transfer plans |
+
+### Event Bus
+
+- **In-process bus** (`events/bus.ts`): subscribe/emit pattern for synchronous event handling
+- **BullMQ queues** (`workers/queue.ts`): 5 queues (replenishment, alerts, slotting, forecasting, planning)
+- **Scheduled jobs**: daily replenishment (08:00), daily forecast (06:00), weekly slotting (Sun 02:00), monthly planning (1st 04:00)
+- **Event types**: inventory.low_stock, order.shipped, po.received, anomaly.detected, etc.
+
+### Dependencies Added
+
+| Package | Purpose |
+|---------|---------|
+| `bullmq` | Background job queue |
+| `ioredis` | Redis client for BullMQ |
+
+### Environment Variables
+
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `REDIS_URL` | Redis connection for BullMQ | `redis://localhost:6379` |
+
+### Key Design Decisions
+
+1. **Routes are thin** — validate input → call engine → return response. No business logic in routes.
+2. **Engines are testable** — pure functions + repository pattern, no Express dependencies.
+3. **Event-driven** — routes emit events → workers process asynchronously.
+4. **Repository pattern** — data access abstracted, engines call repositories not db directly.
+5. **BullMQ over raw node-cron** — retry, dedup, monitoring, job tracking built-in.
+6. **No Redis required for dev** — falls back to node-cron if Redis unavailable.
+
+### Files Created / Modified
+
+| Action | File |
+|--------|------|
+| Created | `artifacts/api-server/src/events/types.ts` |
+| Created | `artifacts/api-server/src/events/bus.ts` |
+| Created | `artifacts/api-server/src/events/factory.ts` |
+| Created | `artifacts/api-server/src/events/index.ts` |
+| Created | `artifacts/api-server/src/workers/queue.ts` |
+| Created | `artifacts/api-server/src/workers/replenishment.worker.ts` |
+| Created | `artifacts/api-server/src/workers/alert.worker.ts` |
+| Created | `artifacts/api-server/src/workers/slotting.worker.ts` |
+| Created | `artifacts/api-server/src/workers/forecasting.worker.ts` |
+| Created | `artifacts/api-server/src/workers/planning.worker.ts` |
+| Created | `artifacts/api-server/src/workers/index.ts` |
+| Created | `artifacts/api-server/src/repositories/base.ts` |
+| Created | `artifacts/api-server/src/repositories/product.repository.ts` |
+| Created | `artifacts/api-server/src/repositories/inventory.repository.ts` |
+| Created | `artifacts/api-server/src/repositories/supplier.repository.ts` |
+| Created | `artifacts/api-server/src/repositories/order.repository.ts` |
+| Created | `artifacts/api-server/src/repositories/index.ts` |
+| Created | `artifacts/api-server/src/engines/replenishment/engine.ts` |
+| Created | `artifacts/api-server/src/engines/replenishment/demand-classifier.ts` |
+| Created | `artifacts/api-server/src/engines/replenishment/safety-stock.ts` |
+| Created | `artifacts/api-server/src/engines/replenishment/eoq.ts` |
+| Created | `artifacts/api-server/src/engines/replenishment/supplier-aware.ts` |
+| Created | `artifacts/api-server/src/engines/replenishment/anomaly-detector.ts` |
+| Created | `artifacts/api-server/src/engines/replenishment/index.ts` |
+| Created | `artifacts/api-server/src/engines/slotting/engine.ts` |
+| Created | `artifacts/api-server/src/engines/slotting/index.ts` |
+| Created | `artifacts/api-server/src/engines/forecasting/engine.ts` |
+| Created | `artifacts/api-server/src/engines/forecasting/index.ts` |
+| Created | `artifacts/api-server/src/engines/planning/engine.ts` |
+| Created | `artifacts/api-server/src/engines/planning/index.ts` |
+| Created | `artifacts/api-server/src/schedulers/index.ts` |
+| Created | `artifacts/api-server/src/domain/index.ts` |
+| Created | `artifacts/api-server/src/routes/engines.ts` |
+| Created | `lib/db/src/schema/phase6.ts` |
+| Modified | `lib/db/src/schema/index.ts` (export phase6) |
+| Modified | `artifacts/api-server/src/routes/index.ts` (mount engines) |
+| Modified | `artifacts/api-server/src/index.ts` (workers + BullMQ schedulers) |
+| Modified | `artifacts/api-server/package.json` (bullmq + ioredis) |

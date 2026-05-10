@@ -7,20 +7,29 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Plus, ArrowLeft, Edit2, Trash2, Star } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useGetPriceLists, useDeletePriceList } from "@workspace/api-client-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { useState } from "react";
 
 export default function PriceListsPage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { data: lists, isLoading } = useGetPriceLists();
   const deletePriceList = useDeletePriceList();
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Deactivate this price list?")) return;
+  const handleDelete = (id: string) => {
+    setDeleteTarget(id);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
     try {
-      await deletePriceList.mutateAsync({ pathParams: { id } });
+      await deletePriceList.mutateAsync({ pathParams: { id: deleteTarget } });
       toast({ title: "Price list deactivated" });
     } catch {
       toast({ title: "Failed to deactivate", variant: "destructive" });
+    } finally {
+      setDeleteTarget(null);
     }
   };
 
@@ -104,6 +113,30 @@ export default function PriceListsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Deactivate Price List</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Are you sure you want to deactivate this price list? This action may affect existing pricing.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDelete}
+              disabled={deletePriceList.isPending}
+            >
+              {deletePriceList.isPending ? "Deactivating…" : "Deactivate"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }

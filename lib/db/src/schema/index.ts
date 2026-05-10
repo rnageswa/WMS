@@ -9,3 +9,4 @@ export * from "./currency";
 export * from "./costing";
 export * from "./pricing";
 export * from "./replenishment";
+export * from "./phase6";
