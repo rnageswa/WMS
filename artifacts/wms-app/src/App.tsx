@@ -64,11 +64,9 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string;
 
-// In production (Netlify), no proxy — Clerk JS loads from Clerk CDN (js.clerk.com).
-// Only set proxyUrl in dev when VITE_CLERK_PROXY_URL is explicitly provided.
-const clerkProxyUrl = import.meta.env.DEV
-  ? (import.meta.env.VITE_CLERK_PROXY_URL || undefined)
-  : "";
+// Clerk JS loads from Clerk CDN (js.clerk.com) in both dev and production.
+// Only set proxyUrl when VITE_CLERK_PROXY_URL is explicitly provided (legacy).
+const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL || "";
 
 // No extra ClerkProvider props needed — pk_test_ keys use the standard Clerk
 // FAPI host (encoded in the key itself) which is publicly reachable.
