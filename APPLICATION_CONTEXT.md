@@ -1,8 +1,8 @@
 # WareIQ — Warehouse Management System (WMS)
 ## Complete Application Context & Design Document
 
-**Last Updated:** 2026-05-09
-**Version:** MVP — Phase 1-6 Complete + Admin Console
+**Last Updated:** 2026-05-17
+**Version:** MVP — Phase 1-6.1 Complete + Admin Console + Production Deployment
 
 ---
 
@@ -51,7 +51,7 @@ WareIQ is a full-featured Warehouse Management System built as a modern web appl
 | DB Hosting | Neon (serverless PostgreSQL) |
 | Auth | Clerk (JWT-based, session cookies) |
 | Email | Resend |
-| Deployment Target | Replit (dev), configurable for production |
+| Deployment Target | Netlify (frontend) + Render (API) + Neon (DB) |
 
 ---
 
@@ -623,16 +623,73 @@ pending/assigned → in_progress → completed
 
 ## 10. Environment Variables
 
-| Variable | Purpose |
-|----------|---------|
-| `DATABASE_URL` | Neon PostgreSQL connection string |
-| `CLERK_PUBLISHABLE_KEY` | Clerk frontend key (pk_test_...) |
-| `CLERK_SECRET_KEY` | Clerk backend key (sk_test_...) |
-| `VITE_CLERK_PUBLISHABLE_KEY` | Vite-exposed Clerk key for frontend |
-| `VITE_CLERK_PROXY_URL` | Clerk proxy URL for Replit |
-| `RESEND_API_KEY` | Resend email API key |
-| `SESSION_SECRET` | Express session secret |
-| `PORT` | Server port (5173) |
+### Root `.env` (local dev only — gitignored)
+
+| Variable | Purpose | Safe in Frontend? |
+|----------|---------|-------------------|
+| `DATABASE_URL` | Neon PostgreSQL connection string | ❌ Backend only |
+| `PGDATABASE` / `PGHOST` / `PGPORT` / `PGUSER` / `PGPASSWORD` | Neon connection params | ❌ Backend only |
+| `CLERK_PUBLISHABLE_KEY` | Clerk publishable key (pk_test_...) | ❌ Backend only |
+| `CLERK_SECRET_KEY` | Clerk secret key (sk_test_...) | ❌ Backend only |
+| `VITE_CLERK_PUBLISHABLE_KEY` | Vite-exposed Clerk key for frontend | ✅ Embedded in bundle |
+| `RESEND_API_KEY` | Resend email API key | ❌ Backend only |
+| `SESSION_SECRET` | Express session secret | ❌ Backend only |
+| `REDIS_URL` | Redis connection for BullMQ | ❌ Backend only |
+| `PORT` | Server port (5173) | — |
+| `BASE_PATH` | Vite base path | — |
+
+> **Rule:** Only `VITE_*` vars are embedded in the frontend bundle. Never prefix secrets with `VITE_`.
+> `VITE_CLERK_PROXY_URL` removed — Clerk JS loads from CDN (`js.clerk.com`) in all environments.
+
+### Netlify Env Vars (production)
+
+| Variable | Value |
+|----------|-------|
+| `VITE_CLERK_PUBLISHABLE_KEY` | `pk_live_...` (production Clerk key) |
+| `VITE_API_BASE_URL` | `https://wareiq-api.onrender.com` |
+
+### Render Env Vars (production)
+
+| Variable | Value |
+|----------|-------|
+| `DATABASE_URL` | Neon connection string |
+| `CLERK_PUBLISHABLE_KEY` | `pk_live_...` |
+| `CLERK_SECRET_KEY` | `sk_live_...` |
+| `RESEND_API_KEY` | Resend production key |
+| `SESSION_SECRET` | Random secret |
+| `REDIS_URL` | Upstash Redis URL |
+| `NODE_ENV` | `production` |
+
+---
+
+## 10.5 Production Deployment Architecture
+
+```
+Frontend:  wareiq.netlify.app     → Netlify (static SPA)
+API:       wareiq-api.onrender.com → Render (Express + BullMQ workers)
+DB:        Neon Postgres           → Neon (serverless PostgreSQL)
+Auth:      Clerk                   → Clerk SaaS (JWT session cookies)
+Email:     Resend                  → Resend SaaS
+Cache/Queue: Upstash Redis         → Redis (BullMQ job queues)
+```
+
+### Netlify Config (`artifacts/wms-app/netlify.toml`)
+- Build: `pnpm build` from `artifacts/wms-app`
+- Publish: `dist/public`
+- Redirect: `/api/*` → `https://wareiq-api.onrender.com/api/:splat` (proxy)
+- Redirect: `/*` → `/index.html` (SPA routing)
+
+### Clerk Auth Flow (Production)
+- Frontend loads Clerk JS from `js.clerk.com` CDN (no proxy)
+- Browser talks directly to Clerk FAPI for auth
+- API server uses `@clerk/express` middleware for server-side session validation
+- Session cookie sent with `credentials: "include"` on all API calls
+
+### Security Notes
+- `.env` and `.env.*` are gitignored — never commit secrets
+- `CLERK_SECRET_KEY` was exposed in git history (commits `451f099`, `98f0177`, `2304648`) — history rewritten with `git-filter-repo`, keys must be rotated
+- Only `VITE_CLERK_PUBLISHABLE_KEY` is embedded in frontend bundle
+- All other secrets (DB, Resend, Clerk secret) are backend-only
 
 ---
 
@@ -752,6 +809,13 @@ The Admin Console (`/admin`) is the central system administration hub, accessibl
 | 2026-05-06 | 404 on PO/Supplier navigation | `/wms/` prefix in `window.location.assign()` | Removed prefix, replaced with `setLocation()` |
 | 2026-05-06 | Full page refresh on navigation | `window.location.assign()` causes browser reload | Replaced all with wouter's `setLocation()` |
 | 2026-05-07 | Bins dropdown empty in PO receive | `binsTable` schema missing `isActive` column; `undefined` filtered out | Added column to schema, pushed migration, filter uses `!== false` |
+| 2026-05-16 | Clerk JS 404/504 on Netlify | `clerkProxyUrl=undefined` made Clerk load JS from `/api/__clerk/...` on the deployed domain; Netlify proxied to Render → 404/504. Also `VITE_CLERK_PROXY_URL` was set in Netlify env vars. | Set `clerkProxyUrl=""` in production → Clerk loads from `js.clerk.com` CDN. Removed `VITE_CLERK_PROXY_URL` from Netlify env vars. |
+| 2026-05-16 | Secrets exposed in git history | `.env` with `CLERK_SECRET_KEY`, `DATABASE_URL`, `RESEND_API_KEY`, `SESSION_SECRET` was committed in 3 commits. `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` also embedded `CLERK_SECRET_KEY` in frontend bundle. | Rewrote git history with `git-filter-repo` to remove `.env`/`.env.newdb`. Added `.env`/`.env.*` to `.gitignore`. Rotated all keys required. |
+| 2026-05-16 | `VITE_CLERK_PUBLISHABLE_KEY` had secret appended | Netlify env var value was the full `.env` line including `CLERK_SECRET_KEY=sk_test_...` — embedded in frontend bundle. | Fixed Netlify env var to contain only the publishable key. |
+| 2026-05-16 | Clerk proxy middleware 501 on Render | `clerkProxyMiddleware` on API server proxied token requests to Clerk FAPI but got 501. Replit-specific hack not needed in production. | Removed `clerkProxyMiddleware` from `app.ts`. Clerk works directly from browser via CDN. |
+| 2026-05-16 | Dashboard `toFixed` crash | `finData.avgMarginThisMonth` was `undefined` when API returned no financial data. `undefined.toFixed(1)` throws TypeError. | Added `?? 0` guard: `(finData.avgMarginThisMonth ?? 0).toFixed(1)`. |
+| 2026-05-17 | Clerk JS still loading from `/api/__clerk/...` in dev | `clerkProxyUrl` fell back to `undefined` when `VITE_CLERK_PROXY_URL` not set. Clerk SDK treats `undefined` as "use current origin". Vite proxy forwarded to API server → 401. | Simplified to `clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL || ""` — always empty string unless explicitly set. Clerk loads from CDN in all environments. |
+| 2026-05-17 | All API calls 500 in dev | `clerkMiddleware` from `@clerk/express` requires `CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` env vars. Root `.env` only had `VITE_CLERK_PUBLISHABLE_KEY` (Vite-prefixed, not loaded by Node). | Added `CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` to root `.env` (backend-only, no `VITE_` prefix). |
 
 ---
 
@@ -786,6 +850,11 @@ The Admin Console (`/admin`) is the central system administration hub, accessibl
 | `artifacts/api-server/src/routes/currency.ts` | Currency API endpoints |
 | `artifacts/wms-app/src/components/currency-selector.tsx` | Reusable currency dropdown |
 | `artifacts/wms-app/src/hooks/use-base-currency.ts` | Hook: fetches base currency, used by all pages for formatting |
+| `artifacts/wms-app/netlify.toml` | Netlify build config + redirect rules |
+| `artifacts/wms-app/src/App.tsx` | Clerk proxy URL config (`clerkProxyUrl=""` for CDN loading) |
+| `artifacts/api-server/src/app.ts` | Express app — clerkMiddleware (no proxy middleware) |
+| `.env` | Local dev secrets (gitignored) |
+| `.gitignore` | Includes `.env`, `.env.*` |
 
 ---
 
@@ -860,7 +929,7 @@ The Admin Console (`/admin`) is the central system administration hub, accessibl
 
 ---
 
-## Phase 6.1: Enterprise Intelligence — Engine Architecture (In Progress)
+## Phase 6.1: Enterprise Intelligence — Engine Architecture 
 
 ### New Backend Architecture
 
