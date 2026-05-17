@@ -151,7 +151,7 @@ export default function Dashboard() {
     },
     {
       label: "Avg Margin (Month)",
-      value: finData ? `${finData.avgMarginThisMonth.toFixed(1)}%` : "—",
+      value: finData ? `${(finData.avgMarginThisMonth ?? 0).toFixed(1)}%` : "—",
       sub: "blended across orders",
       icon: Percent,
       color: (finData?.avgMarginThisMonth ?? 0) >= 0 ? "text-emerald-600" : "text-red-600",
