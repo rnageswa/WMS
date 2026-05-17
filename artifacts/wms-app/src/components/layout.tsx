@@ -34,31 +34,37 @@ import {
 } from "@workspace/api-client-react";
 import { useClerk, useUser } from "@clerk/react";
 import { useQuery } from "@tanstack/react-query";
+import { useUserRole } from "@/hooks/use-user-role";
+
+// Roles: admin (full access), operator (no admin/settings), viewer (read-only)
+const WRITE_ROLES = ["admin", "operator"];
+const ADMIN_ROLES = ["admin"];
 
 const navItems = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard, alertBadge: true },
-  { href: "/products", label: "Products", icon: Package },
-  { href: "/inventory", label: "Inventory", icon: Boxes },
-  { href: "/suppliers", label: "Suppliers", icon: Truck },
-  { href: "/purchase-orders", label: "Purchase Orders", icon: ShoppingCart },
-  { href: "/purchase-orders/schedule", label: "Schedule", icon: CalendarClock },
-  { href: "/purchase-orders/reorder", label: "Reorder", icon: Zap, alertBadge: true },
-  { href: "/sales-orders", label: "Sales Orders", icon: ShoppingBag },
-  { href: "/picker", label: "Picker View", icon: ClipboardList },
-  { href: "/receiving", label: "Receiving", icon: PackagePlus },
-  { href: "/dispatch", label: "Dispatch", icon: PackageMinus },
-  { href: "/transfer", label: "Transfer", icon: ArrowLeftRight },
-  { href: "/cycle-count", label: "Cycle Count", icon: ClipboardCheck },
-  { href: "/scan", label: "Scan", icon: ScanLine },
-  { href: "/locations", label: "Locations", icon: MapPin },
-  { href: "/movements", label: "Movements", icon: ClipboardList },
-  { href: "/reports", label: "Reports", icon: BarChart3 },
+  { href: "/", label: "Dashboard", icon: LayoutDashboard, alertBadge: true, roles: ["admin", "operator", "viewer"] },
+  { href: "/products", label: "Products", icon: Package, roles: ["admin", "operator", "viewer"] },
+  { href: "/inventory", label: "Inventory", icon: Boxes, roles: ["admin", "operator", "viewer"] },
+  { href: "/suppliers", label: "Suppliers", icon: Truck, roles: ["admin", "operator"] },
+  { href: "/purchase-orders", label: "Purchase Orders", icon: ShoppingCart, roles: ["admin", "operator"] },
+  { href: "/purchase-orders/schedule", label: "Schedule", icon: CalendarClock, roles: ["admin", "operator"] },
+  { href: "/purchase-orders/reorder", label: "Reorder", icon: Zap, alertBadge: true, roles: ["admin", "operator"] },
+  { href: "/sales-orders", label: "Sales Orders", icon: ShoppingBag, roles: ["admin", "operator"] },
+  { href: "/picker", label: "Picker View", icon: ClipboardList, roles: ["admin", "operator"] },
+  { href: "/receiving", label: "Receiving", icon: PackagePlus, roles: ["admin", "operator"] },
+  { href: "/dispatch", label: "Dispatch", icon: PackageMinus, roles: ["admin", "operator"] },
+  { href: "/transfer", label: "Transfer", icon: ArrowLeftRight, roles: ["admin", "operator"] },
+  { href: "/cycle-count", label: "Cycle Count", icon: ClipboardCheck, roles: ["admin", "operator"] },
+  { href: "/cycle-count/schedule", label: "Count Schedule", icon: CalendarClock, roles: ["admin", "operator"] },
+  { href: "/scan", label: "Scan", icon: ScanLine, roles: ["admin", "operator", "viewer"] },
+  { href: "/locations", label: "Locations", icon: MapPin, roles: ["admin", "operator", "viewer"] },
+  { href: "/movements", label: "Movements", icon: ClipboardList, roles: ["admin", "operator", "viewer"] },
+  { href: "/reports", label: "Reports", icon: BarChart3, roles: ["admin", "operator", "viewer"] },
 ];
 
 const intelNavItems = [
-  { href: "/smart-replenishment", label: "Smart Replenishment", icon: BrainCircuit },
-  { href: "/smart-picking", label: "Smart Picking", icon: Navigation },
-  { href: "/demand-forecast", label: "Demand Forecast", icon: BarChart4 },
+  { href: "/smart-replenishment", label: "Smart Replenishment", icon: BrainCircuit, roles: ["admin", "operator"] },
+  { href: "/smart-picking", label: "Smart Picking", icon: Navigation, roles: ["admin", "operator"] },
+  { href: "/demand-forecast", label: "Demand Forecast", icon: BarChart4, roles: ["admin", "operator"] },
 ];
 
 const ROLE_COLORS: Record<string, string> = {
@@ -193,9 +199,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
       staleTime: 30_000,
     },
   });
+  const { data: userRole } = useUserRole();
 
   const alertCount = alertData?.totalAlerts ?? 0;
   const hasCritical = (alertData?.criticalCount ?? 0) > 0;
+  const currentRole = userRole?.role ?? "operator";
+
+  const visibleNav = navItems.filter((item) => !item.roles || item.roles.includes(currentRole));
+  const visibleIntel = intelNavItems.filter((item) => !item.roles || item.roles.includes(currentRole));
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -214,7 +225,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
         <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
-          {navItems.map((item) => (
+          {visibleNav.map((item) => (
             <NavItem
               key={item.href}
               {...item}
@@ -222,15 +233,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
               hasCritical={item.alertBadge ? hasCritical : false}
             />
           ))}
-          {/* Intelligence section */}
-          <div className="pt-3 pb-1">
-            <p className="px-3 text-[10px] font-bold text-sidebar-foreground/40 uppercase tracking-wider">
-              Intelligence
-            </p>
-          </div>
-          {intelNavItems.map((item) => (
-            <NavItem key={item.href} {...item} />
-          ))}
+          {visibleIntel.length > 0 && (
+            <>
+              <div className="pt-3 pb-1">
+                <p className="px-3 text-[10px] font-bold text-sidebar-foreground/40 uppercase tracking-wider">
+                  Intelligence
+                </p>
+              </div>
+              {visibleIntel.map((item) => (
+                <NavItem key={item.href} {...item} />
+              ))}
+            </>
+          )}
         </nav>
         <UserFooter />
       </aside>

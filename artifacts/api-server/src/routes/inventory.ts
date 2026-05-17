@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
+import { requireRole } from "../middlewares/auth";
 import {
   inventoryItemsTable,
   inventoryMovementsTable,
@@ -100,7 +101,7 @@ router.get("/inventory", async (req, res) => {
 
 // ── POST /inventory/adjust ───────────────────────────────────────────────────
 
-router.post("/inventory/adjust", async (req, res) => {
+router.post("/inventory/adjust", requireRole("admin", "operator"), async (req, res) => {
   const body = AdjustInventoryBody.safeParse(req.body);
   if (!body.success) {
     res.status(400).json({ message: body.error.message });
@@ -337,7 +338,7 @@ const SubmitCycleCountBodyZ = z.object({
   lines: z.array(CycleCountLineZ).min(1),
 });
 
-router.post("/cycle-counts/submit", async (req, res) => {
+router.post("/cycle-counts/submit", requireRole("admin", "operator"), async (req, res) => {
   const body = SubmitCycleCountBodyZ.safeParse(req.body);
   if (!body.success) {
     res.status(400).json({ error: "Validation error", details: body.error.flatten() });
@@ -1026,7 +1027,7 @@ router.get("/dashboard/summary", async (_req, res) => {
 
 // ── POST /transfer/commit ─────────────────────────────────────────────────────
 
-router.post("/transfer/commit", async (req, res) => {
+router.post("/transfer/commit", requireRole("admin", "operator"), async (req, res) => {
   const bodySchema = z.object({
     reference: z.string().nullable().optional(),
     lines: z
@@ -1157,7 +1158,7 @@ router.post("/transfer/commit", async (req, res) => {
 
 // ── POST /dispatch/commit ─────────────────────────────────────────────────────
 
-router.post("/dispatch/commit", async (req, res) => {
+router.post("/dispatch/commit", requireRole("admin", "operator"), async (req, res) => {
   const bodySchema = z.object({
     reference: z.string().nullable().optional(),
     lines: z
@@ -1270,7 +1271,7 @@ router.post("/dispatch/commit", async (req, res) => {
 
 // ── POST /receiving/commit ────────────────────────────────────────────────────
 
-router.post("/receiving/commit", async (req, res) => {
+router.post("/receiving/commit", requireRole("admin", "operator"), async (req, res) => {
   const bodySchema = z.object({
     reference: z.string().nullable().optional(),
     lines: z

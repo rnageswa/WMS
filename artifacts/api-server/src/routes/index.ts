@@ -15,6 +15,7 @@ import { currencyRouter } from "./currency";
 import { pricingRouter } from "./pricing";
 import replenishmentRouter from "./replenishment";
 import enginesRouter from "./engines";
+import cycleCountRouter from "./cycle-count";
 
 const router: IRouter = Router();
 
@@ -41,5 +42,6 @@ router.use(pickingRouter);
 router.use(pricingRouter);
 router.use(replenishmentRouter);
 router.use(enginesRouter);
+router.use(cycleCountRouter);
 
 export default router;

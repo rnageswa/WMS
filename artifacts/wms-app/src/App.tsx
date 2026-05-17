@@ -28,6 +28,7 @@ import DispatchPage from "@/pages/dispatch";
 import TransferPage from "@/pages/transfer";
 import ReportsPage from "@/pages/reports";
 import CycleCountPage from "@/pages/cycle-count";
+import CycleCountSchedulePage from "@/pages/cycle-count-schedule";
 import PurchaseOrdersPage from "@/pages/purchase-orders";
 import PurchaseOrderNewPage from "@/pages/purchase-order-new";
 import ReorderSuggestionsPage from "@/pages/purchase-order-reorder";
@@ -222,6 +223,7 @@ function AppRouter() {
             <Route path="/dispatch"><AuthGuard><DispatchPage /></AuthGuard></Route>
             <Route path="/transfer"><AuthGuard><TransferPage /></AuthGuard></Route>
             <Route path="/reports"><AuthGuard><ReportsPage /></AuthGuard></Route>
+            <Route path="/cycle-count/schedule"><AuthGuard><CycleCountSchedulePage /></AuthGuard></Route>
             <Route path="/cycle-count"><AuthGuard><CycleCountPage /></AuthGuard></Route>
             <Route path="/purchase-orders/schedule"><AuthGuard><ReceivingSchedulePage /></AuthGuard></Route>
             <Route path="/purchase-orders/reorder"><AuthGuard><ReorderSuggestionsPage /></AuthGuard></Route>

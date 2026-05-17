@@ -14,6 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 import {
   Scan,
   Package,
@@ -27,6 +28,8 @@ import {
   ClipboardCheck,
   ExternalLink,
   CheckCircle2,
+  History,
+  X,
 } from "lucide-react";
 
 // ── Camera QR scanner ─────────────────────────────────────────────────────────
@@ -210,12 +213,49 @@ const STATUS_LABELS: Record<string, string> = {
   partially_received: "Partially Received", received: "Received", cancelled: "Cancelled",
 };
 
+interface ScanHistoryItem {
+  query: string;
+  timestamp: Date;
+  matchType: string;
+}
+
 export default function ScanPage() {
   const [, navigate] = useLocation();
   const [query, setQuery] = useState("");
   const [committed, setCommitted] = useState("");
   const [tab, setTab] = useState<"keyboard" | "camera">("keyboard");
+  const [scanHistory, setScanHistory] = useState<ScanHistoryItem[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+  const lastMatchTypeRef = useRef<string>("");
+
+  // Audio feedback on successful scan
+  useEffect(() => {
+    if (!data || !committed) return;
+    if (data.matchType === lastMatchTypeRef.current && committed === scanHistory[0]?.query) return;
+    lastMatchTypeRef.current = data.matchType;
+
+    // Play short beep
+    try {
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = data.matchType === "none" ? 300 : 800;
+      gain.gain.value = 0.15;
+      osc.start();
+      osc.stop(ctx.currentTime + 0.15);
+    } catch {
+      // Audio not available — ignore
+    }
+
+    // Add to history (keep last 10)
+    setScanHistory((prev) => {
+      const item: ScanHistoryItem = { query: committed, timestamp: new Date(), matchType: data.matchType };
+      const filtered = prev.filter((p) => p.query !== committed);
+      return [item, ...filtered].slice(0, 10);
+    });
+  }, [data, committed]);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -360,6 +400,41 @@ export default function ScanPage() {
               Clear
             </button>
           </div>
+        )}
+
+        {/* Scan history */}
+        {scanHistory.length > 0 && (
+          <Card className="border-border/60">
+            <CardHeader className="pb-2 pt-4 px-5 flex flex-row items-center justify-between space-y-0">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <History className="w-4 h-4 text-muted-foreground" />
+                Recent Scans
+              </CardTitle>
+              <Button variant="ghost" size="sm" className="h-6 text-xs gap-1" onClick={() => setScanHistory([])}>
+                <X className="w-3 h-3" />
+                Clear
+              </Button>
+            </CardHeader>
+            <CardContent className="px-5 pb-3">
+              <div className="flex flex-wrap gap-2">
+                {scanHistory.map((item) => (
+                  <button
+                    key={item.query + item.timestamp.getTime()}
+                    onClick={() => { setQuery(item.query); setCommitted(item.query); }}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-muted/60 hover:bg-muted text-xs font-mono transition-colors"
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${
+                      item.matchType === "none" ? "bg-red-400" :
+                      item.matchType === "product" ? "bg-blue-400" :
+                      item.matchType === "bin" ? "bg-purple-400" :
+                      "bg-green-400"
+                    }`} />
+                    {item.query}
+                  </button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         {/* ── Results ──────────────────────────────────────────────────────── */}

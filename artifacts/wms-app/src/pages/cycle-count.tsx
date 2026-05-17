@@ -10,7 +10,7 @@ import {
   getListZonesQueryKey,
   getListBinsQueryKey,
 } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Layout, PageHeader } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,8 +43,12 @@ import {
   CheckCheck,
   TrendingUp,
   TrendingDown,
+  History,
+  ClipboardCheck,
+  CalendarClock,
 } from "lucide-react";
 import { Link } from "wouter";
+import { format } from "date-fns";
 
 type Step = "scope" | "count" | "review" | "done";
 
@@ -72,12 +76,23 @@ export default function CycleCountPage() {
   const { toast } = useToast();
   const qc = useQueryClient();
 
+  const [activeTab, setActiveTab] = useState<"count" | "history">("count");
   const [step, setStep] = useState<Step>("scope");
   const [reference, setReference] = useState("");
   const [warehouseId, setWarehouseId] = useState("");
   const [zoneId, setZoneId] = useState<string>("__all__");
   const [entries, setEntries] = useState<CountEntry[]>([]);
   const [done, setDone] = useState<DoneResult | null>(null);
+
+  const { data: history = [], isLoading: loadingHistory } = useQuery({
+    queryKey: ["cycle-counts", "history"],
+    queryFn: async () => {
+      const res = await fetch("/api/cycle-counts/history", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load history");
+      return res.json();
+    },
+    enabled: activeTab === "history",
+  });
 
   const { data: warehouses = [] } = useListWarehouses();
   const effectiveZoneId = zoneId === "__all__" ? "" : zoneId;
@@ -208,10 +223,96 @@ export default function CycleCountPage() {
 
   return (
     <Layout>
-      <PageHeader title="Cycle Count" subtitle="Physical count with automatic discrepancy adjustment" />
+      <PageHeader
+        title="Cycle Count"
+        subtitle="Physical count with automatic discrepancy adjustment"
+        action={
+          <Button asChild variant="outline" size="sm" className="gap-1.5">
+            <Link href="/cycle-count/schedule">
+              <CalendarClock className="w-3.5 h-3.5" />
+              Schedule
+            </Link>
+          </Button>
+        }
+      />
 
       <div className="p-6 max-w-5xl space-y-6">
 
+        {/* Tabs */}
+        <div className="flex gap-1 p-1 bg-muted rounded-lg w-fit">
+          <button
+            onClick={() => setActiveTab("count")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md font-medium transition-colors ${
+              activeTab === "count" ? "bg-white shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <ClipboardCheck className="w-3.5 h-3.5" />
+            New Count
+          </button>
+          <button
+            onClick={() => setActiveTab("history")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md font-medium transition-colors ${
+              activeTab === "history" ? "bg-white shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <History className="w-3.5 h-3.5" />
+            History
+          </button>
+        </div>
+
+        {/* ── History Tab ──────────────────────────────────────────────────── */}
+        {activeTab === "history" && (
+          <div className="space-y-4">
+            {loadingHistory ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : history.length === 0 ? (
+              <Card className="border-dashed border-border/60">
+                <CardContent className="py-12 text-center">
+                  <History className="w-10 h-10 mx-auto text-muted-foreground/40 mb-3" />
+                  <p className="text-sm font-medium">No cycle count history yet</p>
+                  <p className="text-xs text-muted-foreground mt-1">Completed counts will appear here.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="border-border/60">
+                <CardContent className="p-0 pb-1">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/40 hover:bg-muted/40">
+                        <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Date</TableHead>
+                        <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Reference</TableHead>
+                        <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-semibold text-right">Items</TableHead>
+                        <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-semibold text-right">Discrepancies</TableHead>
+                        <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-semibold text-right">Net Variance</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {history.map((h: any) => (
+                        <TableRow key={h.id}>
+                          <TableCell className="text-sm">{h.createdAt ? format(new Date(h.createdAt), "MMM d, yyyy h:mm a") : "—"}</TableCell>
+                          <TableCell className="font-mono text-xs">{h.reference ?? "—"}</TableCell>
+                          <TableCell className="text-right tabular-nums">{h.itemsCounted}</TableCell>
+                          <TableCell className="text-right tabular-nums">{h.discrepancyCount}</TableCell>
+                          <TableCell className="text-right tabular-nums font-bold">
+                            <span className={h.netVariance > 0 ? "text-green-700" : h.netVariance < 0 ? "text-red-600" : ""}>
+                              {h.netVariance > 0 ? "+" : ""}{h.netVariance}
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
+
+        {/* ── New Count Tab ─────────────────────────────────────────────────── */}
+        {activeTab === "count" && (
+        <>
         {/* Step indicator */}
         {step !== "done" && (
           <div className="flex items-center gap-2 text-sm">
@@ -473,10 +574,12 @@ export default function CycleCountPage() {
                 className="gap-1.5 bg-[#E8622A] hover:bg-[#E8622A]/90 text-white"
               >
                 {isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                {isPending ? "Submitting…" : discrepancies.length > 0 ? `Submit & Apply ${discrepancies.length} Adjustment${discrepancies.length !== 1 ? "s" : ""}` : "Submit Count (no adjustments)"}
+                {isPending ? "Submitting…" : discrepancies.length > 0 ? `Submit & Apply ${discrepancies.length} Adjustments` : "Submit Count (no adjustments)"}
               </Button>
             </div>
           </div>
+        )}
+        </>
         )}
       </div>
     </Layout>
