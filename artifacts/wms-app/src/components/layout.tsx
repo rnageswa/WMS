@@ -39,6 +39,7 @@ import {
 import { useClerk, useUser } from "@clerk/react";
 import { useQuery } from "@tanstack/react-query";
 import { useUserRole } from "@/hooks/use-user-role";
+import { CommandPalette } from "@/components/command-palette";
 
 // Roles: admin (full access), operator (no admin/settings), viewer (read-only)
 const WRITE_ROLES = ["admin", "operator"];
@@ -221,26 +222,31 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   const sidebarContent = (
     <>
-      <div className="flex items-center gap-2.5 px-4 py-5 border-b border-sidebar-border">
-        <div className="w-7 h-7 rounded-md bg-sidebar-primary flex items-center justify-center shrink-0">
-          <Warehouse className="w-4 h-4 text-sidebar-primary-foreground" />
+      <div className="px-4 py-4 border-b border-sidebar-border space-y-3">
+        {/* Branding row */}
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-md bg-sidebar-primary flex items-center justify-center shrink-0">
+            <Warehouse className="w-4 h-4 text-sidebar-primary-foreground" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <span className="text-sm font-bold text-sidebar-foreground tracking-tight">
+              WareIQ
+            </span>
+            <p className="text-[10px] text-sidebar-foreground/40 leading-none mt-0.5">
+              Warehouse OS
+            </p>
+          </div>
+          {/* Close button — mobile only */}
+          <button
+            onClick={closeSidebar}
+            className="md:hidden p-1 rounded-md text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/60 transition-colors"
+            aria-label="Close menu"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
-        <div className="flex-1 min-w-0">
-          <span className="text-sm font-bold text-sidebar-foreground tracking-tight">
-            WareIQ
-          </span>
-          <p className="text-[10px] text-sidebar-foreground/40 leading-none mt-0.5">
-            Warehouse OS
-          </p>
-        </div>
-        {/* Close button — mobile only */}
-        <button
-          onClick={closeSidebar}
-          className="md:hidden p-1 rounded-md text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/60 transition-colors"
-          aria-label="Close menu"
-        >
-          <X className="w-5 h-5" />
-        </button>
+        {/* Command palette — full width below branding */}
+        <CommandPalette />
       </div>
       <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
         {visibleNav.map((item) => (
@@ -305,6 +311,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <Warehouse className="w-3.5 h-3.5 text-sidebar-primary-foreground" />
             </div>
             <span className="text-sm font-bold text-foreground tracking-tight">WareIQ</span>
+          </div>
+          <div className="ml-auto">
+            <CommandPalette />
           </div>
         </div>
         <div className="flex-1 overflow-y-auto">{children}</div>

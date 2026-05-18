@@ -72,10 +72,13 @@ export function CommandPalette() {
     });
   }, []);
 
-  // Keyboard shortcut: Ctrl+K or Cmd+K
+  // Keyboard shortcut: Ctrl+K / Cmd+K / Alt+Q
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+      if (
+        ((e.metaKey || e.ctrlKey) && e.key === "k") ||
+        (e.altKey && (e.key === "q" || e.key === "Q"))
+      ) {
         e.preventDefault();
         setOpen((prev) => !prev);
         setSearch("");
@@ -133,13 +136,13 @@ export function CommandPalette() {
       {/* Trigger button — always visible in header area */}
       <button
         onClick={() => { setOpen(true); setSearch(""); }}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-md border border-border bg-muted/40 text-muted-foreground text-xs hover:bg-muted/60 transition-colors"
-        title="Command palette (Ctrl+K)"
+        className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md border border-sidebar-border bg-sidebar-accent/40 text-sidebar-foreground/60 text-xs hover:bg-sidebar-accent/70 hover:text-sidebar-foreground transition-colors"
+        title="Command palette (Ctrl+K / Alt+Q)"
       >
-        <Search className="w-3.5 h-3.5" />
-        <span className="hidden sm:inline">Search pages...</span>
-        <kbd className="hidden sm:inline-flex items-center gap-0.5 ml-4 text-[10px] font-mono bg-background/60 px-1.5 py-0.5 rounded border border-border">
-          <CommandIcon className="w-2.5 h-2.5" />K
+        <Search className="w-3.5 h-3.5 shrink-0" />
+        <span className="flex-1 text-left text-[11px]">Search pages…</span>
+        <kbd className="shrink-0 text-[10px] font-mono bg-background/60 px-1.5 py-0.5 rounded border border-sidebar-border">
+          ⌘K
         </kbd>
       </button>
 

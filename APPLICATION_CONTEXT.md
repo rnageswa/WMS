@@ -1369,11 +1369,13 @@ artifacts/api-server/src/
 
 **Problem:** Power users navigate slowly through sidebar menus. No keyboard-driven navigation.
 
-**Solution:** `Ctrl+K` command palette using `cmdk` library:
+**Solution:** `Ctrl+K` / `Alt+Q` command palette using `cmdk` library:
 - Full-text search across all nav items (labels, categories, keywords, hrefs)
 - Recent pages (localStorage, max 5) shown at top when no search query
 - Grouped by category with keyboard navigation (↑↓ Enter Esc)
-- Trigger button in header area with `Ctrl+K` badge
-- Mobile-responsive: trigger text hidden on small screens,kbd badge always visible
+- **Shortcuts:** `Ctrl+K` (browser may intercept for address bar) + `Alt+Q` (reliable fallback)
+- Trigger button rendered in sidebar header (full-width, below branding) and mobile header bar
+- Sidebar header split into two rows: branding on top, search button below — no overlap
+- Mobile-responsive: trigger text hidden on small screens, kbd badge always visible
 - **Files Created:** `artifacts/wms-app/src/components/command-palette.tsx`
-- **Files Modified:** `artifacts/wms-app/src/components/layout.tsx` (integrated trigger in header)
+- **Files Modified:** `artifacts/wms-app/src/components/layout.tsx` (import + render CommandPalette in sidebar + mobile header)
