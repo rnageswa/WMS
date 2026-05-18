@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   useGetDashboardSummary,
   useGetLowStockAlerts,
@@ -10,6 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import {
   Package,
   Boxes,
@@ -31,6 +33,15 @@ import {
   TrendingUp,
   BarChart3,
   Percent,
+  CalendarRange,
+  ChevronDown,
+  Truck,
+  CheckCircle,
+  FileText,
+  Send,
+  FilePlus,
+  PackageCheck,
+  History,
 } from "lucide-react";
 import {
   BarChart,
@@ -43,10 +54,11 @@ import {
   LineChart,
   Line,
 } from "recharts";
-import { formatDistanceToNow, format, parseISO } from "date-fns";
+import { formatDistanceToNow, format, parseISO, startOfMonth, subDays, subMonths } from "date-fns";
 import { Link } from "wouter";
 import { useBaseCurrency } from "@/hooks/use-base-currency";
 import { formatCurrency, getCurrencySymbol } from "@/lib/utils";
+import { useQuery } from "@tanstack/react-query";
 
 function movementIcon(type: string) {
   if (type === "inbound") return <ArrowDownRight className="w-3.5 h-3.5 text-emerald-500" />;
@@ -78,6 +90,35 @@ function SeverityPill({ severity }: { severity: string }) {
   );
 }
 
+type DateRangePreset = "thisMonth" | "last7" | "last30" | "last90" | "thisYear" | "custom";
+
+function getPresetRange(preset: DateRangePreset): { startDate: Date; endDate: Date; trendDays: number } {
+  const now = new Date();
+  switch (preset) {
+    case "thisMonth":
+      return { startDate: startOfMonth(now), endDate: now, trendDays: 30 };
+    case "last7":
+      return { startDate: subDays(now, 7), endDate: now, trendDays: 7 };
+    case "last30":
+      return { startDate: subDays(now, 30), endDate: now, trendDays: 30 };
+    case "last90":
+      return { startDate: subDays(now, 90), endDate: now, trendDays: 90 };
+    case "thisYear":
+      return { startDate: new Date(now.getFullYear(), 0, 1), endDate: now, trendDays: 365 };
+    default:
+      return { startDate: startOfMonth(now), endDate: now, trendDays: 30 };
+  }
+}
+
+const PRESET_LABELS: Record<DateRangePreset, string> = {
+  thisMonth: "This Month",
+  last7: "Last 7 Days",
+  last30: "Last 30 Days",
+  last90: "Last 90 Days",
+  thisYear: "This Year",
+  custom: "Custom Range",
+};
+
 export default function Dashboard() {
   const baseCurrency = useBaseCurrency();
   const { data, isLoading } = useGetDashboardSummary();
@@ -86,13 +127,79 @@ export default function Dashboard() {
   });
   const { data: aging, isLoading: agingLoading } = useGetPurchaseOrderAging();
   const [finData, setFinData] = useState<any>(null);
+  const [datePreset, setDatePreset] = useState<DateRangePreset>("thisMonth");
+  const [customRange, setCustomRange] = useState<{ from?: Date; to?: Date }>({});
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  const fetchFinancial = useCallback(async () => {
+    const range = datePreset === "custom" && customRange.from
+      ? { startDate: customRange.from, endDate: customRange.to || new Date(), trendDays: 30 }
+      : getPresetRange(datePreset);
+    const qs = new URLSearchParams({
+      startDate: range.startDate.toISOString(),
+      endDate: range.endDate.toISOString(),
+      trendDays: String(range.trendDays),
+    });
+    try {
+      const res = await fetch(`/api/dashboard/financial?${qs}`, { credentials: "include" });
+      setFinData(await res.json());
+    } catch {
+      setFinData(null);
+    }
+  }, [datePreset, customRange]);
 
   useEffect(() => {
-    fetch("/api/dashboard/financial")
-      .then((r) => r.json())
-      .then(setFinData)
-      .catch(() => {});
-  }, []);
+    fetchFinancial();
+  }, [fetchFinancial]);
+
+  // Activity feed query
+  const { data: activityData, isLoading: activityLoading } = useQuery({
+    queryKey: ["activity", "recent"],
+    queryFn: async () => {
+      const res = await fetch("/api/activity/recent", { credentials: "include" });
+      return res.json();
+    },
+    refetchInterval: 30000, // refresh every 30s
+  });
+
+  const activities: Array<{ id: string; title: string; detail: string; icon: string; color: string; timestamp: string }> = (activityData?.activities as any) ?? [];
+
+  const activityIcon = (icon: string) => {
+    const cls = "w-4 h-4";
+    switch (icon) {
+      case "arrow-down-right": return <ArrowDownRight className={`${cls} text-emerald-500`} />;
+      case "arrow-up-right": return <ArrowUpRight className={`${cls} text-blue-500`} />;
+      case "sliders-horizontal": return <SlidersHorizontal className={`${cls} text-amber-500`} />;
+      case "truck": return <Truck className={`${cls} text-indigo-500`} />;
+      case "check-circle": return <CheckCircle className={`${cls} text-emerald-500`} />;
+      case "x-circle": return <XCircle className={`${cls} text-red-500`} />;
+      case "package": return <Package className={`${cls} text-blue-500`} />;
+      case "file-text": return <FileText className={`${cls} text-blue-500`} />;
+      case "send": return <Send className={`${cls} text-purple-500`} />;
+      case "file-plus": return <FilePlus className={`${cls} text-purple-500`} />;
+      case "package-check": return <PackageCheck className={`${cls} text-emerald-500`} />;
+      default: return <History className={`${cls} text-muted-foreground`} />;
+    }
+  };
+
+  const handlePresetSelect = (preset: DateRangePreset) => {
+    setDatePreset(preset);
+    setCustomRange({});
+    setPickerOpen(false);
+  };
+
+  const handleCustomSelect = (range: { from?: Date; to?: Date } | undefined) => {
+    if (!range?.from) return;
+    setCustomRange({ from: range.from, to: range.to });
+    if (range.to) {
+      setDatePreset("custom");
+      setPickerOpen(false);
+    }
+  };
+
+  const rangeLabel = datePreset === "custom" && customRange.from
+    ? `${format(customRange.from, "dd MMM")} – ${format(customRange.to || new Date(), "dd MMM")}`
+    : PRESET_LABELS[datePreset];
 
   const alerts = alertData?.alerts ?? [];
   const hasAlerts = alerts.length > 0;
@@ -142,20 +249,20 @@ export default function Dashboard() {
       bg: "bg-emerald-50",
     },
     {
-      label: "COGS (Month)",
-      value: finData ? formatCurrency(finData.cogsThisMonth || 0, baseCurrency) : "—",
-      sub: `${finData?.monthOrderCount ?? 0} orders shipped`,
+      label: `COGS (${rangeLabel})`,
+      value: finData ? formatCurrency(finData.cogsThisPeriod || 0, baseCurrency) : "—",
+      sub: `${finData?.periodOrderCount ?? 0} orders shipped`,
       icon: BarChart3,
       color: "text-blue-600",
       bg: "bg-blue-50",
     },
     {
-      label: "Avg Margin (Month)",
-      value: finData ? `${(finData.avgMarginThisMonth ?? 0).toFixed(1)}%` : "—",
+      label: `Avg Margin (${rangeLabel})`,
+      value: finData ? `${(finData.avgMarginThisPeriod ?? 0).toFixed(1)}%` : "—",
       sub: "blended across orders",
       icon: Percent,
-      color: (finData?.avgMarginThisMonth ?? 0) >= 0 ? "text-emerald-600" : "text-red-600",
-      bg: (finData?.avgMarginThisMonth ?? 0) >= 0 ? "bg-emerald-50" : "bg-red-50",
+      color: (finData?.avgMarginThisPeriod ?? 0) >= 0 ? "text-emerald-600" : "text-red-600",
+      bg: (finData?.avgMarginThisPeriod ?? 0) >= 0 ? "bg-emerald-50" : "bg-red-50",
     },
     {
       label: "Low Stock Value",
@@ -209,7 +316,50 @@ export default function Dashboard() {
 
         {/* Financial KPI tiles */}
         <div>
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Financial Overview</h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Financial Overview</h2>
+            <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1.5 h-7 text-xs">
+                  <CalendarRange className="w-3.5 h-3.5" />
+                  {rangeLabel}
+                  <ChevronDown className="w-3 h-3 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <div className="flex">
+                  {/* Preset list */}
+                  <div className="border-r border-border p-2 space-y-1">
+                    {(Object.keys(PRESET_LABELS) as DateRangePreset[])
+                      .filter((p) => p !== "custom")
+                      .map((preset) => (
+                        <button
+                          key={preset}
+                          onClick={() => handlePresetSelect(preset)}
+                          className={`w-full text-left px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                            datePreset === preset
+                              ? "bg-primary text-primary-foreground"
+                              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                          }`}
+                        >
+                          {PRESET_LABELS[preset]}
+                        </button>
+                      ))}
+                  </div>
+                  {/* Calendar */}
+                  <div className="p-2">
+                    <Calendar
+                      mode="range"
+                      selected={{ from: customRange.from, to: customRange.to }}
+                      onSelect={handleCustomSelect}
+                      numberOfMonths={2}
+                      defaultMonth={subMonths(new Date(), 1)}
+                    />
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
           <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
             {financialKpis.map((kpi) => (
               <Card key={kpi.label} className="border-border/60">
@@ -254,7 +404,7 @@ export default function Dashboard() {
             {/* COGS trend */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm">COGS Trend (30 Days)</CardTitle>
+                <CardTitle className="text-sm">COGS Trend ({finData?.trendDays || 30} Days)</CardTitle>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={200}>
@@ -270,6 +420,60 @@ export default function Dashboard() {
             </Card>
           </div>
         )}
+
+        {/* Recent Activity Feed */}
+        <Card className="border-border/60">
+          <CardHeader className="pb-3 pt-5 px-5 flex flex-row items-center justify-between">
+            <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <History className="w-4 h-4 text-muted-foreground" />
+              Recent Activity
+              {!activityLoading && activities.length > 0 && (
+                <span className="flex h-2 w-2 relative ml-1">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+              )}
+            </CardTitle>
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium">Auto-refreshes</span>
+          </CardHeader>
+          <CardContent className="px-0 pb-0">
+            {activityLoading ? (
+              <div className="px-5 space-y-3 pb-4">
+                {[...Array(5)].map((_, i) => (
+                  <Skeleton key={i} className="h-10 w-full" />
+                ))}
+              </div>
+            ) : activities.length === 0 ? (
+              <p className="px-5 py-8 text-center text-sm text-muted-foreground">
+                No recent activity
+              </p>
+            ) : (
+              <div className="divide-y divide-border/50">
+                {activities.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center gap-3 px-5 py-3 hover:bg-muted/40 transition-colors"
+                  >
+                    <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center shrink-0">
+                      {activityIcon(item.icon)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">
+                        {item.title}
+                      </p>
+                      {item.detail && (
+                        <p className="text-xs text-muted-foreground truncate">{item.detail}</p>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground shrink-0 w-24 text-right">
+                      {formatDistanceToNow(new Date(item.timestamp), { addSuffix: true })}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Low-stock alert panel — only shown when there are alerts */}
         {(alertsLoading || hasAlerts) && (

@@ -228,7 +228,33 @@ export default function ScanPage() {
   const inputRef = useRef<HTMLInputElement>(null);
   const lastMatchTypeRef = useRef<string>("");
 
-  // Audio feedback on successful scan
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "/" && document.activeElement !== inputRef.current) {
+        e.preventDefault();
+        setTab("keyboard");
+        setTimeout(() => inputRef.current?.focus(), 50);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
+  const { data, isLoading, isFetching } = useScanLookup(
+    { q: committed },
+    {
+      query: {
+        enabled: committed.length > 0,
+        queryKey: getScanLookupQueryKey({ q: committed }),
+      },
+    }
+  );
+
+  // Audio feedback on successful scan — must come after data declaration
   useEffect(() => {
     if (!data || !committed) return;
     if (data.matchType === lastMatchTypeRef.current && committed === scanHistory[0]?.query) return;
@@ -256,32 +282,6 @@ export default function ScanPage() {
       return [item, ...filtered].slice(0, 10);
     });
   }, [data, committed]);
-
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "/" && document.activeElement !== inputRef.current) {
-        e.preventDefault();
-        setTab("keyboard");
-        setTimeout(() => inputRef.current?.focus(), 50);
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, []);
-
-  const { data, isLoading, isFetching } = useScanLookup(
-    { q: committed },
-    {
-      query: {
-        enabled: committed.length > 0,
-        queryKey: getScanLookupQueryKey({ q: committed }),
-      },
-    }
-  );
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && query.trim()) {

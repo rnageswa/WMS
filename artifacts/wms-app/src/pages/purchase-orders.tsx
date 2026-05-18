@@ -50,12 +50,14 @@ import {
   Trash2,
   CheckSquare,
   Download,
+  FileSpreadsheet,
   AlertTriangle,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow, format, isPast, parseISO, differenceInCalendarDays } from "date-fns";
 import { getCurrencySymbol } from "@/lib/utils";
+import { exportToExcel } from "@/lib/export-excel";
 
 type PoStatus = "draft" | "ordered" | "partially_received" | "received" | "cancelled";
 
@@ -142,6 +144,19 @@ export default function PurchaseOrdersPage() {
     a.href = url;
     a.download = "";
     a.click();
+  };
+
+  const handleExcelExport = () => {
+    const rows = data.map((po) => ({
+      "PO Number": po.poNumber,
+      Supplier: po.supplierName,
+      Status: po.status,
+      Currency: po.currency ?? "USD",
+      "Total Value": (po as any).totalValue ?? "",
+      "Expected Delivery": po.expectedDeliveryDate ?? "",
+      Created: po.createdAt ? format(new Date(po.createdAt), "yyyy-MM-dd") : "",
+    }));
+    exportToExcel(rows, "purchase-orders");
   };
 
   // Selection helpers
@@ -241,7 +256,7 @@ export default function PurchaseOrdersPage() {
             </button>
           )}
 
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -251,6 +266,16 @@ export default function PurchaseOrdersPage() {
             >
               <Download className="w-3.5 h-3.5" />
               Export CSV
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 h-8 text-xs"
+              disabled={data.length === 0 || isLoading}
+              onClick={handleExcelExport}
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              Export Excel
             </Button>
           </div>
 

@@ -62,7 +62,7 @@ export default function CycleCountSchedulePage() {
 
   const { data: warehouses = [] } = useListWarehouses();
   const { data: zones = [] } = useListZones(warehouseId, {
-    query: { enabled: !!warehouseId },
+    query: { enabled: !!warehouseId, queryKey: ["zones", warehouseId] },
   });
 
   const { data: schedules = [], isLoading } = useQuery<Schedule[]>({

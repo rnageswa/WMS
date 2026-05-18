@@ -30,8 +30,9 @@ import {
 import {
   CheckCircle, Package, Search, Barcode, XCircle, Printer,
   ClipboardList, Tag, Play, Warehouse, MapPin, Loader2,
-  ArrowRight,
+  ArrowRight, Camera,
 } from "lucide-react";
+import { ScanModal } from "@/components/scan-modal";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import LabelPrint from "@/components/label-print";
@@ -111,6 +112,7 @@ export default function PickerPage() {
   const [selectedTaskId, setSelectedTaskId] = useState<string>("");
   const [scanInput, setScanInput] = useState("");
   const [lastScan, setLastScan] = useState<{ type: string; message: string } | null>(null);
+  const [scanModalOpen, setScanModalOpen] = useState(false);
   const [labelPrintOpen, setLabelPrintOpen] = useState(false);
   const [pendingComplete, setPendingComplete] = useState(false);
 
@@ -411,7 +413,16 @@ export default function PickerPage() {
                     <Button onClick={handleScan} disabled={!scanInput.trim()} className="self-end">
                       <Search className="w-4 h-4 mr-1" />Confirm
                     </Button>
+                    <Button variant="outline" className="self-end" onClick={() => setScanModalOpen(true)} title="Scan with camera">
+                      <Camera className="w-4 h-4" />
+                    </Button>
                   </div>
+                  <ScanModal
+                    open={scanModalOpen}
+                    onClose={() => setScanModalOpen(false)}
+                    onScan={(value) => { setScanInput(value); setScanModalOpen(false); }}
+                    title="Scan Pick Line"
+                  />
                   {lastScan && (
                     <div className={`p-3 rounded-md text-sm ${lastScan.type === "success" ? "bg-green-50 text-green-700 border border-green-200" : lastScan.type === "error" ? "bg-red-50 text-red-700 border border-red-200" : "bg-blue-50 text-blue-700 border border-blue-200"}`}>
                       {lastScan.type === "success" && <CheckCircle className="w-4 h-4 inline mr-1" />}

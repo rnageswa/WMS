@@ -1,17 +1,22 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useGetSalesOrders, useDeleteSalesOrder } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Layout, PageHeader } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Plus, Search, X, Package } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { MoreHorizontal, Plus, Search, X, Package, Download, FileSpreadsheet, CheckSquare, Truck } from "lucide-react";
 import { format } from "date-fns";
 import { getCurrencySymbol } from "@/lib/utils";
+import { exportToExcel } from "@/lib/export-excel";
+import { useToast } from "@/hooks/use-toast";
 
 const statusColors: Record<string, string> = {
   draft: "bg-gray-100 text-gray-700",
@@ -45,6 +50,10 @@ export default function SalesOrdersPage() {
   const [, setLocation] = useLocation();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkShipOpen, setBulkShipOpen] = useState(false);
+  const { toast } = useToast();
+  const qc = useQueryClient();
 
   const { data: orders, isLoading } = useGetSalesOrders({
     q: search || undefined,
@@ -66,6 +75,51 @@ export default function SalesOrdersPage() {
       ),
       duration: 10000,
     });
+  };
+
+  // Selection helpers
+  const selectableIds = orders?.map((o) => o.id) ?? [];
+  const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selected.has(id));
+  const someSelected = selected.size > 0;
+
+  const toggleAll = () => {
+    if (allSelected) setSelected(new Set());
+    else setSelected(new Set(selectableIds));
+  };
+
+  const toggleRow = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const shippableOrders = orders?.filter((o) => selected.has(o.id) && o.status === "packed") ?? [];
+
+  const handleBulkShip = async () => {
+    if (!shippableOrders.length) return;
+    try {
+      const res = await fetch("/api/sales-orders/bulk-ship", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ ids: shippableOrders.map((o) => o.id) }),
+      });
+      const data = await res.json();
+      if (data.shipped > 0) {
+        toast({ title: `Shipped ${data.shipped} order${data.shipped !== 1 ? "s" : ""}` });
+      }
+      if (data.errors?.length > 0) {
+        toast({ title: `${data.errors.length} order${data.errors.length !== 1 ? "s" : ""} failed`, variant: "destructive" });
+      }
+      qc.invalidateQueries({ queryKey: ["sales-orders"] });
+      setSelected(new Set());
+    } catch {
+      toast({ title: "Failed to ship orders", variant: "destructive" });
+    }
+    setBulkShipOpen(false);
   };
 
   return (
@@ -121,6 +175,31 @@ export default function SalesOrdersPage() {
               <SelectItem value="cancelled">Cancelled</SelectItem>
             </SelectContent>
           </Select>
+
+          <div className="ml-auto flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 h-8 text-xs"
+              disabled={!orders?.length || isLoading}
+              onClick={() => {
+                if (!orders?.length) return;
+                const rows = orders.map((so) => ({
+                  "Order #": so.orderNumber,
+                  Customer: so.customerName,
+                  Status: so.status,
+                  Currency: so.currency ?? "USD",
+                  "Total Value": (so as any).totalValue ?? "",
+                  "Expected Ship": so.expectedShipDate ?? "",
+                  Created: so.createdAt ? format(new Date(so.createdAt), "yyyy-MM-dd") : "",
+                }));
+                exportToExcel(rows, "sales-orders");
+              }}
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              Export Excel
+            </Button>
+          </div>
         </div>
 
         {/* Table */}
@@ -128,6 +207,13 @@ export default function SalesOrdersPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10 pl-4">
+                  <Checkbox
+                    checked={allSelected}
+                    onCheckedChange={toggleAll}
+                    aria-label="Select all"
+                  />
+                </TableHead>
                 <TableHead>Order #</TableHead>
                 <TableHead>Customer</TableHead>
                 <TableHead>Status</TableHead>
@@ -141,23 +227,25 @@ export default function SalesOrdersPage() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                     Loading...
                   </TableCell>
                 </TableRow>
               ) : orders?.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                     <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
                     <p>No orders found</p>
                     <p className="text-sm">Create your first sales order to get started</p>
                   </TableCell>
                 </TableRow>
               ) : (
-                orders?.map((order) => (
+                orders?.map((order) => {
+                  const isSelected = selected.has(order.id);
+                  return (
                   <TableRow
                     key={order.id}
-                    className="cursor-pointer"
+                    className={`cursor-pointer ${isSelected ? "bg-orange-50/60" : ""}`}
                     onClick={() => {
                       if (order.status === "picking") {
                         setLocation(`/picker?orderId=${order.id}`);
@@ -166,6 +254,13 @@ export default function SalesOrdersPage() {
                       }
                     }}
                   >
+                    <TableCell className="pl-4 w-10" onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => toggleRow(order.id)}
+                        aria-label={`Select ${order.orderNumber}`}
+                      />
+                    </TableCell>
                     <TableCell>
                       <div className="font-medium">{order.orderNumber}</div>
                       {order.status === "cancelled" && (
@@ -180,7 +275,7 @@ export default function SalesOrdersPage() {
                     </TableCell>
                     <TableCell>{order.lineCount || 0}</TableCell>
                     <TableCell>{order.totalQty || 0}</TableCell>
-                    <TableCell><Badge variant="outline">{getCurrencySymbol(order.currency)} {order.currency}</Badge></TableCell>
+                    <TableCell><Badge variant="outline">{getCurrencySymbol(order.currency ?? "USD")} {order.currency ?? "USD"}</Badge></TableCell>
                     <TableCell>{format(new Date(order.createdAt), "MMM d, yyyy")}</TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <DropdownMenu>
@@ -205,12 +300,66 @@ export default function SalesOrdersPage() {
                       </DropdownMenu>
                     </TableCell>
                   </TableRow>
-                ))
+                  );
+                })
               )}
             </TableBody>
           </Table>
         </Card>
       </div>
+
+      {/* Bulk action bar */}
+      {someSelected && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 bg-gray-900 text-white rounded-xl shadow-2xl border border-white/10">
+          <div className="flex items-center gap-2 pr-3 border-r border-white/20">
+            <CheckSquare className="w-4 h-4 text-white/70" />
+            <span className="text-sm font-medium">{selected.size} selected</span>
+          </div>
+
+          {shippableOrders.length > 0 && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8 gap-1.5 text-indigo-300 hover:text-indigo-200 hover:bg-white/10 text-xs"
+              onClick={() => setBulkShipOpen(true)}
+            >
+              <Truck className="w-3.5 h-3.5" />
+              Ship {shippableOrders.length > 1 ? `${shippableOrders.length} orders` : "order"}
+            </Button>
+          )}
+
+          <button
+            onClick={() => setSelected(new Set())}
+            className="ml-1 text-white/50 hover:text-white transition-colors"
+            aria-label="Clear selection"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Bulk ship confirmation */}
+      <AlertDialog open={bulkShipOpen} onOpenChange={setBulkShipOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Ship {shippableOrders.length} Order{shippableOrders.length !== 1 ? "s" : ""}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will mark {shippableOrders.length} packed order{shippableOrders.length !== 1 ? "s" : ""} as shipped and create outbound inventory movements.
+              <br /><br />
+              <span className="font-medium text-foreground">This cannot be undone.</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-indigo-600 hover:bg-indigo-700 text-white"
+              onClick={handleBulkShip}
+            >
+              Ship {shippableOrders.length} Order{shippableOrders.length !== 1 ? "s" : ""}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Layout>
   );
 }

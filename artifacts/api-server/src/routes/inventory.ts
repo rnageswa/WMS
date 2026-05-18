@@ -185,6 +185,56 @@ router.post("/inventory/adjust", requireRole("admin", "operator"), async (req, r
   });
 });
 
+// ── POST /inventory/adjust/bulk ───────────────────────────────────────────────
+
+const BulkAdjustSchema = z.object({
+  items: z.array(z.object({
+    productId: z.string().uuid(),
+    binId: z.string().uuid(),
+    newQty: z.number().int().min(0),
+  })).min(1),
+  reasonCode: z.string().min(1),
+});
+
+router.post("/inventory/adjust/bulk", requireRole("admin", "operator"), async (req, res) => {
+  const body = BulkAdjustSchema.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ message: body.error.message });
+    return;
+  }
+  const { items, reasonCode } = body.data;
+
+  const results = [];
+  for (const item of items) {
+    const existingRows = await db
+      .select()
+      .from(inventoryItemsTable)
+      .where(and(eq(inventoryItemsTable.productId, item.productId), eq(inventoryItemsTable.binId, item.binId)));
+
+    const existing = existingRows[0];
+    const oldQty = existing?.qtyOnHand ?? 0;
+    const delta = item.newQty - oldQty;
+
+    if (existing) {
+      await db.update(inventoryItemsTable).set({ qtyOnHand: item.newQty, updatedAt: new Date() }).where(eq(inventoryItemsTable.id, existing.id));
+    } else {
+      await db.insert(inventoryItemsTable).values({ productId: item.productId, binId: item.binId, qtyOnHand: item.newQty });
+    }
+
+    await db.insert(inventoryMovementsTable).values({
+      productId: item.productId,
+      binId: item.binId,
+      movementType: "adjustment",
+      quantity: delta,
+      reasonCode,
+    });
+
+    results.push({ productId: item.productId, binId: item.binId, oldQty, newQty: item.newQty, delta });
+  }
+
+  res.json({ adjusted: results.length, items: results });
+});
+
 // ── GET /movements ────────────────────────────────────────────────────────────
 
 router.get("/movements", async (req, res) => {
@@ -733,7 +783,15 @@ router.get("/reports/inventory-csv", async (_req, res) => {
 
 // ── GET /dashboard/financial — Financial KPI summary ──────────────────────────
 
-router.get("/dashboard/financial", async (_req, res) => {
+router.get("/dashboard/financial", async (req, res) => {
+  // Parse optional date range — defaults to current month
+  const now = new Date();
+  const defaultStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const startDate = req.query.startDate ? new Date(req.query.startDate as string) : defaultStart;
+  const endDate = req.query.endDate ? new Date(req.query.endDate as string) : now;
+  const trendDays = parseInt(req.query.trendDays as string) || 30;
+  const trendStart = new Date(Date.now() - trendDays * 24 * 60 * 60 * 1000);
+
   // Total inventory value — computed as unitPrice * qtyOnHand (matches reports)
   const [invValue] = await db
     .select({
@@ -742,24 +800,24 @@ router.get("/dashboard/financial", async (_req, res) => {
     .from(inventoryItemsTable)
     .innerJoin(productsTable, eq(inventoryItemsTable.productId, productsTable.id));
 
-  // COGS this month
-  const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  // COGS in date range
   const [cogsMonth] = await db
     .select({ total: sql<string>`COALESCE(SUM(${salesOrdersTable.totalCogs}), 0)` })
     .from(salesOrdersTable)
     .where(and(
       sql`${salesOrdersTable.status} IN ('shipped', 'delivered')`,
-      gte(salesOrdersTable.shippedAt, monthStart),
+      gte(salesOrdersTable.shippedAt, startDate),
+      lte(salesOrdersTable.shippedAt, endDate),
     ));
 
-  // Avg margin this month (from shipped/delivered orders)
+  // Avg margin in date range (from shipped/delivered orders)
   const monthOrders = await db
     .select({ id: salesOrdersTable.id })
     .from(salesOrdersTable)
     .where(and(
       sql`${salesOrdersTable.status} IN ('shipped', 'delivered')`,
-      gte(salesOrdersTable.shippedAt, monthStart),
+      gte(salesOrdersTable.shippedAt, startDate),
+      lte(salesOrdersTable.shippedAt, endDate),
     ));
 
   let totalRevenue = 0;
@@ -792,8 +850,7 @@ router.get("/dashboard/financial", async (_req, res) => {
     .groupBy(warehousesTable.id, warehousesTable.name)
     .orderBy(sql`SUM(COALESCE(${productsTable.unitPrice}, 0) * ${inventoryItemsTable.qtyOnHand}) DESC`);
 
-  // COGS trend — daily for last 30 days
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  // COGS trend — daily for configurable period (default 30 days)
   const dailyCOGS = await db
     .select({
       date: sql<string>`DATE(${inventoryMovementsTable.createdAt})`,
@@ -802,7 +859,7 @@ router.get("/dashboard/financial", async (_req, res) => {
     .from(inventoryMovementsTable)
     .where(and(
       eq(inventoryMovementsTable.movementType, "outbound"),
-      gte(inventoryMovementsTable.createdAt, thirtyDaysAgo),
+      gte(inventoryMovementsTable.createdAt, trendStart),
     ))
     .groupBy(sql`DATE(${inventoryMovementsTable.createdAt})`)
     .orderBy(sql`DATE(${inventoryMovementsTable.createdAt})`);
@@ -818,9 +875,11 @@ router.get("/dashboard/financial", async (_req, res) => {
 
   res.json({
     totalInventoryValue: parseFloat(invValue?.total || "0"),
-    cogsThisMonth: parseFloat(cogsMonth?.total || "0"),
-    avgMarginThisMonth: Math.round(avgMarginPct * 10) / 10,
-    monthOrderCount: monthOrders.length,
+    cogsThisPeriod: parseFloat(cogsMonth?.total || "0"),
+    avgMarginThisPeriod: Math.round(avgMarginPct * 10) / 10,
+    periodOrderCount: monthOrders.length,
+    dateRange: { startDate: startDate.toISOString(), endDate: endDate.toISOString() },
+    trendDays,
     valueByWarehouse: valueByWarehouse.map((w) => ({
       ...w,
       totalValue: parseFloat(w.totalValue),

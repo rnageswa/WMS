@@ -572,6 +572,60 @@ router.post("/sales-orders/:id/ship", requireAuth, async (req: any, res) => {
   res.json(updated);
 });
 
+// POST /sales-orders/bulk-ship — ship multiple packed orders at once
+const BulkShipSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1),
+});
+
+router.post("/sales-orders/bulk-ship", requireAuth, async (req: any, res) => {
+  const body = BulkShipSchema.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: body.error.message });
+    return;
+  }
+  const { ids } = body.data;
+
+  const shipped = [];
+  const errors = [];
+
+  for (const id of ids) {
+    try {
+      const [order] = await db.select().from(salesOrdersTable).where(eq(salesOrdersTable.id, id)).limit(1);
+      if (!order) { errors.push({ id, error: "Order not found" }); continue; }
+      if (order.status !== "packed") { errors.push({ id, error: `Cannot ship order in status: ${order.status}` }); continue; }
+
+      const lines = await db.select().from(salesOrderLinesTable).where(eq(salesOrderLinesTable.orderId, id));
+      let totalCOGS = 0;
+
+      for (const line of lines) {
+        const [inventoryItem] = await db.select().from(inventoryItemsTable).where(and(eq(inventoryItemsTable.productId, line.productId), sql`qty_on_hand >= ${line.qtyPacked}`)).limit(1);
+        if (!inventoryItem) { errors.push({ id, error: `Insufficient inventory for product ${line.productId}` }); continue; }
+
+        const [movement] = await db.insert(inventoryMovementsTable).values({
+          productId: line.productId, binId: inventoryItem.binId, movementType: "outbound",
+          quantity: -line.qtyPacked, unitCost: inventoryItem.avgCost,
+          totalCost: String(Math.round(parseFloat(inventoryItem.avgCost || "0") * line.qtyPacked * 100) / 100),
+          reasonCode: `DISPATCH:${order.orderNumber}`, referenceId: order.id, referenceType: "sales_order", createdBy: req.userId,
+        }).returning();
+
+        const cogs = await recordOutboundCost(line.productId, inventoryItem.binId, movement.id, line.qtyPacked);
+        totalCOGS += cogs;
+
+        await db.update(inventoryItemsTable).set({ qtyOnHand: sql`qty_on_hand - ${line.qtyPacked}` }).where(eq(inventoryItemsTable.id, inventoryItem.id));
+      }
+
+      await db.update(salesOrdersTable).set({ status: "shipped", totalCogs: String(Math.round(totalCOGS * 100) / 100), shippedAt: new Date(), updatedAt: new Date() }).where(eq(salesOrdersTable.id, id));
+      await db.update(salesOrderLinesTable).set({ status: "shipped", qtyShipped: sql`qty_packed` }).where(eq(salesOrderLinesTable.orderId, id));
+      await addHistoryEvent(id, "shipped", "Bulk shipped");
+      shipped.push(id);
+    } catch (err: any) {
+      errors.push({ id, error: err.message ?? "Unknown error" });
+    }
+  }
+
+  res.json({ shipped: shipped.length, shippedIds: shipped, errors });
+});
+
 // POST /sales-orders/:id/delivered — mark as delivered (shipped -> delivered)
 router.post("/sales-orders/:id/delivered", requireAuth, async (req, res) => {
   const { id } = req.params;

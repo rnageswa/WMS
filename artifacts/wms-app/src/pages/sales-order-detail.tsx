@@ -20,7 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Package, Truck, CheckCircle, XCircle, Box, ShoppingCart, Send, FileText, ClipboardList, DollarSign, TrendingUp } from "lucide-react";
+import { ArrowLeft, Package, Truck, CheckCircle, XCircle, Box, ShoppingCart, Send, FileText, ClipboardList, DollarSign, TrendingUp, RotateCcw } from "lucide-react";
 import { format } from "date-fns";
 import { formatCurrency, getCurrencySymbol } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -211,6 +211,12 @@ export default function SalesOrderDetailPage() {
                 Print Shipping Label
               </Button>
             )}
+            {(order.status === "shipped" || order.status === "delivered") && (
+              <Button variant="outline" onClick={() => setLocation(`/returns/new?orderId=${orderId}`)}>
+                <RotateCcw className="w-4 h-4 mr-1" />
+                Initiate Return
+              </Button>
+            )}
             {canCancel && (
               <Button variant="outline" className="text-red-600" onClick={handleCancel}>
                 Cancel Order
@@ -342,7 +348,7 @@ export default function SalesOrderDetailPage() {
               {order.expectedShipDate && <div><span className="text-muted-foreground">Expected:</span> {format(new Date(order.expectedShipDate), "MMM d, yyyy")}</div>}
               {order.shippedAt && <div><span className="text-muted-foreground">Shipped:</span> {format(new Date(order.shippedAt), "MMM d, yyyy")}</div>}
               {order.deliveredAt && <div><span className="text-muted-foreground">Delivered:</span> {format(new Date(order.deliveredAt), "MMM d, yyyy")}</div>}
-              <div className="pt-1 border-t mt-2"><span className="text-muted-foreground">Currency:</span> <span className="font-medium">{getCurrencySymbol(order.currency)} {order.currency}</span>{order.exchangeRate && <span className="text-muted-foreground ml-1">(rate: {parseFloat(order.exchangeRate).toFixed(6)})</span>}</div>
+              <div className="pt-1 border-t mt-2"><span className="text-muted-foreground">Currency:</span> <span className="font-medium">{getCurrencySymbol(order.currency ?? "USD")} {order.currency}</span>{order.exchangeRate && <span className="text-muted-foreground ml-1">(rate: {Number(order.exchangeRate).toFixed(6)})</span>}</div>
             </CardContent>
           </Card>
 

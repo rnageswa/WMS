@@ -46,7 +46,9 @@ import {
   History,
   ClipboardCheck,
   CalendarClock,
+  Camera,
 } from "lucide-react";
+import { ScanModal } from "@/components/scan-modal";
 import { Link } from "wouter";
 import { format } from "date-fns";
 
@@ -83,6 +85,7 @@ export default function CycleCountPage() {
   const [zoneId, setZoneId] = useState<string>("__all__");
   const [entries, setEntries] = useState<CountEntry[]>([]);
   const [done, setDone] = useState<DoneResult | null>(null);
+  const [scanModalOpen, setScanModalOpen] = useState(false);
 
   const { data: history = [], isLoading: loadingHistory } = useQuery({
     queryKey: ["cycle-counts", "history"],
@@ -406,8 +409,37 @@ export default function CycleCountPage() {
                 <span>{scopeLabel}</span>
                 {reference && <code className="font-mono text-foreground text-xs bg-muted px-1.5 py-0.5 rounded ml-1">{reference}</code>}
               </div>
-              <Badge variant="outline">{entries.length} items · {discrepancies.length} changes</Badge>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" className="gap-1.5 h-7 text-xs" onClick={() => setScanModalOpen(true)}>
+                  <Camera className="w-3.5 h-3.5" />
+                  Scan
+                </Button>
+                <Badge variant="outline">{entries.length} items · {discrepancies.length} changes</Badge>
+              </div>
             </div>
+            <ScanModal
+              open={scanModalOpen}
+              onClose={() => setScanModalOpen(false)}
+              onScan={(value) => {
+                setScanModalOpen(false);
+                // Find entry by SKU or product name
+                const idx = entries.findIndex(
+                  (e) => e.skuCode === value || e.productName?.toLowerCase() === value.toLowerCase()
+                );
+                if (idx >= 0) {
+                  // Focus the physical count input for this entry
+                  const el = document.querySelector(`[data-count-input="${entries[idx].inventoryItemId}"]`) as HTMLInputElement;
+                  if (el) {
+                    el.focus();
+                    el.scrollIntoView({ behavior: "smooth", block: "center" });
+                  }
+                  toast({ title: "Item found", description: `Focused: ${entries[idx].skuCode} — ${entries[idx].productName}` });
+                } else {
+                  toast({ title: "Not in scope", description: `"${value}" not found in current count scope`, variant: "destructive" });
+                }
+              }}
+              title="Scan to Find Item"
+            />
 
             {entries.length === 0 ? (
               <Card className="border-border/60">

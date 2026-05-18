@@ -166,3 +166,69 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* ── Print-friendly global styles ─────────────────────────────────────────── */
+@media print {
+  /* Hide non-content elements */
+  .no-print,
+  aside,
+  nav,
+  header,
+  [data-testid="mobile-header"],
+  .md\\:hidden,
+  button,
+  [role="dialog"],
+  [data-radix-popper-content-wrapper] {
+    display: none !important;
+  }
+
+  /* Reset layout for print */
+  body {
+    margin: 0 !important;
+    background: white !important;
+    color: #111827 !important;
+    font-size: 12px !important;
+  }
+
+  /* Remove shadows, borders, backgrounds from containers */
+  .print-area,
+  main,
+  .flex-1 {
+    display: block !important;
+    overflow: visible !important;
+    height: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Ensure tables print properly */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    page-break-inside: auto;
+  }
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+  thead {
+    display: table-header-group;
+  }
+
+  /* Page margins */
+  @page {
+    margin: 12mm 14mm;
+    size: A4;
+  }
+
+  /* Links — show URL after text */
+  a[href]::after {
+    content: " (" attr(href) ")";
+    font-size: 10px;
+    color: #6b7280;
+  }
+  /* Don't show URL for internal nav links */
+  a[href^="/"]:not([href^="//"])::after {
+    content: "";
+  }
+}

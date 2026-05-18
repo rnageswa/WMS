@@ -80,7 +80,9 @@ import {
   XCircle,
   Receipt,
   Percent,
+  FileSpreadsheet,
 } from "lucide-react";
+import { exportToExcel } from "@/lib/export-excel";
 import { formatCurrency } from "@/lib/utils";
 import { useBaseCurrency } from "@/hooks/use-base-currency";
 
@@ -203,10 +205,28 @@ function StockValueTab() {
             <Skeleton className="h-4 w-40" />
           )}
         </div>
-        <Button variant="outline" size="sm" onClick={() => window.open("/api/reports/inventory-csv", "_blank")} className="gap-1.5">
-          <Download className="w-3.5 h-3.5" />
-          Export CSV
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => window.open("/api/reports/inventory-csv", "_blank")} className="gap-1.5">
+            <Download className="w-3.5 h-3.5" />
+            Export CSV
+          </Button>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => {
+            const items = (report as any)?.products ?? (report as any)?.items ?? [];
+            if (!items.length) return;
+            const rows = items.map((item: Record<string, unknown>) => ({
+              SKU: item.skuCode ?? "",
+              Product: item.productName ?? item.name ?? "",
+              Category: item.category ?? "",
+              "Qty On Hand": item.qtyOnHand ?? item.currentStock ?? 0,
+              "Stock Value": item.stockValue ?? "",
+              "Reorder Threshold": item.reorderThreshold ?? 0,
+            }));
+            exportToExcel(rows, "inventory-report");
+          }}>
+            <FileSpreadsheet className="w-3.5 h-3.5" />
+            Export Excel
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-4">
@@ -625,6 +645,29 @@ function StockVelocityTab() {
           >
             <Download className="w-3.5 h-3.5" />
             Export CSV
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            disabled={!rows?.length}
+            onClick={() => {
+              if (!rows?.length) return;
+              const excelRows = rows.map((r: StockVelocityRow) => ({
+                SKU: r.skuCode ?? "",
+                Product: r.name ?? "",
+                Category: r.category ?? "",
+                "Qty On Hand": r.currentStock ?? 0,
+                "Outbound (period)": r.unitsOut ?? 0,
+                "Velocity/Day": r.velocityPerDay ?? 0,
+                "Reorder Risk": r.reorderRisk ? "Yes" : "No",
+                "Days of Stock": r.daysOfStockRemaining ?? "—",
+              }));
+              exportToExcel(excelRows, `stock-velocity-${days}d`);
+            }}
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5" />
+            Export Excel
           </Button>
           <div className="flex items-center gap-1 border border-border rounded-md p-0.5 bg-muted/30">
             {VELOCITY_DAYS.map((opt) => (

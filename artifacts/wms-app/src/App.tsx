@@ -57,6 +57,9 @@ import PickerPage from "@/pages/picker";
 import SmartReplenishment from "@/pages/smart-replenishment";
 import SmartPicking from "@/pages/smart-picking";
 import DemandForecast from "@/pages/demand-forecast";
+import ReturnsPage from "@/pages/returns";
+import ReturnNewPage from "@/pages/return-new";
+import ReturnDetailPage from "@/pages/return-detail";
 import SignInPage from "@/pages/sign-in";
 import SignUpPage from "@/pages/sign-up";
 import NotFound from "@/pages/not-found";
@@ -245,6 +248,9 @@ function AppRouter() {
             <Route path="/smart-replenishment"><AuthGuard><SmartReplenishment /></AuthGuard></Route>
             <Route path="/smart-picking"><AuthGuard><SmartPicking /></AuthGuard></Route>
             <Route path="/demand-forecast"><AuthGuard><DemandForecast /></AuthGuard></Route>
+            <Route path="/returns/new"><AuthGuard><ReturnNewPage /></AuthGuard></Route>
+            <Route path="/returns/:id"><AuthGuard><ReturnDetailPage /></AuthGuard></Route>
+            <Route path="/returns"><AuthGuard><ReturnsPage /></AuthGuard></Route>
             <Route path="/suppliers/performance"><AuthGuard><SupplierPerformancePage /></AuthGuard></Route>
             <Route path="/suppliers/:id"><AuthGuard><SupplierDetailPage /></AuthGuard></Route>
             <Route path="/suppliers"><AuthGuard><SuppliersPage /></AuthGuard></Route>

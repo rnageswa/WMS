@@ -16,6 +16,9 @@ import { pricingRouter } from "./pricing";
 import replenishmentRouter from "./replenishment";
 import enginesRouter from "./engines";
 import cycleCountRouter from "./cycle-count";
+import activityRouter from "./activity";
+import returnsRouter from "./returns";
+import wavesRouter from "./waves";
 
 const router: IRouter = Router();
 
@@ -43,5 +46,8 @@ router.use(pricingRouter);
 router.use(replenishmentRouter);
 router.use(enginesRouter);
 router.use(cycleCountRouter);
+router.use(activityRouter);
+router.use(returnsRouter);
+router.use(wavesRouter);
 
 export default router;

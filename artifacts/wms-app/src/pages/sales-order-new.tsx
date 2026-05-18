@@ -30,7 +30,7 @@ function OrderLineItem({
 }) {
   const { data: invData } = useListInventory(
     line.productId ? { productId: line.productId } : { productId: "skip" },
-    { query: { enabled: !!line.productId } }
+    { query: { enabled: !!line.productId, queryKey: ["inventory", line.productId] } }
   );
   const availableQty = (invData as any)?.reduce((sum: number, inv: any) => sum + (inv.qtyOnHand || 0), 0) ?? 0;
 
@@ -318,7 +318,7 @@ export default function NewSalesOrderPage() {
                   <OrderLineItem
                     key={line.id}
                     line={line}
-                    products={products}
+                    products={products ?? []}
                     currency={currency}
                     onUpdate={updateLine}
                     onRemove={removeLine}

@@ -1,8 +1,8 @@
 # WareIQ — Warehouse Management System (WMS)
 ## Complete Application Context & Design Document
 
-**Last Updated:** 2026-05-17
-**Version:** MVP — Phase 1-6.1 Complete + Admin Console + Production Deployment
+**Last Updated:** 2026-05-18
+**Version:** MVP — Phase 1-6.1 Complete + Admin Console + Production Deployment + Sprint 1 Quick Wins + Sprint 2 Core Ops + Sprint 3 Picking Efficiency
 
 ---
 
@@ -67,7 +67,9 @@ D:\MyProjects\WMS\WMS\
 │   │   │   │   ├── ui/           # shadcn/ui primitives
 │   │   │   │   ├── layout.tsx    # App layout wrapper
 │   │   │   │   ├── help-tooltip.tsx
-│   │   │   │   └── label-print.tsx
+│   │   │   │   ├── label-print.tsx
+│   │   │   │   ├── command-palette.tsx  # Ctrl+K command palette (cmdk)
+│   │   │   │   └── scan-modal.tsx      # Mobile camera scan modal
 │   │   │   ├── lib/              # Utilities
 │   │   │   │   ├── queryClient.ts
 │   │   │   │   ├── help-content.ts
@@ -325,6 +327,44 @@ D:\MyProjects\WMS\WMS\
 ### 4.10 Auth
 **Table:** `user_roles` — maps Clerk user IDs to app roles (admin/operator/viewer)
 
+### 4.11 Wave Picking
+**Table:** `pick_waves`
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID | PK |
+| waveNumber | text | UNIQUE, format: WAVE-YYMMDD-XXX |
+| status | text | enum: draft, ready, picking, completed, cancelled |
+| totalOrders | integer | default: 0 |
+| totalLines | integer | default: 0 |
+| totalUnits | integer | default: 0 |
+| pickedLines | integer | default: 0 |
+| pickedUnits | integer | default: 0 |
+| startedAt | timestamptz | nullable |
+| completedAt | timestamptz | nullable |
+| createdAt | timestamptz | auto |
+| updatedAt | timestamptz | auto |
+
+**Table:** `pick_wave_orders`
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID | PK |
+| waveId | UUID | FK → pick_waves, CASCADE |
+| orderId | UUID | FK → sales_orders, CASCADE |
+| taskId | UUID | FK → picking_tasks, SET NULL |
+| sortOrder | integer | default: 0 |
+| createdAt | timestamptz | auto |
+
+**Table:** `pick_wave_zone_stops`
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID | PK |
+| waveId | UUID | FK → pick_waves, CASCADE |
+| zoneId | UUID | FK → zones, CASCADE |
+| stopOrder | integer | not null |
+| linesCount | integer | default: 0 |
+| unitsCount | integer | default: 0 |
+| createdAt | timestamptz | auto |
+
 ---
 
 ## 5. API Routes (Complete)
@@ -363,6 +403,8 @@ All routes prefixed with `/api`. Auth via Clerk session cookie.
 | PUT | `/bins/:id` | Update bin |
 | DELETE | `/bins/:id` | Delete bin |
 | GET | `/locations/bin-activity` | Movement counts per bin in a zone |
+| GET | `/locations/putaway-suggest` | Suggest optimal bin for inbound stock (productId, qty, warehouseId; scores by co-location, zone activity, capacity) |
+| GET | `/locations/zone-activity` | Movement counts per zone across all warehouses |
 
 ### Sales Orders
 | Method | Path | Description |
@@ -394,6 +436,17 @@ All routes prefixed with `/api`. Auth via Clerk session cookie.
 | PUT | `/picking-tasks/:id/lines/:lineId/pick` | Pick a line (qtyPicked, optional binId override) |
 | PUT | `/picking-tasks/:id/complete` | Complete task (in_progress → completed, updates order to picking_complete) |
 | PUT | `/picking-tasks/:id/cancel` | Cancel task |
+
+### Wave Picking
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/picking/waves` | List waves (optional status filter) |
+| GET | `/picking/waves/suggest` | Suggest orders available for wave creation (orders in `picking` status not already in an active wave) |
+| POST | `/picking/waves` | Create wave from selected order IDs (auto-creates picking tasks, computes zone stops, generates optimized pick path) |
+| GET | `/picking/waves/:id` | Wave detail with zone stops + pick lines grouped by zone |
+| PUT | `/picking/waves/:id/start` | Start wave (ready → picking, starts all tasks/lines) |
+| PUT | `/picking/waves/:id/pick-line` | Pick a line within a wave (qty, optional bin override) |
+| PUT | `/picking/waves/:id/complete` | Complete wave (all lines must be picked, updates orders to picking_complete) |
 
 ### Purchase Orders
 | Method | Path | Description |
@@ -447,6 +500,38 @@ All routes prefixed with `/api`. Auth via Clerk session cookie.
 | GET | `/auth/me` | Get current user role |
 | POST | `/auth/roles` | Set user role |
 
+### Cycle Count
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/cycle-counts/schedules` | List all active schedules |
+| POST | `/cycle-counts/schedules` | Create schedule |
+| PUT | `/cycle-counts/schedules/:id` | Update schedule |
+| DELETE | `/cycle-counts/schedules/:id` | Soft delete schedule |
+| POST | `/cycle-counts/schedules/:id/run` | Mark schedule as run now |
+| GET | `/cycle-counts/history` | List count history (last 50) |
+| POST | `/cycle-counts/history` | Record completed count |
+
+### Activity
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/activity/recent` | Recent activity feed (union of movements, SO history, PO history) |
+
+### Returns (RMA)
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/returns` | List RMAs (optional status filter) |
+| GET | `/returns/:id` | Get RMA detail with lines |
+| POST | `/returns` | Create RMA with lines |
+| PUT | `/returns/:id/status` | Update RMA status (with timestamp tracking) |
+| PUT | `/returns/:id/lines/:lineId` | Update return line (qty received, condition, disposition) |
+| DELETE | `/returns/:id` | Delete RMA (cascade lines) |
+
+### Bulk Operations
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/inventory/adjust/bulk` | Bulk adjust inventory qty (array of product/bin/newQty) |
+| POST | `/sales-orders/bulk-ship` | Bulk ship packed sales orders |
+
 ### Seed
 | Method | Path | Description |
 |--------|------|-------------|
@@ -475,6 +560,7 @@ All routes protected by Clerk auth (redirect to `/sign-in` if not authenticated)
 | `/dispatch` | DispatchPage | Dispatch |
 | `/transfer` | TransferPage | Transfer |
 | `/cycle-count` | CycleCountPage | Cycle Count |
+| `/cycle-count/schedule` | CycleCountSchedulePage | Count Schedule |
 | `/reports` | ReportsPage | Reports |
 | `/sales-orders` | SalesOrdersPage | Sales Orders |
 | `/sales-orders/new` | SalesOrderNewPage | Sales Orders |
@@ -483,6 +569,10 @@ All routes protected by Clerk auth (redirect to `/sign-in` if not authenticated)
 | `/sales-orders/:id/packing-slip` | SalesOrderPackingSlipPage | Sales Orders |
 | `/sales-orders/:id/shipping-label` | ShippingLabelPage | Sales Orders |
 | `/picker` | PickerPage | Picking |
+| `/smart-picking` | SmartPickingPage | Wave Picking (Plan + Execute) |
+| `/returns` | ReturnsPage | Returns (RMA) |
+| `/returns/new` | ReturnNewPage | Returns (RMA) |
+| `/returns/:id` | ReturnDetailPage | Returns (RMA) |
 | `/purchase-orders` | PurchaseOrdersPage | Purchase Orders |
 | `/purchase-orders/new` | PurchaseOrderNewPage | Purchase Orders |
 | `/purchase-orders/:id` | PurchaseOrderDetailPage | Purchase Orders |
@@ -816,6 +906,10 @@ The Admin Console (`/admin`) is the central system administration hub, accessibl
 | 2026-05-16 | Dashboard `toFixed` crash | `finData.avgMarginThisMonth` was `undefined` when API returned no financial data. `undefined.toFixed(1)` throws TypeError. | Added `?? 0` guard: `(finData.avgMarginThisMonth ?? 0).toFixed(1)`. |
 | 2026-05-17 | Clerk JS still loading from `/api/__clerk/...` in dev | `clerkProxyUrl` fell back to `undefined` when `VITE_CLERK_PROXY_URL` not set. Clerk SDK treats `undefined` as "use current origin". Vite proxy forwarded to API server → 401. | Simplified to `clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL || ""` — always empty string unless explicitly set. Clerk loads from CDN in all environments. |
 | 2026-05-17 | All API calls 500 in dev | `clerkMiddleware` from `@clerk/express` requires `CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` env vars. Root `.env` only had `VITE_CLERK_PUBLISHABLE_KEY` (Vite-prefixed, not loaded by Node). | Added `CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` to root `.env` (backend-only, no `VITE_` prefix). |
+| 2026-05-17 | `scan.tsx` runtime: `Cannot access 'data' before initialization` | `useEffect` referencing `data` was placed before `useScanLookup` hook declaration. | Moved `useEffect` after `useScanLookup` hook declaration. |
+| 2026-05-18 | Waves API 500 on Netlify | `pick_waves`, `pick_wave_orders`, `pick_wave_zone_stops` tables not pushed to Neon DB. | Ran `drizzle-kit push` to create tables. |
+| 2026-05-18 | `waves.ts` TS errors: `inArray` type mismatch | `.filter(Boolean)` on nullable `taskId` array returns `(string | null)[]` — TS can't narrow. | Changed to `.filter((t): t is string => !!t)` for proper type guard. |
+| 2026-05-18 | `waves.ts` schema not exported | `waves.ts` schema file created but not re-exported from `schema/index.ts`. | Added `export * from "./waves"` to `schema/index.ts`. |
 
 ---
 
@@ -828,12 +922,14 @@ The Admin Console (`/admin`) is the central system administration hub, accessibl
 | `artifacts/wms-app/src/pages/purchase-order-detail.tsx` | PO detail (receive stock, BinSelector) |
 | `artifacts/wms-app/src/pages/sales-order-detail.tsx` | Sales order detail (workflow actions) |
 | `artifacts/api-server/src/routes/picking.ts` | Picking task API endpoints |
+| `artifacts/api-server/src/routes/waves.ts` | Wave picking API endpoints |
 | `artifacts/api-server/src/routes/purchasing.ts` | PO API endpoints |
 | `artifacts/api-server/src/routes/orders.ts` | Sales order API endpoints |
 | `artifacts/api-server/src/routes/locations.ts` | Warehouse/zone/bin API endpoints |
 | `lib/db/src/schema/locations.ts` | Location schemas (added `isActive` to bins) |
 | `lib/db/src/schema/orders.ts` | Sales order + picking schemas |
 | `lib/db/src/schema/purchasing.ts` | PO + supplier schemas |
+| `lib/db/src/schema/waves.ts` | Wave picking schemas (pick_waves, pick_wave_orders, pick_wave_zone_stops) |
 | `lib/db/src/schema/inventory.ts` | Inventory + movement schemas |
 | `lib/db/src/schema/alerts.ts` | Alert settings + log schemas |
 | `lib/api-client-react/src/picking.ts` | Custom picking hooks |
@@ -878,14 +974,14 @@ The Admin Console (`/admin`) is the central system administration hub, accessibl
   - Actions column with "Create PO" button per recommendation.
   - Uses `@tanstack/react-query`, shadcn/ui `Table`, `Badge`, `Button`, `Card`, and `useBaseCurrency` hook.
 
-#### 2. Smart Picking (`/smart-picking`)
-- **Frontend Page:** `smart-picking.tsx`
-  - Displays pick batch suggestions (batch picks, zone picks, single-item express picks).
-  - Table with batch details: orders, items, estimated time, distance, zones, and status.
-  - Route optimization panel with a visual path preview (A → B → C).
-  - Summary metrics for pending picks, active batches, total orders, and estimated total distance.
-  - Picking optimization tips card.
-  - Fully interactive: clicking a batch highlights it and shows its optimized route.
+#### 2. Smart Picking + Wave Picking (`/smart-picking`)
+- **Unified flow:** Smart Picking (planning) + Wave Picking (execution) merged into a single page with 3 views:
+  - **Plan View:** Real-time order suggestions from `GET /api/picking/waves/suggest`, auto-grouped by zone proximity. Each zone batch shows orders, line counts, zone badges. "Create Wave" button per batch or select individual orders. Active waves summary with progress bars.
+  - **Waves View:** Full wave list with status, progress, Start/Continue actions.
+  - **Pick View:** Zone-by-zone picking with scan-to-pick (barcode/SKU), zone navigation, stats (total lines, units, picked, remaining), Complete Wave action.
+- **Backend:** 7 API endpoints: list waves, suggest orders, create wave, wave detail, start wave, pick line, complete wave.
+- **DB Tables:** `pick_waves`, `pick_wave_orders`, `pick_wave_zone_stops` (with zone-stop optimization).
+- **Route:** `/smart-picking` (Intelligence section, Layers icon). Previously separate `/wave-picking` route removed.
 
 #### 3. Demand Forecast (`/demand-forecast`)
 - **Frontend Page:** `demand-forecast.tsx`
@@ -926,6 +1022,99 @@ The Admin Console (`/admin`) is the central system administration hub, accessibl
 | Modified | `artifacts/wms-app/src/App.tsx` (new routes + imports) |
 | Modified | `artifacts/wms-app/src/components/layout.tsx` (sidebar nav items) |
 | Modified | `APPLICATION_CONTEXT.md` (this section) |
+
+---
+
+## Quick Wins (2026-05-17)
+
+### Collapsible Sidebar for Mobile
+
+**Problem:** Sidebar always visible at `w-56`, consuming precious screen real estate on mobile devices.
+
+**Solution:** Sidebar is now collapsible on mobile (< `md` breakpoint):
+- **Mobile:** Hidden by default (`-translate-x-full`). Hamburger `Menu` button in a mobile header bar toggles sidebar as an overlay with slide-in animation. Dark backdrop (`bg-black/40`) closes sidebar on tap. `X` button inside sidebar header also closes. Nav item click auto-closes sidebar.
+- **Desktop (≥ md):** Sidebar always visible, unchanged behavior.
+- **Animation:** `transition-transform duration-200 ease-in-out`
+
+**Files Modified:** `artifacts/wms-app/src/components/layout.tsx`
+
+### Cycle Count Schedule Routes
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/cycle-counts/schedules` | List all active schedules |
+| POST | `/cycle-counts/schedules` | Create schedule |
+| PUT | `/cycle-counts/schedules/:id` | Update schedule |
+| DELETE | `/cycle-counts/schedules/:id` | Soft delete schedule |
+| POST | `/cycle-counts/schedules/:id/run` | Mark schedule as run now |
+| GET | `/cycle-counts/history` | List count history (last 50) |
+| POST | `/cycle-counts/history` | Record completed count |
+
+**Frontend Pages:**
+| Route | Page | Description |
+|-------|------|-------------|
+| `/cycle-count` | CycleCountPage | Main cycle count page |
+| `/cycle-count/schedule` | CycleCountSchedulePage | Schedule management |
+
+**Files:** `artifacts/api-server/src/routes/cycle-count.ts`, `artifacts/wms-app/src/pages/cycle-count-schedule.tsx`
+
+---
+
+## Sprint 1 — Quick Wins (2026-05-17) ✅ COMPLETE
+
+### A1: Print-Friendly Stylesheets
+
+**Problem:** Detail pages (SO, PO, pick list) look bad when printed via browser Ctrl+P.
+
+**Solution:** Added `@media print` CSS rules to `artifacts/wms-app/src/index.css`:
+- Hides `.no-print`, `aside`, `nav`, `header`, `button`, dialogs, popovers
+- Resets body/table layout for print
+- `@page { margin: 12mm 14mm; size: A4; }`
+- Shows URLs after external links
+
+**Files Modified:** `artifacts/wms-app/src/index.css`
+
+### A2: Export to Excel (XLSX)
+
+**Problem:** Only CSV export available. Users need Excel for reports.
+
+**Solution:** Added `xlsx` (SheetJS) package. Created reusable `exportToExcel()` utility. Added "Export Excel" buttons on:
+- Reports page (inventory report + stock velocity)
+- Inventory page
+- Sales Orders page
+- Purchase Orders page
+
+**Files Created:** `artifacts/wms-app/src/lib/export-excel.ts`
+**Files Modified:** `reports.tsx`, `inventory.tsx`, `sales-orders.tsx`, `purchase-orders.tsx`
+
+### A3: Dashboard Date Range Picker
+
+**Problem:** Dashboard KPIs show fixed periods only. No way to customize date range.
+
+**Solution:** Added date range picker to Financial Overview card header:
+- 5 presets: 7d, 30d, 90d, This Month, Last Month
+- Custom range via Calendar popover
+- Dynamic KPI labels: `COGS (${rangeLabel})`, `Avg Margin (${rangeLabel})`
+- Dynamic chart title: `COGS Trend ({trendDays} Days)`
+- API accepts `startDate`, `endDate`, `trendDays` query params
+
+**Files Modified:** `artifacts/wms-app/src/pages/dashboard.tsx`, `artifacts/api-server/src/routes/inventory.ts`
+
+### A5: Mobile Camera Scan Modal
+
+**Problem:** Current scan page may not work well on all mobile cameras.
+
+**Solution:** Created reusable `ScanModal` component:
+- Uses BarcodeDetector API (Chrome/Edge)
+- Mobile-first: bottom sheet on mobile (`items-end` + `rounded-t-2xl`), centered dialog on desktop
+- Reticle overlay with corner markers
+- Status badge (scanning/error)
+- Last scanned result with success flash animation
+- Escape key to close, state reset on open
+- Embedded in picker, receiving, and cycle count pages
+
+**Files Created:** `artifacts/wms-app/src/components/scan-modal.tsx`
+**Files Modified:** `picker.tsx`, `receiving.tsx`, `cycle-count.tsx`
 
 ---
 
@@ -1094,3 +1283,97 @@ artifacts/api-server/src/
 | Modified | `artifacts/api-server/src/routes/index.ts` (mount engines) |
 | Modified | `artifacts/api-server/src/index.ts` (workers + BullMQ schedulers) |
 | Modified | `artifacts/api-server/package.json` (bullmq + ioredis) |
+
+---
+
+## Sprint 2 — Core Ops (2026-05-18) ✅ COMPLETE
+
+### A4: Recent Activity Feed
+
+**Problem:** No visibility into what's happening across the warehouse right now.
+
+**Solution:** New `GET /api/activity/recent` endpoint that unions inventory movements, sales order history, and PO status history into a single activity stream. Dashboard card with:
+- Color-coded icons per event type (inbound/outbound/adjustment/shipped/delivered/etc.)
+- Auto-refresh every 30 seconds with pulsing green dot indicator
+- Timestamp with `formatDistanceToNow`
+
+**Files Created:** `artifacts/api-server/src/routes/activity.ts`
+**Files Modified:** `artifacts/api-server/src/routes/index.ts`, `artifacts/wms-app/src/pages/dashboard.tsx`
+
+### B6: Returns Processing (RMA)
+
+**Problem:** No reverse logistics flow. Customer returns handled outside the system.
+
+**Solution:** Full RMA lifecycle:
+- **DB Tables:** `return_authorizations` (RMA header) + `return_lines` (line items with condition/disposition)
+- **Status Flow:** `requested → approved → received → inspected → restocked/quarantined/refunded/rejected`
+- **API Routes:** Full CRUD + status transitions + line-level updates (qty received, condition, disposition)
+- **Frontend Pages:**
+  - `/returns` — List view with status filter, search, delete draft RMAs
+  - `/returns/new` — Create RMA with customer, reason, multi-line product selection
+  - `/returns/:id` — Detail view with status workflow, progress bar, line-level inspection (condition/disposition dropdowns)
+- **Integration:** "Initiate Return" button on sales order detail (shipped/delivered orders)
+- **Navigation:** Sidebar → "Returns (RMA)" with RotateCcw icon
+
+**Files Created:** `lib/db/src/schema/returns.ts`, `artifacts/api-server/src/routes/returns.ts`, `artifacts/wms-app/src/pages/returns.tsx`, `return-new.tsx`, `return-detail.tsx`
+**Files Modified:** `lib/db/src/schema/index.ts`, `artifacts/api-server/src/routes/index.ts`, `artifacts/wms-app/src/App.tsx`, `layout.tsx`, `sales-order-detail.tsx`
+
+### B1: Bulk Operations
+
+**Problem:** No way to select multiple items for batch actions.
+
+**Solution:** Checkbox selection + floating action bar on list pages:
+- **Inventory:** Checkbox per row → "Bulk Adjust to 0" with reason code confirmation dialog. New `POST /api/inventory/adjust/bulk` endpoint.
+- **Sales Orders:** Checkbox per row → "Bulk Ship" for packed orders. New `POST /api/sales-orders/bulk-ship` endpoint.
+- **Purchase Orders:** Already had bulk cancel/delete (pre-existing from earlier work).
+- **UI Pattern:** Fixed bottom bar with selection count, action buttons, clear selection. Orange highlight on selected rows.
+
+**Files Modified:** `artifacts/wms-app/src/pages/inventory.tsx`, `sales-orders.tsx`, `artifacts/api-server/src/routes/inventory.ts`, `orders.ts`
+
+---
+
+## Sprint 3 — Picking Efficiency (2026-05-18) ✅ COMPLETE
+
+### B3: Wave Picking (Smart Picking + Wave Execution)
+
+**Problem:** Pickers fulfill orders one at a time, traveling back-and-forth across zones. No batching or route optimization. Supervisors had no planning tool.
+
+**Solution:** Merged smart-picking (planning) and wave-picking (execution) into a single `/smart-picking` page:
+- **Backend:**
+  - New `pick_waves`, `pick_wave_orders`, `pick_wave_zone_stops` tables
+  - `GET /api/picking/waves/suggest` — finds orders in `picking` status not already in an active wave, with zone distribution per order
+  - `POST /api/picking/waves` — creates wave from order IDs: auto-creates picking tasks/lines, computes zone stops sorted by zone name, assigns best bin per line (highest stock)
+  - `GET /api/picking/waves/:id` — wave detail with zone stops + pick lines grouped by zone for optimized path
+  - `PUT /api/picking/waves/:id/start` — transitions wave + all tasks/lines to picking
+  - `PUT /api/picking/waves/:id/pick-line` — pick a line (qty, bin override), auto-updates wave progress
+  - `PUT /api/picking/waves/:id/complete` — validates all lines picked, completes tasks, advances orders to `picking_complete`
+- **Frontend Page:** `/smart-picking` (3 views in one):
+  - **Plan View:** Real suggestions grouped by zone proximity, checkbox selection, "Create Wave" per batch, active waves summary
+  - **Waves View:** Full wave list with status, progress bars, Start/Continue actions
+  - **Pick View:** Zone-by-zone picking with scan-to-pick, zone navigation, stats, Complete Wave
+- **Files Created:** `lib/db/src/schema/waves.ts`, `artifacts/api-server/src/routes/waves.ts`, `artifacts/wms-app/src/pages/wave-picking.tsx` (now unused)
+- **Files Modified:** `lib/db/src/schema/index.ts`, `artifacts/api-server/src/routes/index.ts`, `artifacts/wms-app/src/App.tsx`, `layout.tsx`, `smart-picking.tsx` (merged wave-picking logic)
+
+### B4: Bin Putaway Suggestions
+
+**Problem:** Receiving clerks manually choose bins for inbound stock — slow, suboptimal placement.
+
+**Solution:** Smart bin scoring for inbound stock:
+- **Backend:** `GET /api/locations/putaway-suggest?productId=&qty=&warehouseId=`
+  - Scores all active bins by: co-location bonus (+100 if same product already there), zone activity (+1-50), capacity sweet spot (+5 for 1-5 products), empty bin penalty (-20), preferred warehouse (+10)
+  - Returns top 3 suggestions with scores and human-readable reasons
+- **Frontend:** Receiving page shows suggestion card with "Accept" (auto-fills bin) / "Override" (manual selection) options
+- **Files Modified:** `artifacts/api-server/src/routes/locations.ts`, `artifacts/wms-app/src/pages/receiving.tsx`
+
+### B2: Command Palette
+
+**Problem:** Power users navigate slowly through sidebar menus. No keyboard-driven navigation.
+
+**Solution:** `Ctrl+K` command palette using `cmdk` library:
+- Full-text search across all nav items (labels, categories, keywords, hrefs)
+- Recent pages (localStorage, max 5) shown at top when no search query
+- Grouped by category with keyboard navigation (↑↓ Enter Esc)
+- Trigger button in header area with `Ctrl+K` badge
+- Mobile-responsive: trigger text hidden on small screens,kbd badge always visible
+- **Files Created:** `artifacts/wms-app/src/components/command-palette.tsx`
+- **Files Modified:** `artifacts/wms-app/src/components/layout.tsx` (integrated trigger in header)

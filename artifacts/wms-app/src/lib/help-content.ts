@@ -437,6 +437,37 @@ export const helpContent: Record<string, HelpContent> = {
       }
     ]
   },
+  "/returns": {
+    title: "Returns (RMA)",
+    description: "Manage customer return authorizations and reverse logistics.",
+    sections: [
+      {
+        title: "RMA Lifecycle",
+        content: [
+          "Requested: Return request created, awaiting approval",
+          "Approved: Return authorized, customer can ship items back",
+          "Received: Items received at warehouse, pending inspection",
+          "Inspected: Items inspected, condition and disposition recorded",
+          "Restocked: Items returned to sellable inventory",
+          "Quarantined: Items held for further review or disposal",
+          "Refunded: Customer refund processed",
+          "Rejected: Return request denied"
+        ]
+      },
+      {
+        title: "Creating an RMA",
+        content: "Click 'New Return' to create an RMA. Enter customer name (required), optional reason and notes, then add one or more return lines with product, quantity, and condition."
+      },
+      {
+        title: "Inspecting Returns",
+        content: "On the RMA detail page, when status is 'Inspected' or 'Restocked', each line shows editable Condition and Disposition dropdowns. Set disposition to Restock, Quarantine, Dispose, or Return to Supplier."
+      },
+      {
+        title: "Status Transitions",
+        content: "Use the status dropdown on the RMA detail page to advance the return through its lifecycle. The progress bar shows current position in the flow: Requested → Approved → Received → Inspected → Resolved."
+      }
+    ]
+  },
   "/smart-replenishment": {
     title: "Smart Replenishment",
     description: "AI-driven reorder suggestions based on demand, stock levels, and lead times.",
@@ -466,28 +497,54 @@ export const helpContent: Record<string, HelpContent> = {
     ]
   },
   "/smart-picking": {
-    title: "Smart Picking",
-    description: "Optimize pick routes, batch orders by zone, and minimize travel distance.",
+    title: "Wave Picking",
+    description: "Plan pick waves by zone proximity, preview optimized routes, then execute zone-by-zone picking. Combines smart batch planning with wave execution in one flow.",
     sections: [
       {
-        title: "Pick Batches",
+        title: "Plan View — Batch Suggestions",
         content: [
-          "Type: Batch (multiple orders), Zone (single zone), Single (express picks)",
-          "Orders: number of sales orders included in the batch",
-          "Items: total line items to be picked",
-          "Est. Time: calculated based on walking distance and item count"
+          "Orders in 'picking' status are automatically grouped by shared zones. Each group becomes a suggested batch.",
+          "Zone batches: orders sharing the same zone(s) are grouped together to minimize travel distance.",
+          "Batch types: Express (≤3 orders), Standard (≤8 orders), Bulk (8+ orders).",
+          "Click any batch to preview its optimized pick path in the Route Optimization panel.",
+          "Use checkboxes to select individual orders, or click 'Create Wave' on a batch to wave all its orders."
         ]
       },
       {
-        title: "Route Optimization",
-        content: "Click any batch row to view its optimized picking path. The visual shows steps from Start → Zone → Pack. Travel distance and estimated time are displayed. Click 'Start Picking' to launch the batch."
+        title: "Route Optimization Preview",
+        content: [
+          "Visual path: S (Start) → A (Zone 1) → B (Zone 2) → P (Pack) with progress bars showing zone sequence.",
+          "Batch stats: order count, total lines, number of zones.",
+          "Batch type badge: Zone Pick (single zone), Multi-Zone Batch, or Mixed.",
+          "'Create Wave from Batch' button creates the wave and opens the Pick view immediately."
+        ]
+      },
+      {
+        title: "Waves View — Active Wave List",
+        content: "Shows all waves with status (ready/picking/completed), progress bars, and order/line/unit counts. Click 'Start' on a ready wave or 'Continue' on an active wave to jump into picking. Access via the 'Active Waves' button in the header."
+      },
+      {
+        title: "Pick View — Zone-by-Zone Execution",
+        content: [
+          "Zone progress bar: shows all zones in pick order. Green = completed, orange = current, gray = pending.",
+          "Scan to pick: scan any SKU or bin code to auto-match and pick the line. Works across all zones.",
+          "Current zone lines: table shows order, SKU, product, qty to pick, suggested bin, and Pick button.",
+          "Navigate between zones with Previous/Next Zone buttons. Complete all lines in one zone before moving on.",
+          "Stats bar: total lines, units to pick, lines picked, remaining.",
+          "'Complete Wave' button appears when all lines are picked. Advances all orders to 'picking_complete'."
+        ]
+      },
+      {
+        title: "Wave Lifecycle",
+        content: "Create Wave → Status: ready → Start Wave → Status: picking → Pick all lines → Complete Wave → Status: completed. Each wave auto-creates picking tasks and lines, assigns optimal bins (highest stock), and computes the zone stop sequence."
       },
       {
         title: "Optimization Tips",
         content: [
-          "Batch by Zone: group orders sharing the same zones to minimize cross-warehouse walking",
-          "Express Priority: fast-track critical or urgent orders first",
-          "Fragile Handling: group fragile items separately for careful handling"
+          "Batch by Zone: orders sharing zones are grouped automatically. Single-zone batches are fastest.",
+          "Express waves: create small waves (≤3 orders) for urgent orders to get them out quickly.",
+          "Follow zone order: pick all items in one zone before moving to the next. The wave computes the optimal sequence.",
+          "Use scan-to-pick: scanning is faster than clicking Pick buttons. Works with barcode scanners and mobile camera."
         ]
       }
     ]

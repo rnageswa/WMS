@@ -5,8 +5,10 @@ import {
   zonesTable,
   binsTable,
   inventoryMovementsTable,
+  inventoryItemsTable,
+  productsTable,
 } from "@workspace/db/schema";
-import { eq, inArray, and, count, max, gte, sql } from "drizzle-orm";
+import { eq, inArray, and, count, max, gte, sql, desc } from "drizzle-orm";
 import {
   CreateWarehouseBody,
   UpdateWarehouseBody,
@@ -278,6 +280,137 @@ router.post("/zones/:id/bins", async (req, res) => {
       throw err;
     }
   }
+});
+
+// ── GET /locations/putaway-suggest — suggest optimal bin for inbound stock ────
+
+router.get("/locations/putaway-suggest", async (req, res) => {
+  const productId = req.query.productId as string | undefined;
+  const qty = parseInt((req.query.qty as string) ?? "1", 10) || 1;
+  const warehouseId = req.query.warehouseId as string | undefined;
+
+  if (!productId) {
+    res.status(400).json({ message: "productId is required" });
+    return;
+  }
+
+  // Strategy: score bins by multiple factors
+  // 1. Same product already in bin (co-location) — highest priority
+  // 2. Zone activity (movement count) — prefer active zones
+  // 3. Bin capacity (don't suggest full bins) — prefer bins with existing stock of other products
+  // 4. Warehouse preference if specified
+
+  const since30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+  // Get all active bins with their zone/warehouse info + current inventory
+  const binCandidates = await db
+    .select({
+      binId: binsTable.id,
+      binCode: binsTable.code,
+      binName: binsTable.name,
+      zoneId: zonesTable.id,
+      zoneName: zonesTable.name,
+      zoneCode: zonesTable.code,
+      warehouseId: warehousesTable.id,
+      warehouseName: warehousesTable.name,
+      // Does this bin already have the same product?
+      existingQty: sql<number>`COALESCE((
+        SELECT qty_on_hand FROM ${inventoryItemsTable}
+        WHERE ${inventoryItemsTable.binId} = ${binsTable.id}
+        AND ${inventoryItemsTable.productId} = ${productId}
+        LIMIT 1
+      ), 0)`,
+      // Total items in bin (for capacity check)
+      totalItemsInBin: sql<number>`COALESCE((
+        SELECT COUNT(*) FROM ${inventoryItemsTable}
+        WHERE ${inventoryItemsTable.binId} = ${binsTable.id}
+      ), 0)`,
+      // Zone movement activity (30d)
+      zoneActivity: sql<number>`COALESCE((
+        SELECT COUNT(*) FROM ${inventoryMovementsTable}
+        INNER JOIN ${inventoryItemsTable} AS inv ON inv.binId = ${inventoryMovementsTable.binId}
+        WHERE inv.binId IN (
+          SELECT b2.id FROM ${binsTable} AS b2 WHERE b2.zoneId = ${zonesTable.id}
+        )
+        AND ${inventoryMovementsTable.createdAt} >= ${since30d}
+      ), 0)`,
+    })
+    .from(binsTable)
+    .innerJoin(zonesTable, eq(binsTable.zoneId, zonesTable.id))
+    .innerJoin(warehousesTable, eq(zonesTable.warehouseId, warehousesTable.id))
+    .where(
+      and(
+        eq(binsTable.isActive, true),
+        warehouseId ? eq(warehousesTable.id, warehouseId) : undefined,
+      )
+    )
+    .orderBy(warehousesTable.name, zonesTable.code, binsTable.code);
+
+  if (binCandidates.length === 0) {
+    res.json({ suggestions: [], message: "No available bins found" });
+    return;
+  }
+
+  // Score each bin
+  const scored = binCandidates.map((bin) => {
+    let score = 0;
+    const reasons: string[] = [];
+
+    // +100 if same product already here (co-location bonus)
+    if (bin.existingQty > 0) {
+      score += 100;
+      reasons.push(`Same product already here (${bin.existingQty} units)`);
+    }
+
+    // +1-50 for zone activity (normalized)
+    const activityScore = Math.min(bin.zoneActivity / 10, 50);
+    score += activityScore;
+    if (activityScore > 10) {
+      reasons.push(`Active zone (${bin.zoneActivity} movements in 30d)`);
+    }
+
+    // +5 if bin has some items but not too many (sweet spot: 1-5 different products)
+    if (bin.totalItemsInBin > 0 && bin.totalItemsInBin <= 5) {
+      score += 5;
+      reasons.push(`Bin has ${bin.totalItemsInBin} product(s) — good capacity`);
+    }
+
+    // -20 if bin is empty (slight penalty — prefer some co-location)
+    if (bin.totalItemsInBin === 0 && bin.existingQty === 0) {
+      score -= 20;
+      reasons.push("Empty bin");
+    }
+
+    // +10 if warehouse matches preferred
+    if (warehouseId && bin.warehouseId === warehouseId) {
+      score += 10;
+      reasons.push("Preferred warehouse");
+    }
+
+    return {
+      binId: bin.binId,
+      binCode: bin.binCode,
+      binName: bin.binName,
+      zoneId: bin.zoneId,
+      zoneName: bin.zoneName,
+      zoneCode: bin.zoneCode,
+      warehouseId: bin.warehouseId,
+      warehouseName: bin.warehouseName,
+      existingQty: bin.existingQty,
+      score,
+      reasons,
+    };
+  });
+
+  // Sort by score descending
+  scored.sort((a, b) => b.score - a.score);
+
+  // Return top 3 suggestions
+  res.json({
+    suggestions: scored.slice(0, 3),
+    productId,
+    qty,
+  });
 });
 
 export default router;
