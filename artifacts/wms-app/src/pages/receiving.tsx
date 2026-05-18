@@ -321,8 +321,9 @@ export default function ReceivingPage() {
                 <Select
                   value={selectedPoId}
                   onValueChange={(v) => {
-                    setSelectedPoId(v);
-                    setReference(v ? "" : reference);
+                    const poId = v === "__none__" ? "" : v;
+                    setSelectedPoId(poId);
+                    setReference(poId ? "" : reference);
                     setLines([newLine()]);
                   }}
                 >
@@ -330,7 +331,7 @@ export default function ReceivingPage() {
                     <SelectValue placeholder="Select purchase order…" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">— No PO (manual entry)</SelectItem>
+                    <SelectItem value="__none__">— No PO (manual entry)</SelectItem>
                     {availablePOs.map((po: any) => (
                       <SelectItem key={po.id} value={po.id}>
                         <span className="font-mono text-xs text-muted-foreground mr-2">{po.poNumber}</span>
