@@ -10,6 +10,7 @@ import {
   index,
 } from "drizzle-orm/pg-core";
 import { productsTable } from "./products";
+import { laborAssignmentsTable } from "./labor";
 
 // ── Sales Order Status ───────────────────────────────────────────────────────────
 
@@ -116,6 +117,9 @@ export const salesOrderHistoryTable = pgTable(
 // ── Picking Tasks ────────────────────────────────────────────────────────────────
 
 export const pickingTasksTable = pgTable("picking_tasks", {
+  laborAssignmentId: uuid("labor_assignment_id")
+    .references(() => laborAssignmentsTable.id, { onDelete: "set null" })
+    .optional(),
   id: uuid("id").primaryKey().defaultRandom(),
   orderId: uuid("order_id")
     .notNull()

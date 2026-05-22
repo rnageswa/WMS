@@ -607,6 +607,114 @@ export const helpContent: Record<string, HelpContent> = {
       }
     ]
   },
+  "/labor-tracking": {
+    title: "Labor Tracking",
+    description: "Monitor worker productivity, accuracy, and efficiency metrics across the warehouse.",
+    sections: [
+      {
+        title: "Summary Cards",
+        content: [
+          "Total Workers: number of workers with recorded performance data",
+          "Avg Productivity: mean units picked per hour across all workers",
+          "Avg Accuracy: mean pick accuracy rate (correct picks / total picks)",
+          "Total Units Picked: sum of all units picked in the current period"
+        ]
+      },
+      {
+        title: "Worker Detail",
+        content: "Select a worker from the dropdown to view their individual metrics: Productivity Score (units/hour), Accuracy Rate (percentage of correct picks), and Efficiency Score (composite 0-100 score based on tasks completed). Click any row in the table to select that worker."
+      },
+      {
+        title: "Performance Table",
+        content: "All workers with recorded data. Columns: Worker name/ID, Tasks Completed, Lines Picked, Units Picked, Hours Worked, Productivity (units/hr), Accuracy (%), Efficiency Score (color-coded badge: green ≥80, amber ≥50, gray <50). Click a row to view detail."
+      },
+      {
+        title: "Filters",
+        content: "Search by worker name or ID. Results update as you type. Use 'Clear filters' to reset."
+      },
+      {
+        title: "Data Source",
+        content: "Metrics are calculated from completed picking tasks. Productivity = units picked / hours worked. Accuracy = correct picks / total picks. Efficiency = composite score (0-100) based on tasks completed vs. expected throughput."
+      }
+    ]
+  },
+  "/transfer-optimization": {
+    title: "Transfer Optimization",
+    description: "Analyze inventory imbalances across warehouses and generate inter-warehouse transfer suggestions.",
+    sections: [
+      {
+        title: "Summary Cards",
+        content: [
+          "Recommended: transfers suggested by the engine, pending review",
+          "Approved: transfers approved, ready to schedule",
+          "Scheduled: transfers with a scheduled execution date"
+        ]
+      },
+      {
+        title: "Running Optimization",
+        content: "Click 'Run Optimization' to analyze inventory levels across all warehouses. The engine identifies products with excess stock at one warehouse and stockout risk at another, then generates transfer suggestions with recommended quantities and confidence scores."
+      },
+      {
+        title: "Transfer Suggestions Table",
+        content: "Each row shows: Product name, source warehouse (From), destination warehouse (To), recommended quantity, Confidence Score (0-100%), Reason (Stockout Risk, Excess Stock, or Demand Spike), and current Status."
+      },
+      {
+        title: "Status Flow",
+        content: "Recommended → Approved → Scheduled → Completed. Click 'Approve' on a recommended transfer to mark it approved. Click 'Schedule' on an approved transfer to move it to scheduled. The transfer is completed when stock is physically moved."
+      },
+      {
+        title: "Filters",
+        content: "Search by product name. Filter by status (Recommended, Approved, Scheduled, Completed). Use 'Clear filters' to reset."
+      },
+      {
+        title: "Confidence Score",
+        content: "Indicates how confident the engine is that this transfer is beneficial. High confidence (≥80%) means strong imbalance detected. Low confidence (<50%) means marginal benefit — review manually before approving."
+      }
+    ]
+  },
+  "/slotting": {
+    title: "Slotting",
+    description: "Manage bin assignments and product placement optimization scores.",
+    sections: [
+      {
+        title: "Summary Cards",
+        content: [
+          "Total Assignments: all product-to-bin assignments in the system",
+          "Confirmed: assignments that have been validated (manually or by rule)",
+          "Avg Score: mean optimization score across all assignments (0-100)"
+        ]
+      },
+      {
+        title: "Slotting Assignments Table",
+        content: "Each row shows: Product name, SKU code, assigned Bin, Zone, optimization Score (color-coded badge), Reason for assignment, and confirmation status."
+      },
+      {
+        title: "Score Interpretation",
+        content: [
+          "Green (≥80): optimal placement — product is in the best bin for its velocity and co-pick patterns",
+          "Amber (50-79): acceptable placement — could be improved but not critical",
+          "Gray (<50): suboptimal — consider reassigning to a better bin"
+        ]
+      },
+      {
+        title: "Assignment Reasons",
+        content: [
+          "Velocity: assigned based on pick frequency (fast-movers near dispatch)",
+          "Co-Pick: assigned near products frequently ordered together",
+          "Temperature: assigned to a temperature-controlled zone",
+          "Manual: manually assigned by a user"
+        ]
+      },
+      {
+        title: "Confirming Assignments",
+        content: "Pending assignments show a 'Confirm' button. Click to validate the assignment and mark it as confirmed. Confirmed assignments are considered valid and won't be moved by the auto-slotting engine."
+      },
+      {
+        title: "Filters",
+        content: "Search by product name, SKU, or bin code. Filter by status (All, Confirmed, Pending). Use 'Clear filters' to reset."
+      }
+    ]
+  },
   "/demand-forecast": {
     title: "Demand Forecast",
     description: "Predict future demand using historical data and moving averages.",

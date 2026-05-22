@@ -19,6 +19,9 @@ import cycleCountRouter from "./cycle-count";
 import activityRouter from "./activity";
 import returnsRouter from "./returns";
 import wavesRouter from "./waves";
+import laborRouter from "./labor";
+import transferOptimizationRouter from "./transfer-optimization";
+import slottingRouter from "./slotting";
 
 const router: IRouter = Router();
 
@@ -49,5 +52,8 @@ router.use(cycleCountRouter);
 router.use(activityRouter);
 router.use(returnsRouter);
 router.use(wavesRouter);
+router.use(laborRouter);
+router.use(transferOptimizationRouter);
+router.use(slottingRouter);
 
 export default router;

@@ -4,6 +4,7 @@ import { sql } from "drizzle-orm";
 import { z } from "zod/v4";
 import { productsTable } from "./products";
 import { binsTable } from "./locations";
+import { laborAssignmentsTable } from "./labor";
 
 export const inventoryItemsTable = pgTable(
   "inventory_items",
@@ -46,6 +47,8 @@ export const inventoryMovementsTable = pgTable("inventory_movements", {
   referenceId: uuid("reference_id"),
   referenceType: text("reference_type"),
   createdBy: text("created_by"),
+  laborAssignmentId: uuid("labor_assignment_id")
+    .references(() => laborAssignmentsTable.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

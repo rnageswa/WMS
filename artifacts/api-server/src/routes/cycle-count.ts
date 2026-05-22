@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import {
   cycleCountSchedulesTable,
   cycleCountHistoryTable,
+  laborAssignmentsTable,
 } from "@workspace/db/schema";
 import { eq, and, desc, isNull } from "drizzle-orm";
 import { z } from "zod";
@@ -114,6 +115,7 @@ const historySchema = z.object({
   discrepancyCount: z.number().int().min(0),
   netVariance: z.number().int(),
   submittedBy: z.string().optional().nullable(),
+  laborAssignmentId: z.string().uuid().optional().nullable(),
 });
 
 router.post("/history", async (req, res) => {
@@ -124,7 +126,10 @@ router.post("/history", async (req, res) => {
   }
   const [created] = await db
     .insert(cycleCountHistoryTable)
-    .values(parsed.data)
+    .values({
+      ...parsed.data,
+      laborAssignmentId: parsed.data.laborAssignmentId ?? null,
+    })
     .returning();
   res.status(201).json(created);
 });

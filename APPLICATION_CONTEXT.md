@@ -1,8 +1,8 @@
 # WareIQ — Warehouse Management System (WMS)
 ## Complete Application Context & Design Document
 
-**Last Updated:** 2026-05-18
-**Version:** MVP — Phase 1-6.1 Complete + Admin Console + Production Deployment + Sprint 1 Quick Wins + Sprint 2 Core Ops + Sprint 3 Picking Efficiency + Sprint 4 Intelligence & Visibility
+**Last Updated:** 2026-05-22
+**Version:** MVP — Phase 1-6.1 Complete + Admin Console + Production Deployment + Sprint 1 Quick Wins + Sprint 2 Core Ops + Sprint 3 Picking Efficiency + Sprint 4 Intelligence & Visibility + Sprint 5 Offline Mode + Sprint 6 Labor & Optimization
 
 ---
 
@@ -570,6 +570,9 @@ All routes protected by Clerk auth (redirect to `/sign-in` if not authenticated)
 | `/sales-orders/:id/shipping-label` | ShippingLabelPage | Sales Orders |
 | `/picker` | PickerPage | Picking |
 | `/smart-picking` | SmartPickingPage | Wave Picking (Plan + Execute) |
+| `/labor-tracking` | LaborTrackingPage | Labor Tracking |
+| `/transfer-optimization` | TransferOptimizationPage | Transfer Optimization |
+| `/slotting` | SlottingPage | Slotting |
 | `/returns` | ReturnsPage | Returns (RMA) |
 | `/returns/new` | ReturnNewPage | Returns (RMA) |
 | `/returns/:id` | ReturnDetailPage | Returns (RMA) |
@@ -1382,7 +1385,7 @@ artifacts/api-server/src/
 
 ---
 
-## Sprint 4 — Intelligence & Visibility (2026-05-18) 
+## Sprint 4 — Intelligence & Visibility (2026-05-18) ✅ COMPLETE
 
 ### C2: Predictive Stockout Alerts
 
@@ -1444,3 +1447,166 @@ artifacts/api-server/src/
 | Modified | `artifacts/api-server/src/routes/reports.ts` (ABC analysis endpoint) |
 | Modified | `artifacts/wms-app/src/pages/dashboard.tsx` (stockout card + auto-refresh) |
 | Modified | `artifacts/wms-app/src/pages/reports.tsx` (ABC Analysis tab) |
+
+---
+
+## Sprint 5 — Offline Mode with Background Sync (2026-05-22) ✅ COMPLETE
+
+### C5: Offline Mode with Background Sync
+
+**Problem:** Warehouse workers on the floor (picker, receiving, dispatch) lose connectivity. App becomes unusable — can't scan, can't confirm picks, can't receive goods. Operations halt.
+
+**Solution:** Offline-first data layer: cache essential reads in IndexedDB, queue mutations when offline, auto-sync when connectivity returns. No Service Worker (data-layer only).
+
+**Architecture:**
+```
+┌─────────────────────────────────────────────────────┐
+│  UI Components (existing pages)                      │
+│  Picker, Scan, Receiving, Dispatch, Inventory        │
+└──────────────┬──────────────────────┬───────────────┘
+               │ reads                │ mutations
+               ▼                      ▼
+┌──────────────────┐    ┌─────────────────────────┐
+│  TanStack Query   │    │  MutationQueue          │
+│  (existing)       │    │  (new)                  │
+│                   │    │  - Persist to IndexedDB │
+│  QueryClient      │    │  - Replay when online   │
+│  + persistence    │    │  - Conflict: last-write │
+│    plugin         │    │    wins (timestamp)      │
+└────────┬─────────┘    └───────────┬─────────────┘
+         │                          │
+         ▼                          ▼
+┌─────────────────────────────────────────────────────┐
+│  IndexedDB (via lightweight wrapper)                 │
+│  - Cache: products, bins, inventory, picking tasks   │
+│  - Queue: pending mutations (FIFO)                   │
+│  - Meta: sync status, last sync timestamp            │
+└─────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────┐
+│  Network Monitor (new)                               │
+│  - navigator.onLine + periodic ping                  │
+│  - BroadcastChannel for cross-tab sync               │
+└─────────────────────────────────────────────────────┘
+```
+
+**New Files:**
+
+| File | Purpose |
+|------|---------|
+| `artifacts/wms-app/src/lib/offline/db.ts` | IndexedDB wrapper (cache, queue, meta stores) |
+| `artifacts/wms-app/src/lib/offline/network.ts` | Network monitor utility |
+| `artifacts/wms-app/src/lib/offline/sync-engine.ts` | Sync engine (replay queue, conflict resolution) |
+| `artifacts/wms-app/src/lib/offline/query-cache.ts` | QueryClient persistence (hydrate/dehydrate) |
+| `artifacts/wms-app/src/lib/offline/offline-fetch.ts` | Offline-aware fetch wrapper |
+| `artifacts/wms-app/src/lib/offline/index.ts` | Barrel export |
+| `artifacts/wms-app/src/hooks/use-network-status.ts` | Network state hook (isOnline, isSyncing, lastOnlineAt) |
+| `artifacts/wms-app/src/hooks/use-sync-status.ts` | Sync status hook (queue size, failed count) |
+| `artifacts/wms-app/src/hooks/use-offline-mutation.ts` | Offline-aware mutation hook (queue when offline) |
+| `artifacts/wms-app/src/components/offline-banner.tsx` | UI banner (Offline/Syncing/Synced states) |
+| `artifacts/wms-app/src/components/sync-indicator.tsx` | Sync status indicator component |
+
+**Modified Files:**
+
+| File | Change |
+|------|--------|
+| `artifacts/wms-app/src/lib/queryClient.ts` | Added persistence plugin (hydrate from IndexedDB on load) |
+| `artifacts/wms-app/src/components/layout.tsx` | Added OfflineBanner + SyncIndicator to layout |
+| `artifacts/wms-app/src/pages/picker.tsx` | Offline-aware mutations for pick confirmations + task completion |
+| `artifacts/wms-app/src/pages/receiving.tsx` | Offline-aware mutations for receipt commits |
+| `artifacts/wms-app/src/pages/dispatch.tsx` | Offline-aware mutations for dispatch commits |
+| `artifacts/wms-app/src/pages/scan.tsx` | Offline-aware reads for product/bin/PO lookup |
+| `artifacts/wms-app/src/pages/inventory.tsx` | Offline-aware reads + mutations for adjustments |
+| `artifacts/wms-app/src/lib/help-content.ts` | Added offline mode help text for dashboard, picker, receiving, dispatch, scan, inventory |
+
+**Key Design Decisions:**
+- No Service Worker — data-layer only, simpler implementation
+- FIFO mutation queue with exponential backoff (max 5 retries)
+- Last-write-wins conflict resolution (timestamp-based)
+- BroadcastChannel for cross-tab state sync
+- Periodic `/api/health` ping (30s) to detect false `navigator.onLine` positives
+- Clerk session expiry handled: mutations queued with `authRetry: true`, re-auth on reconnect
+- Out of scope: Service Worker asset caching, WebSocket sync, conflict resolution UI, Background Sync API
+
+---
+
+## Sprint 6 — Labor & Optimization (2026-05-22) ✅ COMPLETE
+
+### C3: Labor Tracking
+
+**Problem:** No visibility into worker productivity, task completion times, or accuracy rates.
+
+**Solution:** Worker performance monitoring system:
+- **DB Tables:** `worker_performance` (per-worker per-period metrics), `labor_metrics` (time-series metric events), `labor_entries` (per-worker per-day shift entries)
+- **API Routes:**
+  - `GET /api/labor/workers` — List all worker performance records (filter by date range, worker ID)
+  - `GET /api/labor/workers/:workerId` — Single worker detail (filter by period: today/week/month)
+  - `POST /api/labor/workers` — Upsert worker performance (auto-calculates productivity & efficiency scores)
+  - `POST /api/labor/entries` — Create a labor entry (worker shift record: date, hours, tasks, notes)
+  - `GET /api/labor/metrics` — Time-series labor metrics (filter by worker, type, days)
+- **Frontend Page:** `/labor-tracking` (Intelligence section, Users icon)
+  - Summary cards: Total Workers (gray), Avg Productivity (blue), Avg Accuracy (green), Total Units Picked (gray)
+  - Worker detail card: dropdown selector with productivity/accuracy/efficiency breakdown + icon labels
+  - Performance table: Worker, Tasks Completed, Lines Picked, Units Picked, Hours Worked, Productivity, Accuracy, Efficiency Score (color-coded badge: green ≥80, amber ≥50, gray <50)
+  - Click row to select worker; search filter by name/ID; clear filters link
+  - Loading skeletons, empty states with icons, toast on refresh
+- **Metrics Tracked:** tasks completed, lines picked, units picked, hours worked, productivity score (units/hr), accuracy rate (0-1), efficiency score (0-100)
+- **Help Text:** 5 sections — summary cards, worker detail, performance table, filters, data source
+
+### C4: Transfer Optimization
+
+**Problem:** No systematic analysis of inter-warehouse inventory imbalances.
+
+**Solution:** Automated transfer recommendation engine:
+- **DB Table:** `transfer_optimization` (product, from/to warehouse, qty, confidence, reason, priority, status)
+- **API Routes:**
+  - `GET /api/transfer-optimization/suggestions` — List suggestions (filter by status, priority)
+  - `POST /api/transfer-optimization/run` — Analyze inventory across warehouses, generate suggestions
+  - `PUT /api/transfer-optimization/:id/status` — Update status (recommended → approved → scheduled → completed)
+- **Frontend Page:** `/transfer-optimization` (Intelligence section, ArrowLeftRight icon)
+  - Summary cards: Recommended (blue), Approved (green), Scheduled (amber)
+  - Suggestions table: Product, From warehouse, To warehouse, Qty, Confidence %, Reason (Stockout Risk/Excess Stock/Demand Spike with icons), Status badge (color-coded), Actions
+  - Actions: Approve button (recommended), Schedule button (approved)
+  - Status filter dropdown, product search, item count, clear filters
+  - Run Optimization button (orange) triggers analysis; Refresh button
+  - Loading skeletons, empty states with icons, toast notifications
+- **Status Flow:** recommended → approved → scheduled → completed
+- **Help Text:** 6 sections — summary cards, running optimization, table, status flow, filters, confidence score
+
+### C6: Slotting UI
+
+**Problem:** No centralized view of bin assignments or slotting optimization results.
+
+**Solution:** Slotting management interface:
+- **DB Table:** `slotting_assignments` (product-to-bin assignments with score, rank, reason, confirmation status)
+- **API Routes:**
+  - `GET /api/slotting/assignments` — List assignments (filter by warehouse, validity; paginated)
+  - `POST /api/slotting/assignments` — Create new assignment
+  - `PUT /api/slotting/assignments/:id/confirm` — Confirm/pending → valid
+  - `GET /api/slotting/heatmap` — Bin heatmap data (travel score, accessibility, pick frequency, velocity class; filter by warehouse)
+- **Frontend Page:** `/slotting` (Intelligence section, TrendingUp icon)
+  - Summary cards: Total Assignments (gray), Confirmed (green), Avg Score (gray)
+  - Assignments table: Product, SKU (mono), Bin, Zone, Score (color-coded badge: green ≥80, amber 50-79, gray <50), Reason (Velocity/Co-Pick/Temperature/Manual), Status (Confirmed ★ / Pending ☆), Actions
+  - Confirm button on pending assignments; search by product/SKU/bin; filter by status (All/Confirmed/Pending)
+  - Loading skeletons, empty states with icons, toast on confirm
+- **Score Factors:** velocity class, travel score (distance from dispatch), accessibility score, co-pick groups
+- **Help Text:** 6 sections — summary cards, table, score interpretation, assignment reasons, confirming, filters
+
+### Sprint 6 Files Summary
+
+| Action | File |
+|--------|------|
+| Created | `lib/db/src/schema/labor.ts` (worker_performance, labor_metrics, labor_entries tables) |
+| Modified | `lib/db/src/schema/phase6.ts` (transfer_optimization + slotting_assignments tables) |
+| Modified | `lib/db/src/schema/index.ts` (export labor) |
+| Created | `artifacts/api-server/src/routes/labor.ts` |
+| Created | `artifacts/api-server/src/routes/transfer-optimization.ts` |
+| Created | `artifacts/api-server/src/routes/slotting.ts` |
+| Modified | `artifacts/api-server/src/routes/index.ts` (mount 3 new routers) |
+| Created | `artifacts/wms-app/src/pages/labor-tracking.tsx` |
+| Created | `artifacts/wms-app/src/pages/transfer-optimization.tsx` |
+| Created | `artifacts/wms-app/src/pages/slotting.tsx` |
+| Modified | `artifacts/wms-app/src/App.tsx` (3 new routes) |
+| Modified | `artifacts/wms-app/src/components/layout.tsx` (3 new nav items in Intelligence) |
+| Modified | `artifacts/wms-app/src/lib/help-content.ts` (help text for all 3 pages) |

@@ -31,6 +31,8 @@ import {
   X,
   RotateCcw,
   Layers,
+  Users,
+  TrendingUp,
 } from "lucide-react";
 import {
   useGetLowStockAlerts,
@@ -73,6 +75,9 @@ const intelNavItems = [
   { href: "/smart-replenishment", label: "Smart Replenishment", icon: BrainCircuit, roles: ["admin", "operator"] },
   { href: "/smart-picking", label: "Wave Picking", icon: Layers, roles: ["admin", "operator"] },
   { href: "/demand-forecast", label: "Demand Forecast", icon: BarChart4, roles: ["admin", "operator"] },
+  { href: "/labor-tracking", label: "Labor Tracking", icon: Users, roles: ["admin", "operator"] },
+  { href: "/transfer-optimization", label: "Transfer Optimization", icon: ArrowLeftRight, roles: ["admin", "operator"] },
+  { href: "/slotting", label: "Slotting", icon: TrendingUp, roles: ["admin", "operator"] },
 ];
 
 const ROLE_COLORS: Record<string, string> = {

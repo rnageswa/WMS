@@ -1,4 +1,5 @@
 import { pgTable, uuid, text, timestamp, boolean, integer } from "drizzle-orm/pg-core";
+import { laborAssignmentsTable } from "./labor";
 
 export const userRolesTable = pgTable("user_roles", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -35,6 +36,8 @@ export const cycleCountHistoryTable = pgTable("cycle_count_history", {
   discrepancyCount: integer("discrepancy_count").notNull().default(0),
   netVariance: integer("net_variance").notNull().default(0),
   submittedBy: text("submitted_by"),
+  laborAssignmentId: uuid("labor_assignment_id")
+    .references(() => laborAssignmentsTable.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

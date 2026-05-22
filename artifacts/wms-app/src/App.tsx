@@ -58,6 +58,9 @@ import SmartReplenishment from "@/pages/smart-replenishment";
 import SmartPicking from "@/pages/smart-picking";
 import DemandForecast from "@/pages/demand-forecast";
 import ReturnsPage from "@/pages/returns";
+import LaborTrackingPage from "@/pages/labor-tracking";
+import TransferOptimizationPage from "@/pages/transfer-optimization";
+import SlottingPage from "@/pages/slotting";
 import ReturnNewPage from "@/pages/return-new";
 import ReturnDetailPage from "@/pages/return-detail";
 import SignInPage from "@/pages/sign-in";
@@ -248,6 +251,9 @@ function AppRouter() {
             <Route path="/smart-replenishment"><AuthGuard><SmartReplenishment /></AuthGuard></Route>
             <Route path="/smart-picking"><AuthGuard><SmartPicking /></AuthGuard></Route>
             <Route path="/demand-forecast"><AuthGuard><DemandForecast /></AuthGuard></Route>
+            <Route path="/labor-tracking"><AuthGuard><LaborTrackingPage /></AuthGuard></Route>
+            <Route path="/transfer-optimization"><AuthGuard><TransferOptimizationPage /></AuthGuard></Route>
+            <Route path="/slotting"><AuthGuard><SlottingPage /></AuthGuard></Route>
             <Route path="/returns/new"><AuthGuard><ReturnNewPage /></AuthGuard></Route>
             <Route path="/returns/:id"><AuthGuard><ReturnDetailPage /></AuthGuard></Route>
             <Route path="/returns"><AuthGuard><ReturnsPage /></AuthGuard></Route>

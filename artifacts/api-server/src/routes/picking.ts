@@ -107,6 +107,7 @@ router.post("/picking-tasks", requireAuth, async (req: any, res) => {
   const schema = z.object({
     orderId: z.string().uuid(),
     assignedTo: z.string().optional(),
+    laborAssignmentId: z.string().uuid().optional(),
   });
 
   const parsed = schema.safeParse(req.body);
@@ -161,6 +162,7 @@ router.post("/picking-tasks", requireAuth, async (req: any, res) => {
       orderId,
       assignedTo: assignedTo || null,
       status: assignedTo ? "assigned" : "pending",
+      laborAssignmentId: parsed.laborAssignmentId || null,
     })
     .returning();
 

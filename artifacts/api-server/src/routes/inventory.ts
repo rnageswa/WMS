@@ -107,7 +107,7 @@ router.post("/inventory/adjust", requireRole("admin", "operator"), async (req, r
     res.status(400).json({ message: body.error.message });
     return;
   }
-  const { productId, binId, newQty, reasonCode } = body.data;
+  const { productId, binId, newQty, reasonCode, laborAssignmentId } = body.data;
 
   const [product] = await db
     .select()
@@ -156,6 +156,7 @@ router.post("/inventory/adjust", requireRole("admin", "operator"), async (req, r
     movementType: "adjustment",
     quantity: delta,
     reasonCode,
+    laborAssignmentId: laborAssignmentId ?? null,
   });
 
   const [row] = await db

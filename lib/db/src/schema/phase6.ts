@@ -424,3 +424,62 @@ export const procurementForecastsTable = pgTable("procurement_forecasts", {
 });
 
 export type ProcurementForecast = typeof procurementForecastsTable.$inferSelect;
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 15. TRANSFER OPTIMIZATION (C4) - Enhanced from Distribution Plans
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export const transferOptimizationTable = pgTable("transfer_optimization", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  productId: uuid("product_id")
+    .notNull()
+    .references(() => productsTable.id, { onDelete: "cascade" }),
+  fromWarehouseId: uuid("from_warehouse_id")
+    .notNull()
+    .references(() => warehousesTable.id, { onDelete: "cascade" }),
+  toWarehouseId: uuid("to_warehouse_id")
+    .notNull()
+    .references(() => warehousesTable.id, { onDelete: "cascade" }),
+
+  recommendedQty: integer("recommended_qty").notNull().default(0),
+  confidenceScore: numeric("confidence_score", { precision: 5, scale: 4 }), // 0-1
+  reason: text("reason"), // "stockout_risk", "excess_stock", "demand_spike"
+  priority: integer("priority").notNull().default(0), // 1-10
+
+  status: text("status").notNull().default("recommended"), // "recommended", "approved", "scheduled", "completed"
+  scheduledDate: timestamp("scheduled_date", { withTimezone: true }),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type TransferOptimization = typeof transferOptimizationTable.$inferSelect;
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 16. SLOTTING UI (C6) - Enhanced slotting with UI-specific data
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export const slottingAssignmentsTable = pgTable("slotting_assignments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  productId: uuid("product_id")
+    .notNull()
+    .references(() => productsTable.id, { onDelete: "cascade" }),
+  binId: uuid("bin_id")
+    .notNull()
+    .references(() => binsTable.id, { onDelete: "cascade" }),
+
+  score: numeric("score", { precision: 6, scale: 2 }), // 0-100
+  rank: integer("rank"), // 1-100 (best slot)
+
+  reason: text("reason"), // "velocity", "co_pick", "temperature", "manual"
+  assignedBy: text("assigned_by"), // "auto", "user", "rule"
+  assignedAt: timestamp("assigned_at", { withTimezone: true }).notNull().defaultNow(),
+  confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+  confirmedBy: text("confirmed_by"),
+
+  isValid: boolean("is_valid").notNull().default(true),
+  notes: text("notes"),
+});
+
+export type SlottingAssignment = typeof slottingAssignmentsTable.$inferSelect;
