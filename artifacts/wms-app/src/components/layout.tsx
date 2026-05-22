@@ -40,6 +40,8 @@ import { useClerk, useUser } from "@clerk/react";
 import { useQuery } from "@tanstack/react-query";
 import { useUserRole } from "@/hooks/use-user-role";
 import { CommandPalette } from "@/components/command-palette";
+import { OfflineBanner } from "@/components/offline-banner";
+import { SyncIndicator } from "@/components/sync-indicator";
 
 // Roles: admin (full access), operator (no admin/settings), viewer (read-only)
 const WRITE_ROLES = ["admin", "operator"];
@@ -277,6 +279,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
+      <OfflineBanner />
       {/* Mobile overlay backdrop */}
       {sidebarOpen && (
         <div
@@ -312,7 +315,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </div>
             <span className="text-sm font-bold text-foreground tracking-tight">WareIQ</span>
           </div>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
+            <SyncIndicator />
             <CommandPalette />
           </div>
         </div>

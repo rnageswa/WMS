@@ -2,7 +2,7 @@
 ## Complete Application Context & Design Document
 
 **Last Updated:** 2026-05-18
-**Version:** MVP — Phase 1-6.1 Complete + Admin Console + Production Deployment + Sprint 1 Quick Wins + Sprint 2 Core Ops + Sprint 3 Picking Efficiency
+**Version:** MVP — Phase 1-6.1 Complete + Admin Console + Production Deployment + Sprint 1 Quick Wins + Sprint 2 Core Ops + Sprint 3 Picking Efficiency + Sprint 4 Intelligence & Visibility
 
 ---
 
@@ -1379,3 +1379,68 @@ artifacts/api-server/src/
 - Mobile-responsive: trigger text hidden on small screens, kbd badge always visible
 - **Files Created:** `artifacts/wms-app/src/components/command-palette.tsx`
 - **Files Modified:** `artifacts/wms-app/src/components/layout.tsx` (import + render CommandPalette in sidebar + mobile header)
+
+---
+
+## Sprint 4 — Intelligence & Visibility (2026-05-18) 
+
+### C2: Predictive Stockout Alerts
+
+**Problem:** Stockouts discovered only after they happen. No forward-looking warning.
+
+**Solution:** Predictive stockout engine using demand velocity:
+- **Backend:** `GET /api/replenishment/stockout-predictions`
+  - For each active product with inventory: calculates daily demand rate from 30-day outbound movements, then `daysUntilStockout = qtyOnHand / dailyDemandRate`
+  - Returns products grouped by urgency: `critical` (≤3 days), `warning` (≤7 days), `watch` (≤14 days)
+  - Includes current stock, daily rate, predicted stockout date, and suggested reorder qty (EOQ from existing engine)
+- **Frontend:** Dashboard "Stockout Risk" card with:
+  - Summary counts (critical/warning/watch) with color-coded badges
+  - Sortable table: product, SKU, current stock, daily rate, days remaining, stockout date
+  - "Create PO" action per row → navigates to new PO pre-filled with product
+  - Auto-refresh every 60s
+- **Files Modified:** `artifacts/api-server/src/routes/replenishment.ts`, `artifacts/wms-app/src/pages/dashboard.tsx`
+
+### C1: ABC Analysis
+
+**Problem:** All products treated equally. No prioritization by revenue/velocity contribution.
+
+**Solution:** Pareto-based product classification:
+- **Backend:** `GET /api/reports/abc-analysis`
+  - Computes 12-month revenue per product (SO line items × unit price)
+  - Sorts descending, calculates cumulative revenue percentage
+  - Classifies: A (top 80% revenue), B (next 15%), C (bottom 5%)
+  - Also computes velocity class: A (top 80% pick frequency), B (next 15%), C (bottom 5%)
+  - Returns matrix: product, revenue, revenue%, cumRevenue%, revenueClass, pickCount, pickClass, combinedClass (e.g., "AA", "BC")
+- **Frontend:** Reports → ABC Analysis tab with:
+  - Summary cards: count per class (A/B/C) for revenue and velocity
+  - Stacked bar chart: revenue distribution by class
+  - Full table with color-coded class badges, sortable by revenue/picks/cumulative %
+  - Export to Excel button
+- **Files Created:** `artifacts/api-server/src/routes/reports.ts` (ABC endpoint), `artifacts/wms-app/src/pages/reports.tsx` (ABC tab)
+- **Files Modified:** `artifacts/wms-app/src/pages/reports.tsx`
+
+### B5: Real-Time Indicators
+
+**Problem:** Dashboard data stale after page load. No live operational pulse.
+
+**Solution:** WebSocket-free real-time updates via smart polling:
+- **Dashboard auto-refresh:**
+  - KPI tiles: refetch every 30s (low stock alerts, pending picks, today's shipments)
+  - Activity feed: refetch every 30s with pulsing green dot (existing from Sprint 2)
+  - Stockout predictions: refetch every 60s (new from C2)
+  - Financial KPIs: refetch every 120s (less volatile)
+- **Visual indicators:**
+  - Pulsing green dot on activity feed header when new events detected
+  - Timestamp "Last updated: Xs ago" on each auto-refreshing card
+  - Subtle fade-in animation on value changes (no full re-render)
+- **Performance:** Uses TanStack Query `refetchInterval` with `staleTime` tuning — no unnecessary network calls when tab hidden (`document.visibilityState` check)
+- **Files Modified:** `artifacts/wms-app/src/pages/dashboard.tsx`
+
+### Sprint 4 Files Summary
+
+| Action | File |
+|--------|------|
+| Modified | `artifacts/api-server/src/routes/replenishment.ts` (stockout predictions endpoint) |
+| Modified | `artifacts/api-server/src/routes/reports.ts` (ABC analysis endpoint) |
+| Modified | `artifacts/wms-app/src/pages/dashboard.tsx` (stockout card + auto-refresh) |
+| Modified | `artifacts/wms-app/src/pages/reports.tsx` (ABC Analysis tab) |

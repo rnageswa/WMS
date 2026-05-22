@@ -35,6 +35,8 @@ import {
 } from "@/components/ui/table";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
+import { useOfflineMutation } from "@/hooks/use-offline-mutation";
+import { useNetworkStatus } from "@/hooks/use-network-status";
 import {
   Plus,
   Trash2,
@@ -46,6 +48,7 @@ import {
   ShoppingCart,
   AlertTriangle,
   TrendingDown,
+  WifiOff,
 } from "lucide-react";
 import { Link } from "wouter";
 
@@ -178,6 +181,7 @@ function LineStockBadge({ productId, binId, qty }: { productId: string; binId: s
 export default function DispatchPage() {
   const { toast } = useToast();
   const qc = useQueryClient();
+  const { isOnline } = useNetworkStatus();
 
   const [step, setStep] = useState<Step>("reference");
   const [reference, setReference] = useState("");
@@ -188,28 +192,39 @@ export default function DispatchPage() {
   const { data: products = [] } = useListProducts();
   const { data: warehouses = [] } = useListWarehouses();
 
-  const { mutate: commit, isPending } = useCommitDispatch({
-    mutation: {
-      onSuccess: (data) => {
-        setResult({ linesCommitted: data.linesCommitted, reference: data.reference ?? null });
+  const baseCommitDispatch = useCommitDispatch();
+
+  // @ts-ignore
+  const { mutate: commit, isPending } = useOfflineMutation({
+    mutationFn: (vars: { data: { reference?: string; lines: { productId: string; binId: string; qty: number }[] } }) =>
+      baseCommitDispatch.mutateAsync(vars),
+    url: "/api/dispatch/commit",
+    entityType: "dispatch",
+    entityIdExtractor: (vars) => vars.data.reference || "dispatch",
+    invalidateKeys: ["inventory", "dashboard-summary"],
+    successMessage: "Dispatch committed",
+  }, {
+    onSuccess: (data) => {
+      if (!(data as any)?.queued) {
+        setResult({ linesCommitted: (data as any).linesCommitted, reference: (data as any).reference ?? null });
         setStep("done");
         setStockErrors([]);
         qc.invalidateQueries({ queryKey: getListInventoryQueryKey() });
         qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
-      },
-      onError: (err: any) => {
-        const errors: StockError[] = err?.response?.data?.stockErrors ?? [];
-        if (errors.length > 0) {
-          setStockErrors(errors);
-          toast({
-            title: "Insufficient stock",
-            description: `${errors.length} line(s) cannot be fulfilled. Review below.`,
-            variant: "destructive",
-          });
-        } else {
-          toast({ title: "Dispatch failed", description: "Please check the form and try again.", variant: "destructive" });
-        }
-      },
+      }
+    },
+    onError: (err: any) => {
+      const errors: StockError[] = err?.response?.data?.stockErrors ?? [];
+      if (errors.length > 0) {
+        setStockErrors(errors);
+        toast({
+          title: "Insufficient stock",
+          description: `${errors.length} line(s) cannot be fulfilled. Review below.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: "Dispatch failed", description: "Please check the form and try again.", variant: "destructive" });
+      }
     },
   });
 
@@ -532,7 +547,7 @@ export default function DispatchPage() {
               </CardContent>
             </Card>
 
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-center">
               <Button variant="ghost" onClick={() => setStep("lines")} className="gap-1.5">
                 <ArrowLeft className="w-3.5 h-3.5" />
                 Edit
@@ -549,6 +564,12 @@ export default function DispatchPage() {
                 )}
                 {isPending ? "Dispatching…" : "Commit Dispatch"}
               </Button>
+              {!isOnline && (
+                <span className="flex items-center gap-1.5 text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-1">
+                  <WifiOff className="w-3.5 h-3.5" />
+                  Will sync when online
+                </span>
+              )}
             </div>
           </div>
         )}

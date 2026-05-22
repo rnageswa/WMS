@@ -15,6 +15,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useNetworkStatus } from "@/hooks/use-network-status";
 import {
   Scan,
   Package,
@@ -30,6 +32,7 @@ import {
   CheckCircle2,
   History,
   X,
+  WifiOff,
 } from "lucide-react";
 
 // ── Camera QR scanner ─────────────────────────────────────────────────────────
@@ -227,6 +230,7 @@ export default function ScanPage() {
   const [scanHistory, setScanHistory] = useState<ScanHistoryItem[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const lastMatchTypeRef = useRef<string>("");
+  const { isOnline } = useNetworkStatus();
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -435,6 +439,16 @@ export default function ScanPage() {
               </div>
             </CardContent>
           </Card>
+        )}
+
+        {/* ── Offline notice ───────────────────────────────────────────────── */}
+        {!isOnline && (
+          <Alert className="border-amber-200 bg-amber-50">
+            <WifiOff className="w-4 h-4 text-amber-600" />
+            <AlertDescription className="text-amber-700 text-sm">
+              Scan lookup requires connectivity. Results will appear when back online.
+            </AlertDescription>
+          </Alert>
         )}
 
         {/* ── Results ──────────────────────────────────────────────────────── */}

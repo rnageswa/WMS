@@ -40,5 +40,17 @@ export {
   useDeletePriceListItem,
   useGetDefaultPrice,
 } from "./pricing";
-export { setBaseUrl, setAuthTokenGetter } from "./custom-fetch";
+export {
+  useGetStockoutPredictions,
+  useGetABCAnalysis,
+  useGetDashboardFinancial,
+} from "./intelligence";
+export type {
+  StockoutPrediction,
+  StockoutPredictionsResponse,
+  ABCProduct,
+  ABCAnalysisResponse,
+  DashboardFinancialResponse,
+} from "./intelligence";
+export { customFetch, setBaseUrl, setAuthTokenGetter } from "./custom-fetch";
 export type { AuthTokenGetter } from "./custom-fetch";

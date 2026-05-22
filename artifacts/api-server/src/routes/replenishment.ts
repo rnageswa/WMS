@@ -436,4 +436,152 @@ router.put("/alerts/inventory-anomalies/:id/resolve", async (req, res) => {
   res.json({ resolved: true, alert: updated });
 });
 
+// ── GET /replenishment/stockout-predictions — Predict stockouts ────────────────
+
+router.get("/replenishment/stockout-predictions", async (_req, res) => {
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+  // Get current stock levels per product
+  const stockRows = await db
+    .select({
+      productId: productsTable.id,
+      skuCode: productsTable.skuCode,
+      name: productsTable.name,
+      category: productsTable.category,
+      unitPrice: productsTable.unitPrice,
+      reorderThreshold: productsTable.reorderThreshold,
+      totalStock: sql<number>`coalesce(sum(${inventoryItemsTable.qtyOnHand}), 0)::numeric`,
+    })
+    .from(productsTable)
+    .leftJoin(inventoryItemsTable, eq(productsTable.id, inventoryItemsTable.productId))
+    .where(eq(productsTable.isActive, true))
+    .groupBy(productsTable.id, productsTable.skuCode, productsTable.name, productsTable.category, productsTable.unitPrice, productsTable.reorderThreshold);
+
+  // Get 30-day outbound demand per product
+  const demandRows = await db
+    .select({
+      productId: inventoryMovementsTable.productId,
+      totalOutbound: sql<number>`coalesce(sum(abs(${inventoryMovementsTable.quantity})), 0)::numeric`,
+    })
+    .from(inventoryMovementsTable)
+    .where(and(
+      eq(inventoryMovementsTable.movementType, "outbound"),
+      gte(inventoryMovementsTable.createdAt, thirtyDaysAgo)
+    ))
+    .groupBy(inventoryMovementsTable.productId);
+
+  const demandMap = new Map<string, number>();
+  demandRows.forEach(r => demandMap.set(r.productId, Number(r.totalOutbound || 0)));
+
+  const predictions = stockRows
+    .filter(r => Number(r.totalStock) > 0)
+    .map(r => {
+      const stock = Number(r.totalStock);
+      const dailyDemand = (demandMap.get(r.productId) || 0) / 30;
+      const daysUntilStockout = dailyDemand > 0 ? Math.floor(stock / dailyDemand) : 999;
+      const severity = daysUntilStockout <= 3 ? "critical" : daysUntilStockout <= 7 ? "warning" : daysUntilStockout <= 14 ? "watch" : "normal";
+
+      return {
+        productId: r.productId,
+        skuCode: r.skuCode,
+        name: r.name,
+        category: r.category,
+        currentStock: stock,
+        reorderThreshold: Number(r.reorderThreshold || 0),
+        dailyDemand: Number(dailyDemand.toFixed(2)),
+        daysUntilStockout,
+        severity,
+        estimatedStockoutDate: dailyDemand > 0
+          ? new Date(Date.now() + daysUntilStockout * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+          : null,
+      };
+    })
+    .filter(p => p.severity !== "normal")
+    .sort((a, b) => a.daysUntilStockout - b.daysUntilStockout);
+
+  res.json({
+    generatedAt: new Date().toISOString(),
+    totalPredictions: predictions.length,
+    critical: predictions.filter(p => p.severity === "critical").length,
+    warning: predictions.filter(p => p.severity === "warning").length,
+    watch: predictions.filter(p => p.severity === "watch").length,
+    predictions,
+  });
+});
+
+// ── GET /reports/abc-analysis — ABC analysis by revenue ────────────────────────
+
+router.get("/reports/abc-analysis", async (_req, res) => {
+  // Get 12 months of sales data
+  const twelveMonthsAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
+
+  const revenueRows = await db
+    .select({
+      productId: salesOrderLinesTable.productId,
+      skuCode: productsTable.skuCode,
+      name: productsTable.name,
+      category: productsTable.category,
+      revenue: sql<number>`sum(${salesOrderLinesTable.unitPrice} * ${salesOrderLinesTable.qtyOrdered})::numeric`,
+      pickCount: sql<number>`sum(${salesOrderLinesTable.qtyPicked})`,
+    })
+    .from(salesOrderLinesTable)
+    .innerJoin(productsTable, eq(salesOrderLinesTable.productId, productsTable.id))
+    .innerJoin(salesOrdersTable, eq(salesOrderLinesTable.orderId, salesOrdersTable.id))
+    .where(gte(salesOrdersTable.createdAt, twelveMonthsAgo))
+    .groupBy(salesOrderLinesTable.productId, productsTable.skuCode, productsTable.name, productsTable.category)
+    .orderBy(sql`sum(${salesOrderLinesTable.unitPrice} * ${salesOrderLinesTable.qtyOrdered}) desc`);
+
+  const totalRevenue = revenueRows.reduce((sum, r) => sum + Number(r.revenue || 0), 0);
+  let cumulRevenue = 0;
+  let cumulPicks = 0;
+  const totalPicks = revenueRows.reduce((sum, r) => sum + Number(r.pickCount || 0), 0);
+
+  const analyzed = revenueRows.map((r, i) => {
+    const rev = Number(r.revenue || 0);
+    const picks = Number(r.pickCount || 0);
+    cumulRevenue += rev;
+    cumulPicks += picks;
+    const revPct = totalRevenue > 0 ? (rev / totalRevenue) * 100 : 0;
+    const cumRevPct = totalRevenue > 0 ? (cumulRevenue / totalRevenue) * 100 : 0;
+    const pickPct = totalPicks > 0 ? (picks / totalPicks) * 100 : 0;
+    const cumPickPct = totalPicks > 0 ? (cumulPicks / totalPicks) * 100 : 0;
+
+    return {
+      productId: r.productId,
+      skuCode: r.skuCode,
+      name: r.name,
+      category: r.category,
+      revenue: rev,
+      revenuePercent: Number(revPct.toFixed(2)),
+      cumulativeRevenuePercent: Number(cumRevPct.toFixed(2)),
+      pickCount: picks,
+      pickPercent: Number(pickPct.toFixed(2)),
+      cumulativePickPercent: Number(cumPickPct.toFixed(2)),
+      revenueClass: cumRevPct <= 80 ? "A" : cumRevPct <= 95 ? "B" : "C",
+      velocityClass: cumPickPct <= 80 ? "A" : cumPickPct <= 95 ? "B" : "C",
+      combinedClass: `${cumRevPct <= 80 ? "A" : cumRevPct <= 95 ? "B" : "C"}${cumPickPct <= 80 ? "A" : cumPickPct <= 95 ? "B" : "C"}`,
+    };
+  });
+
+  // Summary counts
+  const aRev = analyzed.filter(r => r.revenueClass === "A").length;
+  const bRev = analyzed.filter(r => r.revenueClass === "B").length;
+  const cRev = analyzed.filter(r => r.revenueClass === "C").length;
+  const aVel = analyzed.filter(r => r.velocityClass === "A").length;
+  const bVel = analyzed.filter(r => r.velocityClass === "B").length;
+  const cVel = analyzed.filter(r => r.velocityClass === "C").length;
+
+  res.json({
+    generatedAt: new Date().toISOString(),
+    totalProducts: analyzed.length,
+    totalRevenue,
+    totalUnitsMoved: totalPicks,
+    summary: {
+      revenueClass: { A: aRev, B: bRev, C: cRev },
+      velocityClass: { A: aVel, B: bVel, C: cVel },
+    },
+    products: analyzed,
+  });
+});
+
 export default router;

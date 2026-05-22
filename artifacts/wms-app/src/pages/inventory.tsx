@@ -37,9 +37,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { SlidersHorizontal, AlertTriangle, FileSpreadsheet, CheckSquare, X, Trash2 } from "lucide-react";
+import { SlidersHorizontal, AlertTriangle, FileSpreadsheet, CheckSquare, X, Trash2, WifiOff } from "lucide-react";
 import { exportToExcel } from "@/lib/export-excel";
 import { useToast } from "@/hooks/use-toast";
+import { useNetworkStatus } from "@/hooks/use-network-status";
+import { offlineFetch } from "@/lib/offline";
 
 export default function Inventory() {
   const [warehouseId, setWarehouseId] = useState<string>("");
@@ -50,6 +52,7 @@ export default function Inventory() {
   const [bulkReason, setBulkReason] = useState("");
   const qc = useQueryClient();
   const { toast } = useToast();
+  const { isOnline } = useNetworkStatus();
 
   const { data: warehouses } = useListWarehouses();
 
@@ -105,15 +108,19 @@ export default function Inventory() {
     if (!items?.length) return;
 
     try {
-      const res = await fetch("/api/inventory/adjust/bulk", {
+      const data = await offlineFetch<{ adjusted: number }>("/api/inventory/adjust/bulk", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({ items, reasonCode: bulkReason }),
+        entityType: "inventory-adjust",
+        entityId: "bulk",
+        invalidateKeys: ["inventory"],
       });
-      if (!res.ok) throw new Error("Bulk adjust failed");
-      const data = await res.json();
-      toast({ title: `Adjusted ${data.adjusted} items to 0` });
+      if ((data as any)?.queued) {
+        toast({ title: "Saved offline", description: "Bulk adjust will sync when connection is restored." });
+      } else {
+        toast({ title: `Adjusted ${data.adjusted} items to 0` });
+      }
       qc.invalidateQueries({ queryKey: getListInventoryQueryKey() });
       setSelected(new Set());
       setBulkAdjustOpen(false);
@@ -311,6 +318,13 @@ export default function Inventory() {
             <SlidersHorizontal className="w-3.5 h-3.5" />
             Bulk Adjust to 0
           </Button>
+
+          {!isOnline && (
+            <span className="flex items-center gap-1 text-xs text-amber-300">
+              <WifiOff className="w-3.5 h-3.5" />
+              Queued for sync
+            </span>
+          )}
 
           <button
             onClick={() => setSelected(new Set())}

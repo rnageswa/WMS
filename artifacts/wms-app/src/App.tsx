@@ -10,7 +10,7 @@ import {
 import { shadcn } from "@clerk/themes";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { queryClient } from "@/lib/queryClient";
+import { queryClient, hydrateQueryClient } from "@/lib/queryClient";
 
 import Dashboard from "@/pages/dashboard";
 import Products from "@/pages/products";

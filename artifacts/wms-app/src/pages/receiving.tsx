@@ -37,6 +37,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
+import { useOfflineMutation } from "@/hooks/use-offline-mutation";
+import { useNetworkStatus } from "@/hooks/use-network-status";
 import {
   Plus,
   Trash2,
@@ -50,6 +52,7 @@ import {
   ScanLine,
   MapPin,
   Sparkles,
+  WifiOff,
 } from "lucide-react";
 import { ScanModal } from "@/components/scan-modal";
 import { Link } from "wouter";
@@ -135,6 +138,7 @@ export default function ReceivingPage() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const qc = useQueryClient();
+  const { isOnline } = useNetworkStatus();
 
   const [step, setStep] = useState<Step>("reference");
   const [reference, setReference] = useState("");
@@ -208,17 +212,28 @@ export default function ReceivingPage() {
     });
   };
 
-  const { mutate: commit, isPending } = useCommitReceipt({
-    mutation: {
-      onSuccess: (data) => {
-        setResult({ linesCommitted: data.linesCommitted, reference: data.reference ?? null });
+  const baseCommitReceipt = useCommitReceipt();
+
+  // @ts-ignore
+  const { mutate: commit, isPending } = useOfflineMutation({
+    mutationFn: (vars: { data: { reference?: string; lines: { productId: string; binId: string; qty: number }[] } }) =>
+      baseCommitReceipt.mutateAsync(vars),
+    url: "/api/receiving/commit",
+    entityType: "receipt",
+    entityIdExtractor: (vars) => vars.data.reference || "receipt",
+    invalidateKeys: ["inventory", "dashboard-summary", "purchase-orders"],
+    successMessage: "Receipt committed",
+  }, {
+    onSuccess: (data) => {
+      if (!(data as any)?.queued) {
+        setResult({ linesCommitted: (data as any).linesCommitted, reference: (data as any).reference ?? null });
         setStep("done");
         qc.invalidateQueries({ queryKey: getListInventoryQueryKey() });
         qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
-      },
-      onError: () => {
-        toast({ title: "Commit failed", description: "Please check the form and try again.", variant: "destructive" });
-      },
+      }
+    },
+    onError: () => {
+      toast({ title: "Commit failed", description: "Please check the form and try again.", variant: "destructive" });
     },
   });
 
@@ -655,7 +670,7 @@ export default function ReceivingPage() {
               </CardContent>
             </Card>
 
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-center">
               <Button variant="ghost" onClick={() => setStep("lines")} className="gap-1.5">
                 <ArrowLeft className="w-3.5 h-3.5" />
                 Edit
@@ -672,6 +687,12 @@ export default function ReceivingPage() {
                 )}
                 {isPending ? "Committing…" : "Commit Receipt"}
               </Button>
+              {!isOnline && (
+                <span className="flex items-center gap-1.5 text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-1">
+                  <WifiOff className="w-3.5 h-3.5" />
+                  Will sync when online
+                </span>
+              )}
             </div>
           </div>
         )}

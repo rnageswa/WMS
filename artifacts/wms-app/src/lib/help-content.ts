@@ -12,37 +12,52 @@ export interface HelpSection {
 export const helpContent: Record<string, HelpContent> = {
   "/dashboard": {
     title: "Dashboard",
-    description: "Overview of your warehouse operations with key metrics, financial KPIs, and alerts.",
+    description: "Real-time overview of warehouse operations with live KPIs, financial metrics, stockout predictions, and alerts. All data auto-refreshes automatically.",
     sections: [
       {
-        title: "Key Metrics",
+        title: "Key Metrics (Auto-Refresh 30s)",
         content: [
           "Total SKUs: Number of active products in your catalog",
           "Total Bins: Number of storage locations across all warehouses",
           "Low Stock: Products that have fallen below their reorder threshold",
-          "Today's Movements: Number of inventory transactions today"
+          "Today's Movements: Number of inventory transactions today",
+          "KPI tiles auto-refresh every 30 seconds. Live indicator shows last update time."
         ]
       },
       {
-        title: "Financial KPIs",
+        title: "Financial KPIs (Auto-Refresh 120s)",
         content: [
           "Total Inventory Value: Sum of all stock × unit price across all warehouses",
-          "COGS This Month: Cost of goods sold on shipped/delivered orders",
+          "COGS: Cost of goods sold on shipped/delivered orders for selected date range",
           "Avg Margin: Average profit margin percentage across all fulfilled orders",
-          "Value by Warehouse: Bar chart showing inventory value distribution per warehouse"
+          "Low Stock Value: Total value of items below reorder threshold",
+          "Date range presets: This Month, Last 7/30/90 Days, This Year, or Custom Range.",
+          "Charts: Inventory value by warehouse (bar) and COGS trend (line)."
         ]
       },
       {
-        title: "Low Stock Alerts",
-        content: "Shows products below their reorder threshold. Each alert displays the product name, current quantity, reorder threshold, and the quantity needed to restore stock. Click 'View all' to see the full inventory filtered by low stock items."
+        title: "Stockout Risk Predictions (Auto-Refresh 60s)",
+        content: "Predictive alerts showing products at risk of stocking out based on 30-day demand velocity. Severity tiers: Critical (≤3 days), Warning (≤7 days), Watch (≤14 days). Each row shows current stock, daily demand rate, days remaining, and estimated stockout date. Data refreshes every 60 seconds."
       },
       {
-        title: "Recent Movements",
-        content: "Live feed of all inventory transactions including inbound receipts, outbound dispatches, and adjustments. Color-coded badges indicate movement type. Click any item to view the full movements log."
+        title: "Low Stock Alerts (Auto-Refresh 30s)",
+        content: "Shows products below their reorder threshold. Each alert displays the product name, current quantity, reorder threshold, and the quantity needed to restore stock. Click 'View all' to see the full inventory filtered by low stock items. Click 'Reorder' to jump to reorder suggestions."
+      },
+      {
+        title: "Recent Activity Feed (Auto-Refresh 30s)",
+        content: "Live stream of warehouse events including inbound receipts, outbound dispatches, adjustments, order status changes, and shipments. Color-coded icons indicate event type. Timestamps show time ago. Data refreshes every 30 seconds."
+      },
+      {
+        title: "Offline Mode",
+        content: "Dashboard KPIs, stockout predictions, and activity feed are cached locally. When offline, the last cached data is displayed with a timestamp. Data auto-syncs when connectivity returns."
       },
       {
         title: "PO Aging Widget",
         content: "Shows purchase orders grouped by delivery status: Overdue (past expected date), Due This Week, Upcoming, and No Date Set. Click any PO to navigate directly to its detail page."
+      },
+      {
+        title: "Recent Movements",
+        content: "Feed of all inventory transactions including inbound receipts, outbound dispatches, and adjustments. Color-coded badges indicate movement type. Click any item to view the full movements log."
       }
     ]
   },
@@ -84,6 +99,10 @@ export const helpContent: Record<string, HelpContent> = {
       {
         title: "Inventory Adjustments",
         content: "Click 'Adjust' to make inventory corrections. Select warehouse → zone → bin → product, enter the new quantity, and select a reason code. All adjustments create an audit trail."
+      },
+      {
+        title: "Offline Mode",
+        content: "Inventory data cached locally — bin-level stock positions available offline. Single and bulk adjustments queued when offline, synced automatically when connectivity returns."
       }
     ]
   },
@@ -154,6 +173,10 @@ export const helpContent: Record<string, HelpContent> = {
       {
         title: "Auto-Navigation",
         content: "When scanning a PO or GRN, the page automatically redirects to the detail page after 1.8 seconds."
+      },
+      {
+        title: "Offline Mode",
+        content: "Scan lookup requires connectivity. When offline, a notice is shown. Use the picker or receiving pages for offline-scannable actions."
       }
     ]
   },
@@ -263,6 +286,10 @@ export const helpContent: Record<string, HelpContent> = {
       {
         title: "Step 3: Review",
         content: "Review summary table with SKU, product name, warehouse, bin, and quantity. Click 'Commit Receipt' to atomically update inventory and create movement records."
+      },
+      {
+        title: "Offline Mode",
+        content: "Receipt commits are queued when offline and synced automatically when connectivity returns. PO and product data cached locally for offline form filling."
       }
     ]
   },
@@ -281,6 +308,10 @@ export const helpContent: Record<string, HelpContent> = {
       {
         title: "Step 3: Review",
         content: "Review quantities (shown in orange with minus sign). Click 'Commit Dispatch' - server runs stock validation before writing."
+      },
+      {
+        title: "Offline Mode",
+        content: "Dispatch commits are queued when offline and synced automatically when connectivity returns. Product and bin data cached locally for offline form filling."
       }
     ]
   },
@@ -322,11 +353,15 @@ export const helpContent: Record<string, HelpContent> = {
   },
   "/reports": {
     title: "Reports",
-    description: "Analytics and reporting for inventory and suppliers.",
+    description: "Analytics and reporting for inventory, suppliers, ABC classification, COGS, and margins.",
     sections: [
       {
-        title: "Inventory Report",
+        title: "Stock Value Report",
         content: "Category-by-category stock value breakdown with bar chart. Sortable table shows products, units, value, and % of total. Export to CSV."
+      },
+      {
+        title: "Supplier Performance",
+        content: "Track supplier metrics including on-time delivery rate, fill rate, average lead time, and total spend. Metrics are color-coded: Green (≥90%), Amber (≥70%), Red (<70%). Export to CSV."
       },
       {
         title: "Stock Velocity",
@@ -335,6 +370,25 @@ export const helpContent: Record<string, HelpContent> = {
       {
         title: "Velocity Alerts",
         content: "Configure automated email alerts for SKUs running low based on velocity. Set threshold (days), lookback window, and recipient email. Use SKU overrides to always/never include specific products."
+      },
+      {
+        title: "ABC Analysis",
+        content: [
+          "Pareto classification of products by revenue and pick velocity using 12 months of sales data.",
+          "Revenue Class: A = top 80% cumulative revenue, B = next 15%, C = bottom 5%.",
+          "Velocity Class: same Pareto split but by pick frequency instead of revenue.",
+          "Combined Class: two-letter code (e.g., AA, BC) showing revenue + velocity class.",
+          "Cumulative Revenue chart (Pareto curve) visualizes the distribution.",
+          "Filter table by class (A/B/C) and export full breakdown to CSV."
+        ]
+      },
+      {
+        title: "COGS Report",
+        content: "Cost of goods sold analysis by date range. Shows total COGS, order count, average margin percentage, and a daily COGS trend line chart. Filter by preset ranges (7d, 30d, 90d, this month, this year) or custom date range."
+      },
+      {
+        title: "Margin Report",
+        content: "Order-level and product-level margin analysis. Summary cards show total revenue, total cost, gross margin, and average margin %. Filterable table with order details including customer, shipped date, revenue, cost, and margin %. Export to CSV."
       }
     ]
   },
@@ -434,6 +488,10 @@ export const helpContent: Record<string, HelpContent> = {
       {
         title: "Scanner Support",
         content: "Compatible with USB and Bluetooth barcode scanners. The input field auto-focuses after each scan for rapid picking."
+      },
+      {
+        title: "Offline Mode",
+        content: "Pick confirmations, task starts, and task completions are queued when offline. Actions sync automatically when connectivity returns. Cached task data and bin/product info remain available offline."
       }
     ]
   },

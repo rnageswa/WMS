@@ -8,4 +8,9 @@ router.get("/healthz", (_req, res) => {
   res.json(data);
 });
 
+// Lightweight heartbeat for offline detection (no auth, minimal overhead)
+router.get("/health", (_req, res) => {
+  res.status(200).json({ status: "ok", ts: Date.now() });
+});
+
 export default router;

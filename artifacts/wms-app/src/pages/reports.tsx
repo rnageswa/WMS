@@ -15,7 +15,9 @@ import {
   useListProducts,
   useGetVelocityAlertHistory,
   useRetryVelocityAlert,
+  useGetABCAnalysis,
   type StockVelocityRow,
+  type ABCProduct,
 } from "@workspace/api-client-react";
 import { Layout, PageHeader } from "@/components/layout";
 import { Button } from "@/components/ui/button";
@@ -49,6 +51,7 @@ import {
 import {
   Download,
   BarChart3,
+  BarChart4,
   Package,
   DollarSign,
   AlertTriangle,
@@ -1812,6 +1815,210 @@ function MarginTab() {
   );
 }
 
+// ─── ABC Analysis Tab ─────────────────────────────────────────────────────────
+
+function ABCTooltip({ active, payload, label, fmt }: any) {
+  if (!active || !payload?.length) return null;
+  const d = payload[0].payload;
+  return (
+    <div className="bg-white border border-border rounded-lg shadow-lg p-3 text-xs">
+      <p className="font-semibold mb-1">{d.name}</p>
+      <p className="text-muted-foreground">Revenue: {fmt(d.revenue)}</p>
+      <p className="text-muted-foreground">Cumulative: {d.cumulativeRevenuePercent.toFixed(1)}%</p>
+      <p className="text-muted-foreground">Class: {d.revenueClass}</p>
+    </div>
+  );
+}
+
+function ABCTab() {
+  const baseCurrency = useBaseCurrency();
+  const fmtFull = (n: number) => formatCurrency(n, baseCurrency);
+  const { data, isLoading, error } = useGetABCAnalysis();
+  const [filterClass, setFilterClass] = useState<string>("all");
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-3 gap-4">
+          {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-24 w-full" />)}
+        </div>
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return <p className="text-sm text-red-500 py-8 text-center">Failed to load ABC analysis</p>;
+  }
+
+  if (!data) return null;
+
+  const filtered = filterClass === "all"
+    ? data.products
+    : data.products.filter(p => p.revenueClass === filterClass);
+
+  const chartData = data.products.map(p => ({
+    name: p.skuCode,
+    fullName: p.name,
+    revenue: p.revenue,
+    cumulativeRevenuePercent: p.cumulativeRevenuePercent,
+    revenueClass: p.revenueClass,
+    fill: p.revenueClass === "A" ? "#E8622A" : p.revenueClass === "B" ? "#2563eb" : "#94a3b8",
+  }));
+
+  const exportCSV = () => {
+    const header = "SKU,Product,Category,Revenue,% of Total,Cumulative %,Class,Picks\n";
+    const rows = data.products.map(p =>
+      `"${p.skuCode}","${p.name}","${p.category || ""}",${p.revenue},${p.revenuePercent},${p.cumulativeRevenuePercent},${p.revenueClass},${p.pickCount}`
+    ).join("\n");
+    const blob = new Blob([header + rows], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "abc-analysis.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Summary cards */}
+      <div className="grid grid-cols-3 gap-4">
+        <Card>
+          <CardContent className="pt-5 pb-4 px-5">
+            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Total Products</p>
+            <p className="text-3xl font-bold mt-1">{data.totalProducts}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-5 pb-4 px-5">
+            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Total Revenue</p>
+            <p className="text-3xl font-bold mt-1">{fmtFull(data.totalRevenue)}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-5 pb-4 px-5">
+            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Units Moved</p>
+            <p className="text-3xl font-bold mt-1">{data.totalUnitsMoved}</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Classification summary */}
+      <div className="grid grid-cols-2 gap-4">
+        <Card>
+          <CardHeader><CardTitle className="text-sm">By Revenue Class</CardTitle></CardHeader>
+          <CardContent>
+            <div className="flex gap-3">
+              {(["A", "B", "C"] as const).map(cls => (
+                <div key={cls} className={`flex-1 rounded-lg border p-3 text-center ${cls === "A" ? "border-orange-200 bg-orange-50" : cls === "B" ? "border-blue-200 bg-blue-50" : "border-slate-200 bg-slate-50"}`}>
+                  <p className="text-2xl font-bold">{data.summary.revenueClass[cls]}</p>
+                  <p className="text-xs text-muted-foreground">Class {cls}</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle className="text-sm">By Velocity Class</CardTitle></CardHeader>
+          <CardContent>
+            <div className="flex gap-3">
+              {(["A", "B", "C"] as const).map(cls => (
+                <div key={cls} className={`flex-1 rounded-lg border p-3 text-center ${cls === "A" ? "border-orange-200 bg-orange-50" : cls === "B" ? "border-blue-200 bg-blue-50" : "border-slate-200 bg-slate-50"}`}>
+                  <p className="text-2xl font-bold">{data.summary.velocityClass[cls]}</p>
+                  <p className="text-xs text-muted-foreground">Class {cls}</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Cumulative revenue chart */}
+      <Card>
+        <CardHeader><CardTitle className="text-sm">Cumulative Revenue % (Pareto Curve)</CardTitle></CardHeader>
+        <CardContent>
+          <ResponsiveContainer width="100%" height={250}>
+            <BarChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis dataKey="name" tick={{ fontSize: 9 }} interval={Math.max(0, Math.floor(chartData.length / 15) - 1)} />
+              <YAxis tick={{ fontSize: 11 }} domain={[0, 105]} unit="%" />
+              <Tooltip content={<ABCTooltip fmt={fmtFull} />} />
+              <Bar dataKey="cumulativeRevenuePercent" radius={[2, 2, 0, 0]}>
+                {chartData.map((entry, i) => (
+                  <Cell key={i} fill={entry.fill} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
+
+      {/* Products table */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-sm">Product Breakdown</CardTitle>
+          <div className="flex items-center gap-2">
+            <div className="flex gap-1">
+              {["all", "A", "B", "C"].map(cls => (
+                <button
+                  key={cls}
+                  onClick={() => setFilterClass(cls)}
+                  className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${filterClass === cls ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"}`}
+                >
+                  {cls === "all" ? "All" : `Class ${cls}`}
+                </button>
+              ))}
+            </div>
+            <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs" onClick={exportCSV}>
+              <Download className="w-3 h-3" />
+              Export CSV
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>SKU</TableHead>
+                <TableHead>Product</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead className="text-right">Revenue</TableHead>
+                <TableHead className="text-right">% of Total</TableHead>
+                <TableHead className="text-right">Cumulative %</TableHead>
+                <TableHead>Class</TableHead>
+                <TableHead className="text-right">Picks</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.map((p) => (
+                <TableRow key={p.productId}>
+                  <TableCell className="font-mono text-xs">{p.skuCode}</TableCell>
+                  <TableCell className="font-medium text-sm">{p.name}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{p.category || "—"}</TableCell>
+                  <TableCell className="text-right text-sm">{fmtFull(p.revenue)}</TableCell>
+                  <TableCell className="text-right text-sm">{p.revenuePercent.toFixed(1)}%</TableCell>
+                  <TableCell className="text-right text-sm">{p.cumulativeRevenuePercent.toFixed(1)}%</TableCell>
+                  <TableCell>
+                    <Badge className={
+                      p.revenueClass === "A" ? "bg-orange-50 text-orange-700 border-orange-200" :
+                      p.revenueClass === "B" ? "bg-blue-50 text-blue-700 border-blue-200" :
+                      "bg-slate-50 text-slate-600 border-slate-200"
+                    }>
+                      {p.revenueClass}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right text-sm">{p.pickCount}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ReportsPage() {
@@ -1824,6 +2031,7 @@ export default function ReportsPage() {
       <PageHeader
         title="Reports"
         subtitle="Analytics and performance metrics"
+        helpKey="/reports"
       />
       <div className="p-6 max-w-5xl">
         <Tabs defaultValue="stock-value">
@@ -1839,6 +2047,10 @@ export default function ReportsPage() {
             <TabsTrigger value="stock-velocity" className="gap-1.5">
               <Zap className="w-3.5 h-3.5" />
               Stock Velocity
+            </TabsTrigger>
+            <TabsTrigger value="abc-analysis" className="gap-1.5">
+              <BarChart4 className="w-3.5 h-3.5" />
+              ABC Analysis
             </TabsTrigger>
             <TabsTrigger value="cogs" className="gap-1.5">
               <Receipt className="w-3.5 h-3.5" />
@@ -1857,6 +2069,9 @@ export default function ReportsPage() {
           </TabsContent>
           <TabsContent value="stock-velocity">
             <StockVelocityTab />
+          </TabsContent>
+          <TabsContent value="abc-analysis">
+            <ABCTab />
           </TabsContent>
           <TabsContent value="cogs">
             <COGSTab />

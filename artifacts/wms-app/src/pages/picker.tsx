@@ -30,10 +30,12 @@ import {
 import {
   CheckCircle, Package, Search, Barcode, XCircle, Printer,
   ClipboardList, Tag, Play, Warehouse, MapPin, Loader2,
-  ArrowRight, Camera,
+  ArrowRight, Camera, WifiOff,
 } from "lucide-react";
 import { ScanModal } from "@/components/scan-modal";
 import { useToast } from "@/hooks/use-toast";
+import { useOfflineMutation } from "@/hooks/use-offline-mutation";
+import { useNetworkStatus } from "@/hooks/use-network-status";
 import { format } from "date-fns";
 import LabelPrint from "@/components/label-print";
 import type { LabelData } from "@/components/label-print";
@@ -107,6 +109,7 @@ export default function PickerPage() {
   const [location, setLocation] = useLocation();
   const { toast } = useToast();
   const qc = useQueryClient();
+  const { isOnline } = useNetworkStatus();
 
   const [selectedOrderId, setSelectedOrderId] = useState<string>("");
   const [selectedTaskId, setSelectedTaskId] = useState<string>("");
@@ -142,10 +145,51 @@ export default function PickerPage() {
   // Warehouses for location selectors
   const { data: warehouses = [] } = useListWarehouses();
 
-  const createTaskMutation = useCreatePickingTask();
-  const startMutation = useStartPickingTask();
-  const pickLineMutation = usePickPickingLine();
-  const completeMutation = useCompletePickingTask();
+  // Base mutations (hooks must be called at top level)
+  const baseCreateTask = useCreatePickingTask();
+  const baseStartTask = useStartPickingTask();
+  const basePickLine = usePickPickingLine();
+  const baseCompleteTask = useCompletePickingTask();
+
+  // Offline-aware wrappers
+  const createTaskMutation = useOfflineMutation({
+    mutationFn: (vars: { body: { orderId: string } }) => baseCreateTask.mutateAsync(vars),
+    url: "/api/picking-tasks",
+    entityType: "pick-task",
+    entityIdExtractor: (vars) => vars.body.orderId,
+    invalidateKeys: ["picking-tasks"],
+    successMessage: "Picking task created",
+  });
+
+  const startMutation = useOfflineMutation({
+    mutationFn: (vars: { pathParams: { id: string } }) => baseStartTask.mutateAsync(vars),
+    url: (vars) => `/api/picking-tasks/${vars.pathParams.id}/start`,
+    method: "PUT",
+    entityType: "pick-task",
+    entityIdExtractor: (vars) => vars.pathParams.id,
+    invalidateKeys: ["picking-tasks"],
+    successMessage: "Picking started",
+  });
+
+  const pickLineMutation = useOfflineMutation({
+    mutationFn: (vars: { pathParams: { id: string; lineId: string }; body: { qtyPicked: number; binId?: string } }) =>
+      basePickLine.mutateAsync(vars),
+    url: (vars) => `/api/picking-tasks/${vars.pathParams.id}/lines/${vars.pathParams.lineId}/pick`,
+    method: "PUT",
+    entityType: "pick-line",
+    entityIdExtractor: (vars) => vars.pathParams.lineId,
+    invalidateKeys: ["picking-tasks"],
+  });
+
+  const completeMutation = useOfflineMutation({
+    mutationFn: (vars: { pathParams: { id: string } }) => baseCompleteTask.mutateAsync(vars),
+    url: (vars) => `/api/picking-tasks/${vars.pathParams.id}/complete`,
+    method: "PUT",
+    entityType: "pick-task",
+    entityIdExtractor: (vars) => vars.pathParams.id,
+    invalidateKeys: ["picking-tasks", "sales-orders"],
+    successMessage: "Picking complete!",
+  });
 
   const lines = (task as any)?.lines || [];
   const taskStatus = (task as any)?.status || "pending";
@@ -385,6 +429,14 @@ export default function PickerPage() {
                 </div>
                 <div className="text-muted-foreground">·</div>
                 <div>{customerName}</div>
+                {!isOnline && (
+                  <>
+                    <div className="text-muted-foreground">·</div>
+                    <Badge variant="outline" className="border-amber-300 text-amber-700 bg-amber-50">
+                      <WifiOff className="w-3 h-3 mr-1" />Offline
+                    </Badge>
+                  </>
+                )}
                 <div className="ml-auto"><Badge className={taskStatusColors[taskStatus] || ""}>{taskStatus}</Badge></div>
               </div>
 

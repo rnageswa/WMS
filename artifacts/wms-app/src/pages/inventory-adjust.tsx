@@ -28,7 +28,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Loader2, CheckCircle } from "lucide-react";
+import { useOfflineMutation } from "@/hooks/use-offline-mutation";
+import { useNetworkStatus } from "@/hooks/use-network-status";
+import { ArrowLeft, Loader2, CheckCircle, WifiOff } from "lucide-react";
 import { Link } from "wouter";
 
 const schema = z.object({
@@ -61,6 +63,7 @@ export default function InventoryAdjust() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { isOnline } = useNetworkStatus();
   const [success, setSuccess] = useState(false);
 
   const form = useForm<FormData>({
@@ -96,21 +99,31 @@ export default function InventoryAdjust() {
     form.setValue("binId", "");
   }, [zoneId]);
 
-  const adjust = useAdjustInventory({
-    mutation: {
-      onSuccess: (item) => {
+  const baseAdjust = useAdjustInventory();
+
+  const adjust = useOfflineMutation({
+    mutationFn: (vars: { data: { productId: string; binId: string; newQty: number; reasonCode: string } }) =>
+      baseAdjust.mutateAsync(vars),
+    url: "/api/inventory/adjust",
+    entityType: "inventory-adjust",
+    entityIdExtractor: (vars) => vars.data.productId,
+    invalidateKeys: ["inventory", "dashboard-summary"],
+    successMessage: "Stock adjusted",
+  }, {
+    onSuccess: (data) => {
+      if (!(data as any)?.queued) {
         queryClient.invalidateQueries({ queryKey: getListInventoryQueryKey() });
         queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
         toast({
           title: "Stock adjusted",
-          description: `New quantity: ${item.qtyOnHand}`,
+          description: `New quantity: ${(data as any).qtyOnHand}`,
         });
         setSuccess(true);
-      },
-      onError: (err: any) => {
-        const msg = err?.response?.data?.message ?? "Adjustment failed";
-        toast({ title: "Error", description: msg, variant: "destructive" });
-      },
+      }
+    },
+    onError: (err: any) => {
+      const msg = err?.response?.data?.message ?? "Adjustment failed";
+      toast({ title: "Error", description: msg, variant: "destructive" });
     },
   });
 
@@ -291,7 +304,7 @@ export default function InventoryAdjust() {
                 )}
               </div>
 
-              <div className="flex gap-3 pt-2">
+              <div className="flex gap-3 pt-2 items-center">
                 <Button
                   type="submit"
                   disabled={adjust.isPending}
@@ -305,6 +318,12 @@ export default function InventoryAdjust() {
                 <Link href="/inventory">
                   <Button type="button" variant="outline">Cancel</Button>
                 </Link>
+                {!isOnline && (
+                  <span className="flex items-center gap-1.5 text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-1">
+                    <WifiOff className="w-3.5 h-3.5" />
+                    Will sync when online
+                  </span>
+                )}
               </div>
             </form>
           </CardContent>

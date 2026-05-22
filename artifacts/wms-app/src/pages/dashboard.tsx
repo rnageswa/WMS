@@ -3,6 +3,7 @@ import {
   useGetDashboardSummary,
   useGetLowStockAlerts,
   useGetPurchaseOrderAging,
+  useGetStockoutPredictions,
   getGetLowStockAlertsQueryKey,
 } from "@workspace/api-client-react";
 import { Layout, PageHeader } from "@/components/layout";
@@ -121,15 +122,26 @@ const PRESET_LABELS: Record<DateRangePreset, string> = {
 
 export default function Dashboard() {
   const baseCurrency = useBaseCurrency();
-  const { data, isLoading } = useGetDashboardSummary();
+  const { data, isLoading } = useGetDashboardSummary({
+    query: { refetchInterval: 30000 }, // B5: KPI tiles refresh every 30s
+  } as any);
   const { data: alertData, isLoading: alertsLoading } = useGetLowStockAlerts({
-    query: { queryKey: getGetLowStockAlertsQueryKey() },
-  });
+    query: { queryKey: getGetLowStockAlertsQueryKey(), refetchInterval: 30000 }, // B5: low stock every 30s
+  } as any);
   const { data: aging, isLoading: agingLoading } = useGetPurchaseOrderAging();
+  const { data: stockoutData, isLoading: stockoutLoading } = useGetStockoutPredictions();
   const [finData, setFinData] = useState<any>(null);
   const [datePreset, setDatePreset] = useState<DateRangePreset>("thisMonth");
   const [customRange, setCustomRange] = useState<{ from?: Date; to?: Date }>({});
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [lastKpiUpdate, setLastKpiUpdate] = useState<Date>(new Date());
+
+  // B5: track KPI refresh timestamps
+  useEffect(() => {
+    if (!isLoading && data) {
+      setLastKpiUpdate(new Date());
+    }
+  }, [isLoading, data]);
 
   const fetchFinancial = useCallback(async () => {
     const range = datePreset === "custom" && customRange.from
@@ -282,7 +294,18 @@ export default function Dashboard() {
         helpKey="/dashboard"
       />
       <div className="p-6 space-y-6">
-        {/* KPI tiles */}
+        {/* KPI tiles (B5: auto-refresh 30s) */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="flex h-2 w-2 relative">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium">
+              Live · Updated {formatDistanceToNow(lastKpiUpdate, { addSuffix: true })}
+            </span>
+          </div>
+        </div>
         <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
           {kpis.map((kpi) => (
             <Card key={kpi.label} className="border-border/60" data-testid={`kpi-${kpi.label.toLowerCase().replace(/\s+/g, '-')}`}>
@@ -583,6 +606,91 @@ export default function Dashboard() {
                       <Button variant="ghost" size="sm" asChild className="text-xs h-7 gap-1 text-muted-foreground">
                         <Link href="/inventory?lowStock=true">
                           +{alerts.length - 8} more alerts <ArrowRight className="w-3 h-3" />
+                        </Link>
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Stockout Risk Predictions (C2) */}
+        {(stockoutLoading || (stockoutData && stockoutData.totalPredictions > 0)) && (
+          <Card className={`border-border/60 ${stockoutData?.critical ? "border-red-200" : ""}`}>
+            <CardHeader className="pb-2 pt-4 px-5 flex flex-row items-center justify-between space-y-0">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <Zap className={`w-4 h-4 ${stockoutData?.critical ? "text-red-500" : "text-muted-foreground"}`} />
+                Stockout Risk
+                {!stockoutLoading && stockoutData && stockoutData.totalPredictions > 0 && (
+                  <div className="flex gap-1.5 ml-1">
+                    {stockoutData.critical > 0 && (
+                      <Badge className="bg-red-50 text-red-700 border-red-200 hover:bg-red-50 text-[10px]">
+                        {stockoutData.critical} critical
+                      </Badge>
+                    )}
+                    {stockoutData.warning > 0 && (
+                      <Badge className="bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-50 text-[10px]">
+                        {stockoutData.warning} warning
+                      </Badge>
+                    )}
+                    {stockoutData.watch > 0 && (
+                      <Badge className="bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-50 text-[10px]">
+                        {stockoutData.watch} watch
+                      </Badge>
+                    )}
+                  </div>
+                )}
+              </CardTitle>
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium">Auto-refresh 60s</span>
+            </CardHeader>
+            <CardContent className="px-0 pb-1">
+              {stockoutLoading ? (
+                <div className="px-5 py-3 space-y-2">
+                  {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
+                </div>
+              ) : !stockoutData || stockoutData.totalPredictions === 0 ? (
+                <p className="px-5 py-6 text-center text-sm text-muted-foreground">No stockout risks predicted</p>
+              ) : (
+                <div className="divide-y divide-border/50">
+                  {stockoutData.predictions.slice(0, 8).map((p) => (
+                    <div key={p.productId} className="flex items-center gap-3 px-5 py-3 hover:bg-muted/40 transition-colors">
+                      <div className={`w-1.5 h-8 rounded-full shrink-0 ${p.severity === "critical" ? "bg-red-500" : p.severity === "warning" ? "bg-amber-400" : "bg-blue-400"}`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium text-foreground truncate">{p.name}</p>
+                          <Badge className={
+                            p.severity === "critical" ? "bg-red-50 text-red-700 border-red-200 text-[10px]" :
+                            p.severity === "warning" ? "bg-amber-50 text-amber-700 border-amber-200 text-[10px]" :
+                            "bg-blue-50 text-blue-700 border-blue-200 text-[10px]"
+                          }>
+                            {p.daysUntilStockout}d left
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <code className="text-[11px] text-muted-foreground font-mono">{p.skuCode}</code>
+                          {p.category && <span className="text-[11px] text-muted-foreground">· {p.category}</span>}
+                          <span className="text-[11px] text-muted-foreground">· demand {p.dailyDemand}/day</span>
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-sm font-bold tabular-nums">{p.currentStock}</p>
+                        <p className="text-[10px] text-muted-foreground">in stock</p>
+                      </div>
+                      {p.estimatedStockoutDate && (
+                        <div className="text-right shrink-0 w-20">
+                          <p className="text-[11px] text-muted-foreground">Est.</p>
+                          <p className="text-[11px] font-medium">{p.estimatedStockoutDate}</p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  {stockoutData.predictions.length > 8 && (
+                    <div className="px-5 py-2.5 text-center">
+                      <Button variant="ghost" size="sm" asChild className="text-xs h-7 gap-1 text-muted-foreground">
+                        <Link href="/reports?tab=abc-analysis">
+                          +{stockoutData.predictions.length - 8} more <ArrowRight className="w-3 h-3" />
                         </Link>
                       </Button>
                     </div>
