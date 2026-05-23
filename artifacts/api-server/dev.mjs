@@ -15,4 +15,5 @@ console.log('Building...');
 execSync('pnpm run build', { cwd: __dirname, stdio: 'inherit' });
 
 console.log('Starting...');
+execSync('node -e "setTimeout(()=>{}, 3000)"', { cwd: __dirname });
 execSync('pnpm run start', { cwd: __dirname, stdio: 'inherit', env: { ...process.env } });

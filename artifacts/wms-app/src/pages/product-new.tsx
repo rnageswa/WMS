@@ -16,6 +16,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { Link } from "wouter";
+import { useBaseCurrency } from "@/hooks/use-base-currency";
 
 const schema = z.object({
   skuCode: z.string().min(1, "SKU code is required"),
@@ -34,6 +35,7 @@ export default function ProductNew() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const baseCurrency = useBaseCurrency();
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -168,7 +170,7 @@ export default function ProductNew() {
                   )}
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="unitPrice">Unit Price</Label>
+                  <Label htmlFor="unitPrice">Unit Price ({baseCurrency})</Label>
                   <Input
                     id="unitPrice"
                     {...form.register("unitPrice")}

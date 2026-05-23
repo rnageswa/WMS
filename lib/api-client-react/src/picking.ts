@@ -36,6 +36,7 @@ export interface PickingLine {
 export interface CreatePickingTaskRequest {
   orderId: string;
   assignedTo?: string;
+  laborEntryId?: string;
 }
 
 export interface AssignPickingTaskRequest {

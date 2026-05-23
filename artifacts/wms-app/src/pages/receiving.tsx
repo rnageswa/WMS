@@ -14,7 +14,7 @@ import {
   getListZonesQueryKey,
   getListBinsQueryKey,
 } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Layout, PageHeader } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,6 +53,7 @@ import {
   MapPin,
   Sparkles,
   WifiOff,
+  Users,
 } from "lucide-react";
 import { ScanModal } from "@/components/scan-modal";
 import { Link } from "wouter";
@@ -143,6 +144,7 @@ export default function ReceivingPage() {
   const [step, setStep] = useState<Step>("reference");
   const [reference, setReference] = useState("");
   const [selectedPoId, setSelectedPoId] = useState<string>("");
+  const [selectedLaborEntryId, setSelectedLaborEntryId] = useState<string>("");
   const [lines, setLines] = useState<ReceiptLine[]>([newLine()]);
   const [result, setResult] = useState<{ linesCommitted: number; reference: string | null } | null>(null);
   const [scanModalOpen, setScanModalOpen] = useState(false);
@@ -156,6 +158,16 @@ export default function ReceivingPage() {
   // All products (when no PO selected)
   const { data: products = [] } = useListProducts();
   const { data: warehouses = [] } = useListWarehouses();
+
+  // Labor entries for worker assignment
+  const { data: laborEntries = [] } = useQuery({
+    queryKey: ["labor", "entries"],
+    queryFn: async () => {
+      const res = await fetch("/api/labor/entries", { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
 
   // Fetch selected PO detail (with lines)
   const { data: selectedPo } = useGetPurchaseOrder(selectedPoId, {
@@ -274,8 +286,9 @@ export default function ReceivingPage() {
     commit({
       data: {
         reference: reference.trim() || undefined,
+        laborEntryId: selectedLaborEntryId || undefined,
         lines: lines.map(({ productId, binId, qty }) => ({ productId, binId, qty })),
-      },
+      } as any,
     });
   };
 
@@ -623,6 +636,36 @@ export default function ReceivingPage() {
         {/* ── Step 3: Review ───────────────────────────────────────────────── */}
         {step === "review" && (
           <div className="space-y-4">
+            {/* Worker assignment */}
+            <Card className="border-blue-200/60 bg-blue-50/20">
+              <CardContent className="px-5 py-3 flex items-center gap-3">
+                <Users className="w-4 h-4 text-blue-600 shrink-0" />
+                <div className="flex-1 min-w-[200px] max-w-xs">
+                  <Label className="text-xs text-blue-600 mb-1 block">Assign Worker (optional)</Label>
+                  <Select value={selectedLaborEntryId} onValueChange={setSelectedLaborEntryId}>
+                    <SelectTrigger className="h-8 text-sm bg-white">
+                      <SelectValue placeholder="Select worker…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {laborEntries.map((e: any) => (
+                        <SelectItem key={e.id} value={e.id}>
+                          {e.workerId} — {e.shiftDate}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {selectedLaborEntryId && (
+                  <button
+                    onClick={() => setSelectedLaborEntryId("")}
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
+                  >
+                    Clear
+                  </button>
+                )}
+              </CardContent>
+            </Card>
+
             <Card className="border-border/60">
               <CardHeader className="pb-3 pt-4 px-5 flex flex-row items-center justify-between space-y-0">
                 <CardTitle className="text-sm font-semibold">Receipt Summary</CardTitle>

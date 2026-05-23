@@ -47,6 +47,7 @@ import {
   ClipboardCheck,
   CalendarClock,
   Camera,
+  Users,
 } from "lucide-react";
 import { ScanModal } from "@/components/scan-modal";
 import { Link } from "wouter";
@@ -83,6 +84,7 @@ export default function CycleCountPage() {
   const [reference, setReference] = useState("");
   const [warehouseId, setWarehouseId] = useState("");
   const [zoneId, setZoneId] = useState<string>("__all__");
+  const [selectedLaborEntryId, setSelectedLaborEntryId] = useState("");
   const [entries, setEntries] = useState<CountEntry[]>([]);
   const [done, setDone] = useState<DoneResult | null>(null);
   const [scanModalOpen, setScanModalOpen] = useState(false);
@@ -100,6 +102,16 @@ export default function CycleCountPage() {
   const { data: warehouses = [] } = useListWarehouses();
   const effectiveZoneId = zoneId === "__all__" ? "" : zoneId;
 
+  // Labor entries for worker assignment
+  const { data: laborEntries = [] } = useQuery({
+    queryKey: ["labor", "entries"],
+    queryFn: async () => {
+      const res = await fetch("/api/labor/entries", { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
   const { data: zones = [] } = useListZones(warehouseId, {
     query: { enabled: !!warehouseId, queryKey: getListZonesQueryKey(warehouseId) },
   });
@@ -110,7 +122,7 @@ export default function CycleCountPage() {
     { query: { enabled: step === "count", queryKey: getListInventoryQueryKey({ warehouseId: warehouseId || undefined, productId: undefined, lowStock: false }) } }
   );
 
-  const { mutate: submit, isPending } = useSubmitCycleCount({
+  const baseSubmit = useSubmitCycleCount({
     mutation: {
       onSuccess: (data) => {
         setDone({
@@ -128,6 +140,17 @@ export default function CycleCountPage() {
       },
     },
   });
+
+  // Wrap to inject laborEntryId into the body
+  const submit = (vars: { data: { reference?: string; lines: { inventoryItemId: string; physicalQty: number }[]; laborEntryId?: string } }) => {
+    baseSubmit.mutate({
+      data: {
+        ...vars.data,
+        laborEntryId: selectedLaborEntryId || undefined,
+      } as any,
+    });
+  };
+  const isPending = baseSubmit.isPending;
 
   // Build entries from inventory when transitioning to count step
   const handleLoadCount = () => {
@@ -588,6 +611,36 @@ export default function CycleCountPage() {
                 </CardContent>
               </Card>
             )}
+
+            {/* Worker assignment */}
+            <Card className="border-blue-200/60 bg-blue-50/20">
+              <CardContent className="px-5 py-3 flex items-center gap-3">
+                <Users className="w-4 h-4 text-blue-600 shrink-0" />
+                <div className="flex-1 min-w-[200px] max-w-xs">
+                  <Label className="text-xs text-blue-600 mb-1 block">Assign Worker (optional)</Label>
+                  <Select value={selectedLaborEntryId} onValueChange={setSelectedLaborEntryId}>
+                    <SelectTrigger className="h-8 text-sm bg-white">
+                      <SelectValue placeholder="Select worker…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {laborEntries.map((e: any) => (
+                        <SelectItem key={e.id} value={e.id}>
+                          {e.workerId} — {e.shiftDate}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {selectedLaborEntryId && (
+                  <button
+                    onClick={() => setSelectedLaborEntryId("")}
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
+                  >
+                    Clear
+                  </button>
+                )}
+              </CardContent>
+            </Card>
 
             {discrepancies.length > 0 && (
               <div className="flex items-start gap-2 text-xs text-muted-foreground bg-muted/40 rounded-lg p-3">

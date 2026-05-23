@@ -23,6 +23,8 @@ import { ArrowLeft, AlertTriangle, Printer, Tag, QrCode } from "lucide-react";
 import LabelPrint from "@/components/label-print";
 import { QRCodeSVG } from "qrcode.react";
 import Barcode from "react-barcode";
+import { useBaseCurrency } from "@/hooks/use-base-currency";
+import { formatCurrency } from "@/lib/utils";
 
 interface Props {
   params: { id: string };
@@ -31,6 +33,7 @@ interface Props {
 export default function ProductDetail({ params }: Props) {
   const { id } = params;
   const [printOpen, setPrintOpen] = useState(false);
+  const baseCurrency = useBaseCurrency();
 
   const { data: product, isLoading: loadingProduct } = useGetProduct(id, {
     query: { enabled: !!id, queryKey: getGetProductQueryKey(id) },
@@ -97,7 +100,10 @@ export default function ProductDetail({ params }: Props) {
                     ["SKU Code", <span className="font-mono text-xs">{product?.skuCode}</span>],
                     ["Category", product?.category ?? "—"],
                     ["Unit of Measure", product?.unitOfMeasure],
-                    ["Unit Price", product?.unitPrice ? `$${product.unitPrice}` : "—"],
+                    [
+                      "Unit Price",
+                      product?.unitPrice ? formatCurrency(product.unitPrice, baseCurrency) : "—",
+                    ],
                     ["Reorder Threshold", product?.reorderThreshold],
                     ["Status", product?.isActive ? (
                       <Badge className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-50">Active</Badge>

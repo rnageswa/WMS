@@ -16,7 +16,7 @@ import {
   getListBinsQueryKey,
   getListInventoryQueryKey,
 } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Layout, PageHeader } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,7 +30,7 @@ import {
 import {
   CheckCircle, Package, Search, Barcode, XCircle, Printer,
   ClipboardList, Tag, Play, Warehouse, MapPin, Loader2,
-  ArrowRight, Camera, WifiOff,
+  ArrowRight, Camera, WifiOff, Users,
 } from "lucide-react";
 import { ScanModal } from "@/components/scan-modal";
 import { useToast } from "@/hooks/use-toast";
@@ -113,6 +113,7 @@ export default function PickerPage() {
 
   const [selectedOrderId, setSelectedOrderId] = useState<string>("");
   const [selectedTaskId, setSelectedTaskId] = useState<string>("");
+  const [selectedLaborEntryId, setSelectedLaborEntryId] = useState<string>("");
   const [scanInput, setScanInput] = useState("");
   const [lastScan, setLastScan] = useState<{ type: string; message: string } | null>(null);
   const [scanModalOpen, setScanModalOpen] = useState(false);
@@ -144,6 +145,16 @@ export default function PickerPage() {
 
   // Warehouses for location selectors
   const { data: warehouses = [] } = useListWarehouses();
+
+  // Labor entries for worker assignment
+  const { data: laborEntries = [] } = useQuery({
+    queryKey: ["labor", "entries"],
+    queryFn: async () => {
+      const res = await fetch("/api/labor/entries", { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
 
   // Base mutations (hooks must be called at top level)
   const baseCreateTask = useCreatePickingTask();
@@ -215,7 +226,12 @@ export default function PickerPage() {
     }
 
     try {
-      const newTask = await createTaskMutation.mutateAsync({ body: { orderId } });
+      const newTask = await createTaskMutation.mutateAsync({
+        body: {
+          orderId,
+          laborEntryId: selectedLaborEntryId || undefined,
+        } as any,
+      });
       setSelectedTaskId(newTask.id);
       toast({ title: "Picking task created", description: "Start picking when ready." });
     } catch (err: any) {
@@ -422,7 +438,7 @@ export default function PickerPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center gap-4 p-3 bg-muted/30 rounded-lg text-sm">
+              <div className="flex items-center gap-4 p-3 bg-muted/30 rounded-lg text-sm flex-wrap">
                 <div className="flex items-center gap-1.5">
                   <Package className="w-4 h-4 text-muted-foreground" />
                   <span className="font-mono font-medium">{orderNumber}</span>
@@ -438,6 +454,34 @@ export default function PickerPage() {
                   </>
                 )}
                 <div className="ml-auto"><Badge className={taskStatusColors[taskStatus] || ""}>{taskStatus}</Badge></div>
+              </div>
+
+              {/* Worker assignment */}
+              <div className="flex items-center gap-3 p-3 bg-blue-50/40 border border-blue-200/60 rounded-lg">
+                <Users className="w-4 h-4 text-blue-600 shrink-0" />
+                <div className="flex-1 min-w-[200px] max-w-xs">
+                  <Label className="text-xs text-blue-600 mb-1 block">Assign Worker (optional)</Label>
+                  <Select value={selectedLaborEntryId} onValueChange={setSelectedLaborEntryId}>
+                    <SelectTrigger className="h-8 text-sm bg-white">
+                      <SelectValue placeholder="Select worker…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {laborEntries.map((e: any) => (
+                        <SelectItem key={e.id} value={e.id}>
+                          {e.workerId} — {e.shiftDate}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {selectedLaborEntryId && (
+                  <button
+                    onClick={() => setSelectedLaborEntryId("")}
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
+                  >
+                    Clear
+                  </button>
+                )}
               </div>
 
               {createTaskMutation.isPending && (

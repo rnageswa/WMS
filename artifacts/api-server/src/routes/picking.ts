@@ -8,6 +8,7 @@ import {
   productsTable,
   binsTable,
   inventoryItemsTable,
+  laborAssignmentsTable,
 } from "@workspace/db/schema";
 import { eq, desc, and, sql } from "drizzle-orm";
 import { requireAuth, requireRole } from "../middlewares/auth";
@@ -108,6 +109,7 @@ router.post("/picking-tasks", requireAuth, async (req: any, res) => {
     orderId: z.string().uuid(),
     assignedTo: z.string().optional(),
     laborAssignmentId: z.string().uuid().optional(),
+    laborEntryId: z.string().uuid().optional(),
   });
 
   const parsed = schema.safeParse(req.body);
@@ -116,7 +118,7 @@ router.post("/picking-tasks", requireAuth, async (req: any, res) => {
     return;
   }
 
-  const { orderId, assignedTo } = parsed.data;
+  const { orderId, assignedTo, laborEntryId } = parsed.data;
 
   // Verify order exists and is in picking state
   const [order] = await db
@@ -205,6 +207,15 @@ router.post("/picking-tasks", requireAuth, async (req: any, res) => {
 
   if (pickingLinesData.length > 0) {
     await db.insert(pickingLinesTable).values(pickingLinesData);
+  }
+
+  // Auto-create labor assignment if laborEntryId provided
+  if (laborEntryId) {
+    await db.insert(laborAssignmentsTable).values({
+      laborEntryId,
+      taskId: task.id,
+      taskType: "picking",
+    }).onConflictDoNothing();
   }
 
   const result = await getTaskWithLines(task.id);

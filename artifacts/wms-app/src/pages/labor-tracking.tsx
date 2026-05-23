@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { Layout, PageHeader } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +22,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
   Users,
   TrendingUp,
   Clock,
@@ -30,6 +39,8 @@ import {
   UserCheck,
   Timer,
   Target,
+  Plus,
+  UserPlus,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -68,6 +79,14 @@ export default function LaborTrackingPage() {
   const [searchInput, setSearchInput] = useState("");
   const [periodFilter, setPeriodFilter] = useState<string>("all");
   const [selectedWorkerId, setSelectedWorkerId] = useState<string>("");
+  const [showEntryDialog, setShowEntryDialog] = useState(false);
+
+  // Entry form state
+  const [entryWorkerId, setEntryWorkerId] = useState("");
+  const [entryDate, setEntryDate] = useState(new Date().toISOString().split("T")[0]);
+  const [entryHours, setEntryHours] = useState("");
+  const [entryTasks, setEntryTasks] = useState("");
+  const [entryNotes, setEntryNotes] = useState("");
 
   const {
     data: workers,
@@ -79,6 +98,34 @@ export default function LaborTrackingPage() {
       const res = await fetch("/api/labor/workers", { credentials: "include" });
       if (!res.ok) throw new Error("Failed to load worker data");
       return res.json();
+    },
+  });
+
+  const createEntry = useMutation({
+    mutationFn: async (body: Record<string, unknown>) => {
+      const res = await fetch("/api/labor/entries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Failed" }));
+        throw new Error(err.error || "Failed to create entry");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["labor"] });
+      setShowEntryDialog(false);
+      setEntryWorkerId("");
+      setEntryHours("");
+      setEntryTasks("");
+      setEntryNotes("");
+      toast({ title: "Labor entry created", description: "Shift record saved successfully." });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
     },
   });
 
@@ -106,8 +153,22 @@ export default function LaborTrackingPage() {
   const hasFilters = searchInput.trim().length > 0 || periodFilter !== "all";
 
   const handleRefresh = () => {
-    qc.invalidateQueries({ queryKey: ["labor", "workers"] });
+    qc.invalidateQueries({ queryKey: ["labor"] });
     toast({ title: "Worker data refreshed", description: "Latest performance metrics loaded." });
+  };
+
+  const handleCreateEntry = () => {
+    if (!entryWorkerId.trim()) {
+      toast({ title: "Worker ID required", description: "Enter a worker ID.", variant: "destructive" });
+      return;
+    }
+    createEntry.mutate({
+      workerId: entryWorkerId.trim(),
+      shiftDate: entryDate,
+      hoursWorked: entryHours ? parseFloat(entryHours) : undefined,
+      tasksCompleted: entryTasks ? parseInt(entryTasks, 10) : undefined,
+      notes: entryNotes || undefined,
+    });
   };
 
   return (
@@ -116,9 +177,96 @@ export default function LaborTrackingPage() {
         title="Labor Tracking"
         subtitle="Monitor worker productivity, accuracy, and efficiency metrics across the warehouse"
         action={
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={handleRefresh}>
-            <TrendingUp className="w-3.5 h-3.5" /> Refresh
-          </Button>
+          <div className="flex gap-2">
+            <Dialog open={showEntryDialog} onOpenChange={setShowEntryDialog}>
+              <DialogTrigger asChild>
+                <Button size="sm" className="gap-1.5 bg-orange-600 hover:bg-orange-700 text-white">
+                  <Plus className="w-3.5 h-3.5" /> New Entry
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <UserPlus className="w-4 h-4" /> Create Labor Entry
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 pt-2">
+                  <div>
+                    <Label htmlFor="entry-worker-id">Worker ID</Label>
+                    <Input
+                      id="entry-worker-id"
+                      value={entryWorkerId}
+                      onChange={(e) => setEntryWorkerId(e.target.value)}
+                      placeholder="e.g. W-001"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="entry-date">Shift Date</Label>
+                    <Input
+                      id="entry-date"
+                      type="date"
+                      value={entryDate}
+                      onChange={(e) => setEntryDate(e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label htmlFor="entry-hours">Hours Worked</Label>
+                      <Input
+                        id="entry-hours"
+                        type="number"
+                        min="0"
+                        step="0.5"
+                        value={entryHours}
+                        onChange={(e) => setEntryHours(e.target.value)}
+                        placeholder="8"
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="entry-tasks">Tasks Completed</Label>
+                      <Input
+                        id="entry-tasks"
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={entryTasks}
+                        onChange={(e) => setEntryTasks(e.target.value)}
+                        placeholder="5"
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="entry-notes">Notes</Label>
+                    <Textarea
+                      id="entry-notes"
+                      value={entryNotes}
+                      onChange={(e) => setEntryNotes(e.target.value)}
+                      placeholder="Optional notes about this shift…"
+                      className="mt-1"
+                      rows={2}
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2 pt-2">
+                    <Button variant="outline" onClick={() => setShowEntryDialog(false)}>Cancel</Button>
+                    <Button
+                      onClick={handleCreateEntry}
+                      disabled={createEntry.isPending}
+                      className="bg-orange-600 hover:bg-orange-700 text-white"
+                    >
+                      {createEntry.isPending ? "Saving…" : "Save Entry"}
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={handleRefresh}>
+              <TrendingUp className="w-3.5 h-3.5" /> Refresh
+            </Button>
+          </div>
         }
         helpKey="/labor-tracking"
       />
@@ -183,7 +331,7 @@ export default function LaborTrackingPage() {
                 </SelectTrigger>
                 <SelectContent>
                   {workers?.map((w) => (
-                    <SelectItem key={w.workerId} value={w.workerId}>
+                    <SelectItem key={w.id} value={w.workerId}>
                       {w.workerName ?? w.workerId}
                     </SelectItem>
                   ))}
@@ -300,8 +448,15 @@ export default function LaborTrackingPage() {
                   <>
                     <p className="text-sm text-muted-foreground">No worker performance data yet</p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Data appears as workers complete picking tasks
+                      Create a labor entry to get started, or seed demo data
                     </p>
+                    <Button
+                      size="sm"
+                      className="mt-3 gap-1.5 bg-orange-600 hover:bg-orange-700 text-white"
+                      onClick={() => setShowEntryDialog(true)}
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Create First Entry
+                    </Button>
                   </>
                 )}
               </div>
@@ -338,7 +493,7 @@ export default function LaborTrackingPage() {
                 <TableBody>
                   {filtered.map((w) => (
                     <TableRow
-                      key={w.workerId}
+                      key={w.id}
                       className="hover:bg-muted/40 cursor-pointer"
                       onClick={() => setSelectedWorkerId(w.workerId)}
                     >

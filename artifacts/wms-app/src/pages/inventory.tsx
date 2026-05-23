@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import {
   useListInventory,
   useListWarehouses,
@@ -37,7 +37,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { SlidersHorizontal, AlertTriangle, FileSpreadsheet, CheckSquare, X, Trash2, WifiOff } from "lucide-react";
+import { SlidersHorizontal, AlertTriangle, FileSpreadsheet, CheckSquare, X, Trash2, WifiOff, Users } from "lucide-react";
 import { exportToExcel } from "@/lib/export-excel";
 import { useToast } from "@/hooks/use-toast";
 import { useNetworkStatus } from "@/hooks/use-network-status";
@@ -50,6 +50,17 @@ export default function Inventory() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkAdjustOpen, setBulkAdjustOpen] = useState(false);
   const [bulkReason, setBulkReason] = useState("");
+  const [selectedLaborEntryId, setSelectedLaborEntryId] = useState("");
+
+  // Labor entries for worker assignment
+  const { data: laborEntries = [] } = useQuery({
+    queryKey: ["labor", "entries"],
+    queryFn: async () => {
+      const res = await fetch("/api/labor/entries", { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
   const qc = useQueryClient();
   const { toast } = useToast();
   const { isOnline } = useNetworkStatus();
@@ -111,7 +122,7 @@ export default function Inventory() {
       const data = await offlineFetch<{ adjusted: number }>("/api/inventory/adjust/bulk", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items, reasonCode: bulkReason }),
+        body: JSON.stringify({ items, reasonCode: bulkReason, laborEntryId: selectedLaborEntryId || undefined }),
         entityType: "inventory-adjust",
         entityId: "bulk",
         invalidateKeys: ["inventory"],
@@ -351,6 +362,21 @@ export default function Inventory() {
                   placeholder="e.g., cycle_count_correction, damage_writeoff"
                   className="mt-1"
                 />
+              </div>
+              <div className="mt-3">
+                <label className="text-xs font-medium text-foreground">Assign Worker (optional)</label>
+                <Select value={selectedLaborEntryId} onValueChange={setSelectedLaborEntryId}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Select worker…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {laborEntries.map((e: any) => (
+                      <SelectItem key={e.id} value={e.id}>
+                        {e.workerId} — {e.shiftDate}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <br />
               <span className="font-medium text-foreground">This creates adjustment movements for each item.</span>

@@ -107,7 +107,7 @@ router.post("/inventory/adjust", requireRole("admin", "operator"), async (req, r
     res.status(400).json({ message: body.error.message });
     return;
   }
-  const { productId, binId, newQty, reasonCode, laborAssignmentId } = body.data;
+  const { productId, binId, newQty, reasonCode, laborAssignmentId, laborEntryId } = body.data;
 
   const [product] = await db
     .select()
@@ -150,13 +150,23 @@ router.post("/inventory/adjust", requireRole("admin", "operator"), async (req, r
     updatedItem = created!;
   }
 
+  let effectiveLaborAssignmentId = laborAssignmentId ?? null;
+  if (laborEntryId && !effectiveLaborAssignmentId) {
+    const [assignment] = await db.insert(laborAssignmentsTable).values({
+      laborEntryId,
+      taskId: null,
+      taskType: "stock_movement",
+    }).onConflictDoNothing().returning();
+    effectiveLaborAssignmentId = assignment?.id ?? null;
+  }
+
   await db.insert(inventoryMovementsTable).values({
     productId,
     binId,
     movementType: "adjustment",
     quantity: delta,
     reasonCode,
-    laborAssignmentId: laborAssignmentId ?? null,
+    laborAssignmentId: effectiveLaborAssignmentId,
   });
 
   const [row] = await db
@@ -195,6 +205,7 @@ const BulkAdjustSchema = z.object({
     newQty: z.number().int().min(0),
   })).min(1),
   reasonCode: z.string().min(1),
+  laborEntryId: z.string().uuid().optional().nullable(),
 });
 
 router.post("/inventory/adjust/bulk", requireRole("admin", "operator"), async (req, res) => {
@@ -203,7 +214,18 @@ router.post("/inventory/adjust/bulk", requireRole("admin", "operator"), async (r
     res.status(400).json({ message: body.error.message });
     return;
   }
-  const { items, reasonCode } = body.data;
+  const { items, reasonCode, laborEntryId } = body.data;
+
+  // Auto-create labor assignment if laborEntryId provided
+  let laborAssignmentId = null;
+  if (laborEntryId) {
+    const [assignment] = await db.insert(laborAssignmentsTable).values({
+      laborEntryId,
+      taskId: null,
+      taskType: "stock_movement",
+    }).onConflictDoNothing().returning();
+    laborAssignmentId = assignment?.id ?? null;
+  }
 
   const results = [];
   for (const item of items) {
@@ -228,6 +250,7 @@ router.post("/inventory/adjust/bulk", requireRole("admin", "operator"), async (r
       movementType: "adjustment",
       quantity: delta,
       reasonCode,
+      laborAssignmentId,
     });
 
     results.push({ productId: item.productId, binId: item.binId, oldQty, newQty: item.newQty, delta });
@@ -386,6 +409,7 @@ const CycleCountLineZ = z.object({
 
 const SubmitCycleCountBodyZ = z.object({
   reference: z.string().optional().nullable(),
+  laborEntryId: z.string().uuid().optional().nullable(),
   lines: z.array(CycleCountLineZ).min(1),
 });
 
@@ -395,7 +419,7 @@ router.post("/cycle-counts/submit", requireRole("admin", "operator"), async (req
     res.status(400).json({ error: "Validation error", details: body.error.flatten() });
     return;
   }
-  const { reference, lines } = body.data;
+  const { reference, lines, laborEntryId } = body.data;
 
   // Fetch current inventory items + their product/bin info
   const itemIds = lines.map((l) => l.inventoryItemId);
@@ -473,6 +497,22 @@ router.post("/cycle-counts/submit", requireRole("admin", "operator"), async (req
         createdMovements.push(movement);
       }
     });
+  }
+
+  // Auto-create labor assignment + link movements if laborEntryId provided
+  if (laborEntryId) {
+    const [assignment] = await db.insert(laborAssignmentsTable).values({
+      laborEntryId,
+      taskId: null,
+      taskType: "cycle_count",
+    }).onConflictDoNothing().returning();
+    if (assignment) {
+      for (const m of createdMovements) {
+        await db.update(inventoryMovementsTable)
+          .set({ laborAssignmentId: assignment.id })
+          .where(eq(inventoryMovementsTable.id, (m as any).id));
+      }
+    }
   }
 
   res.json({
@@ -1334,6 +1374,8 @@ router.post("/dispatch/commit", requireRole("admin", "operator"), async (req, re
 router.post("/receiving/commit", requireRole("admin", "operator"), async (req, res) => {
   const bodySchema = z.object({
     reference: z.string().nullable().optional(),
+    laborAssignmentId: z.string().uuid().optional().nullable(),
+    laborEntryId: z.string().uuid().optional().nullable(),
     lines: z
       .array(
         z.object({
@@ -1351,7 +1393,7 @@ router.post("/receiving/commit", requireRole("admin", "operator"), async (req, r
     return;
   }
 
-  const { reference, lines } = parsed.data;
+  const { reference, lines, laborAssignmentId, laborEntryId } = parsed.data;
   const reasonCode = reference ? `RECEIPT:${reference}` : "RECEIPT";
 
   const committedMovements: object[] = [];
@@ -1377,7 +1419,7 @@ router.post("/receiving/commit", requireRole("admin", "operator"), async (req, r
     // Record inbound movement
     const [movement] = await db
       .insert(inventoryMovementsTable)
-      .values({ productId, binId, movementType: "inbound", quantity: qty, reasonCode })
+      .values({ productId, binId, movementType: "inbound", quantity: qty, reasonCode, laborAssignmentId: laborAssignmentId ?? null })
       .returning();
 
     // Fetch enriched movement for response
@@ -1402,6 +1444,22 @@ router.post("/receiving/commit", requireRole("admin", "operator"), async (req, r
         product: enriched.product,
         bin: { ...enriched.bin, zone: { ...enriched.zone, warehouse: enriched.warehouse } },
       });
+    }
+  }
+
+  // Auto-create labor assignment + link movements if laborEntryId provided
+  if (laborEntryId) {
+    const [assignment] = await db.insert(laborAssignmentsTable).values({
+      laborEntryId,
+      taskId: null,
+      taskType: "stock_movement",
+    }).onConflictDoNothing().returning();
+    if (assignment) {
+      for (const m of committedMovements) {
+        await db.update(inventoryMovementsTable)
+          .set({ laborAssignmentId: assignment.id })
+          .where(eq(inventoryMovementsTable.id, (m as any).id));
+      }
     }
   }
 

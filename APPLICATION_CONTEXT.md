@@ -1,7 +1,7 @@
 # WareIQ — Warehouse Management System (WMS)
 ## Complete Application Context & Design Document
 
-**Last Updated:** 2026-05-22
+**Last Updated:** 2026-05-23
 **Version:** MVP — Phase 1-6.1 Complete + Admin Console + Production Deployment + Sprint 1 Quick Wins + Sprint 2 Core Ops + Sprint 3 Picking Efficiency + Sprint 4 Intelligence & Visibility + Sprint 5 Offline Mode + Sprint 6 Labor & Optimization
 
 ---
@@ -933,6 +933,7 @@ The Admin Console (`/admin`) is the central system administration hub, accessibl
 | `lib/db/src/schema/orders.ts` | Sales order + picking schemas |
 | `lib/db/src/schema/purchasing.ts` | PO + supplier schemas |
 | `lib/db/src/schema/waves.ts` | Wave picking schemas (pick_waves, pick_wave_orders, pick_wave_zone_stops) |
+| `lib/db/src/schema/labor.ts` | Labor tracking schemas (labor_entries, labor_assignments) |
 | `lib/db/src/schema/inventory.ts` | Inventory + movement schemas |
 | `lib/db/src/schema/alerts.ts` | Alert settings + log schemas |
 | `lib/api-client-react/src/picking.ts` | Custom picking hooks |
@@ -1531,19 +1532,23 @@ artifacts/api-server/src/
 
 ---
 
-## Sprint 6 — Labor & Optimization (2026-05-22) ✅ COMPLETE
+## Sprint 6 — Labor & Optimization (2026-05-23) ✅ COMPLETE
 
 ### C3: Labor Tracking
 
 **Problem:** No visibility into worker productivity, task completion times, or accuracy rates.
 
-**Solution:** Worker performance monitoring system:
-- **DB Tables:** `worker_performance` (per-worker per-period metrics), `labor_metrics` (time-series metric events), `labor_entries` (per-worker per-day shift entries)
+**Solution:** Worker shift tracking + task assignment system:
+- **DB Tables:**
+  - `labor_entries` — per-worker per-day shift records (workerId, shiftDate, hoursWorked, tasksCompleted, notes); unique constraint on (workerId, shiftDate)
+  - `labor_assignments` — links labor entries to tasks (laborEntryId, taskId, taskType enum: stock_movement|picking|cycle_count|replenishment); unique constraint on (laborEntryId, taskId, taskType)
+- **Task Integration:** `labor_assignment_id` FK added to `picking_tasks`, `cycle_count_history`, `inventory_movements` — every task can be linked to a worker's labor entry
 - **API Routes:**
   - `GET /api/labor/workers` — List all worker performance records (filter by date range, worker ID)
   - `GET /api/labor/workers/:workerId` — Single worker detail (filter by period: today/week/month)
   - `POST /api/labor/workers` — Upsert worker performance (auto-calculates productivity & efficiency scores)
   - `POST /api/labor/entries` — Create a labor entry (worker shift record: date, hours, tasks, notes)
+  - `POST /api/labor/assignments` — Assign labor entry to a task (laborEntryId, taskId, taskType)
   - `GET /api/labor/metrics` — Time-series labor metrics (filter by worker, type, days)
 - **Frontend Page:** `/labor-tracking` (Intelligence section, Users icon)
   - Summary cards: Total Workers (gray), Avg Productivity (blue), Avg Accuracy (green), Total Units Picked (gray)
@@ -1553,6 +1558,43 @@ artifacts/api-server/src/
   - Loading skeletons, empty states with icons, toast on refresh
 - **Metrics Tracked:** tasks completed, lines picked, units picked, hours worked, productivity score (units/hr), accuracy rate (0-1), efficiency score (0-100)
 - **Help Text:** 5 sections — summary cards, worker detail, performance table, filters, data source
+- **Schema:** Pushed to Neon DB via `drizzle-kit push`. Server running on port 3001. Verified 401 (auth working) on all endpoints.
+- **UI:** "New Entry" button opens dialog to create labor entries (worker ID, shift date, hours, tasks, notes). Empty state has CTA.
+
+### C3b: Worker-to-Task Assignment (UI Integration)
+
+**Problem:** Workers not linked to tasks in any UI screen despite backend support.
+
+**Solution:** Added worker assignment dropdown to all 4 task-creating screens:
+
+| Screen | Page | Endpoint | Auto-Creates Assignment |
+|--------|------|----------|------------------------|
+| Picker | `/picker` | `POST /api/picking-tasks` + `laborEntryId` | ✅ Backend auto-creates `laborAssignments` record with `taskType: picking` |
+| Receiving | `/receiving` | `POST /api/receiving/commit` + `laborEntryId` | ✅ Backend auto-creates `laborAssignments` record + links all receipt movements |
+| Cycle Count | `/cycle-count` | `POST /api/cycle-counts/submit` + `laborEntryId` | ✅ Backend auto-creates `laborAssignments` record + links adjustment movements |
+| Inventory Adjust | `/inventory/adjust` | `POST /api/inventory/adjust` + `laborEntryId` | ✅ Backend auto-creates `laborAssignments` record + links movement |
+| Bulk Adjust | `/inventory` | `POST /api/inventory/adjust/bulk` + `laborEntryId` | ✅ Backend auto-creates `laborAssignments` record + links all movements |
+
+**Pattern:** Each screen shows an "Assign Worker (optional)" dropdown (blue-themed card) with entries from `GET /api/labor/entries`. Selecting a worker passes `laborEntryId` to the backend, which auto-creates a `laborAssignments` record and links it to the resulting task/movement(s).
+
+**Schema change:** `labor_assignments.taskId` made nullable to support assignments for movements without a parent task (receiving, adjustments).
+
+**Files modified:**
+| File | Change |
+|------|--------|
+| `lib/db/src/schema/labor.ts` | `taskId` made nullable |
+| `lib/api-zod/src/generated/api/api.ts` | `AdjustInventoryBody` + `laborEntryId` |
+| `lib/api-client-react/src/picking.ts` | `CreatePickingTaskRequest` + `laborEntryId` |
+| `lib/api-client-react/src/generated/api.schemas.ts` | `SubmitCycleCountBody` + `laborEntryId` |
+| `artifacts/api-server/src/routes/labor.ts` | Added `GET /labor/entries` route |
+| `artifacts/api-server/src/routes/picking.ts` | `laborEntryId` → auto-create assignment |
+| `artifacts/api-server/src/routes/inventory.ts` | Receiving, cycle count, adjust, bulk adjust all accept `laborEntryId` |
+| `artifacts/api-server/src/routes/cycle-count.ts` | Added `laborAssignmentId` to history schema |
+| `artifacts/wms-app/src/pages/picker.tsx` | Worker dropdown + `laborEntryId` on task create |
+| `artifacts/wms-app/src/pages/receiving.tsx` | Worker dropdown + `laborEntryId` on commit |
+| `artifacts/wms-app/src/pages/cycle-count.tsx` | Worker dropdown + `laborEntryId` on submit |
+| `artifacts/wms-app/src/pages/inventory-adjust.tsx` | Worker dropdown + `laborEntryId` on adjust |
+| `artifacts/wms-app/src/pages/inventory.tsx` | Worker dropdown in bulk adjust dialog + `laborEntryId` |
 
 ### C4: Transfer Optimization
 
@@ -1597,10 +1639,13 @@ artifacts/api-server/src/
 
 | Action | File |
 |--------|------|
-| Created | `lib/db/src/schema/labor.ts` (worker_performance, labor_metrics, labor_entries tables) |
+| Created | `lib/db/src/schema/labor.ts` (labor_entries, labor_assignments tables) |
 | Modified | `lib/db/src/schema/phase6.ts` (transfer_optimization + slotting_assignments tables) |
 | Modified | `lib/db/src/schema/index.ts` (export labor) |
-| Created | `artifacts/api-server/src/routes/labor.ts` |
+| Modified | `lib/db/src/schema/orders.ts` (added labor_assignment_id FK to picking_tasks) |
+| Modified | `lib/db/src/schema/auth.ts` (added labor_assignment_id FK to cycle_count_history) |
+| Modified | `lib/db/src/schema/inventory.ts` (added labor_assignment_id FK to inventory_movements) |
+| Created | `artifacts/api-server/src/routes/labor.ts` (entries + assignments + workers + metrics) |
 | Created | `artifacts/api-server/src/routes/transfer-optimization.ts` |
 | Created | `artifacts/api-server/src/routes/slotting.ts` |
 | Modified | `artifacts/api-server/src/routes/index.ts` (mount 3 new routers) |

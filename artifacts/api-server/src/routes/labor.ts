@@ -55,6 +55,21 @@ router.get("/workers/:workerId", async (req, res) => {
   res.json(worker[0] || null);
 });
 
+// ── GET /labor/entries ───────────────────────────────────────────────────────
+
+router.get("/entries", async (req, res) => {
+  const { workerId, shiftDate } = req.query;
+  const conditions = [];
+  if (workerId) conditions.push(eq(laborEntriesTable.workerId, workerId as string));
+  if (shiftDate) conditions.push(eq(laborEntriesTable.shiftDate, shiftDate as string));
+  const entries = await db
+    .select()
+    .from(laborEntriesTable)
+    .where(conditions.length ? and(...conditions) : undefined)
+    .orderBy(desc(laborEntriesTable.shiftDate));
+  res.json(entries);
+});
+
 // ── POST /labor/workers ─────────────────────────────────────────────────────────
 
 // ── POST /labor/entries ───────────────────────────────────────────────────────
@@ -115,13 +130,14 @@ router.post("/entries", async (req, res) => {
 
 const upsertSchema = z.object({
   workerId: z.string(),
-  workerName: z.string().optional(),
+  workerName: z.string().optional().nullable(),
   periodStart: z.string(),
   periodEnd: z.string(),
-  tasksCompleted: z.number().optional(),
-  linesPicked: z.number().optional(),
-  unitsPicked: z.number().optional(),
+  tasksCompleted: z.number().int().optional().default(0),
+  linesPicked: z.number().int().optional().default(0),
+  unitsPicked: z.number().int().optional().default(0),
   hoursWorked: z.number().optional(),
+  accuracyRate: z.number().min(0).max(1).optional().nullable(),
 });
 
 router.post("/workers", async (req, res) => {
@@ -136,26 +152,29 @@ router.post("/workers", async (req, res) => {
     ))
     .limit(1);
 
-  const productivityScore = parsed.hoursWorked && parsed.unitsPicked
+  const productivityScore = parsed.hoursWorked && parsed.hoursWorked > 0 && parsed.unitsPicked
     ? parsed.unitsPicked / parsed.hoursWorked
     : undefined;
   const efficiencyScore = parsed.tasksCompleted
-    ? Math.min(100, parsed.tasksCompleted / 10)
+    ? Math.min(100, Math.round(parsed.tasksCompleted / 10))
     : undefined;
+
+  const values = {
+    workerName: parsed.workerName ?? null,
+    periodEnd: parsed.periodEnd,
+    tasksCompleted: parsed.tasksCompleted,
+    linesPicked: parsed.linesPicked,
+    unitsPicked: parsed.unitsPicked,
+    hoursWorked: parsed.hoursWorked?.toString(),
+    productivityScore: productivityScore?.toString(),
+    efficiencyScore: efficiencyScore?.toString(),
+    accuracyRate: parsed.accuracyRate?.toString() ?? null,
+  };
 
   if (existing.length) {
     const [updated] = await db
       .update(workerPerformanceTable)
-      .set({
-        workerName: parsed.workerName,
-        periodEnd: parsed.periodEnd,
-        tasksCompleted: parsed.tasksCompleted,
-        linesPicked: parsed.linesPicked,
-        unitsPicked: parsed.unitsPicked,
-        hoursWorked: parsed.hoursWorked?.toString(),
-        productivityScore: productivityScore?.toString(),
-        efficiencyScore: efficiencyScore?.toString(),
-      })
+      .set(values)
       .where(eq(workerPerformanceTable.id, existing[0].id))
       .returning();
     res.json(updated);
@@ -164,15 +183,8 @@ router.post("/workers", async (req, res) => {
       .insert(workerPerformanceTable)
       .values({
         workerId: parsed.workerId,
-        workerName: parsed.workerName,
         periodStart: parsed.periodStart,
-        periodEnd: parsed.periodEnd,
-        tasksCompleted: parsed.tasksCompleted,
-        linesPicked: parsed.linesPicked,
-        unitsPicked: parsed.unitsPicked,
-        hoursWorked: parsed.hoursWorked?.toString(),
-        productivityScore: productivityScore?.toString(),
-        efficiencyScore: efficiencyScore?.toString(),
+        ...values,
       })
       .returning();
     res.json(created);

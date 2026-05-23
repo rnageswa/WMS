@@ -14,7 +14,7 @@ import {
   getListZonesQueryKey,
   getListBinsQueryKey,
 } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Layout, PageHeader } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,7 +30,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useOfflineMutation } from "@/hooks/use-offline-mutation";
 import { useNetworkStatus } from "@/hooks/use-network-status";
-import { ArrowLeft, Loader2, CheckCircle, WifiOff } from "lucide-react";
+import { ArrowLeft, Loader2, CheckCircle, WifiOff, Users } from "lucide-react";
 import { Link } from "wouter";
 
 const schema = z.object({
@@ -65,6 +65,17 @@ export default function InventoryAdjust() {
   const { toast } = useToast();
   const { isOnline } = useNetworkStatus();
   const [success, setSuccess] = useState(false);
+  const [selectedLaborEntryId, setSelectedLaborEntryId] = useState("");
+
+  // Labor entries for worker assignment
+  const { data: laborEntries = [] } = useQuery({
+    queryKey: ["labor", "entries"],
+    queryFn: async () => {
+      const res = await fetch("/api/labor/entries", { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -134,7 +145,8 @@ export default function InventoryAdjust() {
         binId: data.binId,
         newQty: data.newQty,
         reasonCode: data.reasonCode,
-      },
+        laborEntryId: selectedLaborEntryId || undefined,
+      } as any,
     });
   };
 
@@ -282,6 +294,25 @@ export default function InventoryAdjust() {
                 {form.formState.errors.newQty && (
                   <p className="text-xs text-destructive">{form.formState.errors.newQty.message}</p>
                 )}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Assign Worker (optional)</Label>
+                <Select
+                  value={selectedLaborEntryId}
+                  onValueChange={setSelectedLaborEntryId}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select worker…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {laborEntries.map((e: any) => (
+                      <SelectItem key={e.id} value={e.id}>
+                        {e.workerId} — {e.shiftDate}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-1.5">

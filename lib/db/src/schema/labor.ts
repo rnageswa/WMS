@@ -52,7 +52,7 @@ export type LaborEntry = typeof laborEntriesTable.$inferSelect;
 export const laborAssignmentsTable = pgTable("labor_assignments", {
   id: uuid("id").primaryKey().defaultRandom(),
   laborEntryId: uuid("labor_entry_id").notNull().references(() => laborEntriesTable.id),
-  taskId: uuid("task_id").notNull(),
+  taskId: uuid("task_id"),
   taskType: text("task_type").$type<"stock_movement" | "picking" | "cycle_count" | "replenishment">().notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [

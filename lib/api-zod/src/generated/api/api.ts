@@ -428,6 +428,7 @@ export const AdjustInventoryBody = zod.object({
   newQty: zod.number().min(adjustInventoryBodyNewQtyMin),
   reasonCode: zod.string(),
   laborAssignmentId: zod.string().uuid().optional().nullable(),
+  laborEntryId: zod.string().uuid().optional().nullable(),
 });
 
 export const AdjustInventoryResponse = zod.object({

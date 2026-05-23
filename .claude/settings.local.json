@@ -1,7 +1,28 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(pnpm run *)",
+      "Bash(Select-String -Pattern \"start|dev|env\" -Context 0,3)",
+      "Bash(psql *)",
+      "Bash(Select-Object -First 30)",
+      "Bash(netstat -ano)",
+      "Bash(findstr :3001)",
+      "Bash(taskkill *)",
+      "Bash(cmd *)",
+      "Bash(export DATABASE_URL=$\\(grep '^DATABASE_URL=' ../../.env)",
+      "Bash(node *)",
+      "Bash(Start-Sleep -Seconds 8)",
+      "Bash(Get-Content C:\\\\Users\\\\nages\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--MyProjects-WMS-WMS\\\\2cae5fef-cef7-48cb-8799-fd3b5d3a0b11\\\\tasks\\\\b7j9pb61p.output)",
+      "Bash(curl -s -X POST http://localhost:3001/api/picking-tasks -H \"Content-Type: application/json\" -H \"Authorization: Bearer test\" -d '{\"orderId\":\"00000000-0000-0000-0000-000000000000\"}')",
+      "Bash(Start-Sleep -Seconds 2)",
+      "Bash(curl -s http://localhost:3001/api/dashboard/summary)",
+      "Bash(curl *)",
+      "Bash(npx tsc *)",
+      "Bash(Select-Object -First 60)",
+      "Bash(npx drizzle-kit *)",
+      "Bash(Select-String -Pattern '\"scripts\"','\"build\"' -Context 0,10)"
     ]
   }
 }

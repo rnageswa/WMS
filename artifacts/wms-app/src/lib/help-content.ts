@@ -633,8 +633,12 @@ export const helpContent: Record<string, HelpContent> = {
         content: "Search by worker name or ID. Results update as you type. Use 'Clear filters' to reset."
       },
       {
+        title: "Creating Labor Entries",
+        content: "Click 'New Entry' to record a worker shift. Enter Worker ID, shift date, hours worked, tasks completed, and optional notes. Entries are unique per worker per day — submitting again for the same date updates the existing entry."
+      },
+      {
         title: "Data Source",
-        content: "Metrics are calculated from completed picking tasks. Productivity = units picked / hours worked. Accuracy = correct picks / total picks. Efficiency = composite score (0-100) based on tasks completed vs. expected throughput."
+        content: "Metrics are upserted via POST /api/labor/workers. Productivity = units picked / hours worked. Accuracy = submitted by the caller (0–1 scale). Efficiency = composite score (0-100) based on tasks completed vs. expected throughput. Worker performance records created from labor entries or uploaded via the API."
       }
     ]
   },

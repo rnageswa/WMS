@@ -398,6 +398,7 @@ export interface CycleCountLine {
 
 export interface SubmitCycleCountBody {
   reference?: string | null;
+  laborEntryId?: string | null;
   /** @minItems 1 */
   lines: CycleCountLine[];
 }
