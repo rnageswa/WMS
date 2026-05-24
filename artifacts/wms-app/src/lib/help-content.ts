@@ -748,6 +748,201 @@ export const helpContent: Record<string, HelpContent> = {
         content: "If predicted demand is consistently above average, expect a demand spike and consider increasing stock. If below average, demand may be slowing and overstock risk increases. The predicted chart uses a flat 30-day average model; advanced ML forecasting is on the roadmap for Phase 6.3."
       }
     ]
+  },
+  "/finance": {
+    title: "Finance Dashboard",
+    description: "Central financial overview: gross margin, revenue, COGS, markup, and margin alerts across all shipped orders.",
+    sections: [
+      {
+        title: "KPI Cards (Auto-Refresh 120s)",
+        content: [
+          "Gross Margin %: (Revenue - COGS) / Revenue × 100. Green if ≥30%, amber if ≥15%, red if <15%.",
+          "Total Revenue: Sum of all shipped/delivered order line revenue in selected period.",
+          "Total COGS: Cost of goods sold via MAC at time of shipment.",
+          "Avg Markup: Average (Price - Cost) / Cost × 100 across all active products.",
+          "Negative Margin Orders: Count of shipped orders where margin is below zero.",
+          "Products Below Floor: Active products priced below their configured margin floor."
+        ]
+      },
+      {
+        title: "Revenue by Category Chart",
+        content: "Stacked bar chart showing total revenue and estimated margin per product category. Helps identify which categories drive the most profit."
+      },
+      {
+        title: "Margin Trend Chart",
+        content: "Line chart showing daily margin percentage over the selected period. Use to spot margin erosion or improvement trends."
+      },
+      {
+        title: "Alert Banners",
+        content: "Red banner appears when negative margin orders exist. Amber banner appears when products are priced below their margin floor. Click to navigate to the Margin Alert Center or Pricing Simulator."
+      },
+      {
+        title: "Quick Links",
+        content: "Four shortcut cards at the bottom: Profitability Report (per-product margin), Pricing Simulator (what-if analysis), Margin Alerts (active alerts), and Price Effectiveness (price list coverage)."
+      }
+    ]
+  },
+  "/finance/costing/:id": {
+    title: "Product Cost Detail",
+    description: "Per-product cost breakdown: current MAC, standard cost, cost variance, inventory value, and pricing targets.",
+    sections: [
+      {
+        title: "Cost Summary Cards",
+        content: [
+          "Current Avg Cost (MAC): Moving Average Cost calculated from all receipts.",
+          "Standard Cost: Manually-set reference cost for variance comparison.",
+          "Cost Variance: (MAC - Standard) / Standard × 100. Red if >5% over, green if under.",
+          "Total Inventory Value: Sum of qty × avgCost across all bins.",
+          "Suggested Price: Auto-calculated from cost + markup target."
+        ]
+      },
+      {
+        title: "Pricing Targets",
+        content: "Markup Target: desired % above cost. Margin Floor: minimum acceptable margin %. Edit via the Edit button to update standard cost, markup target, and margin floor."
+      },
+      {
+        title: "Cost History Chart",
+        content: "Line chart showing MAC over the last 30 snapshots. Each receipt, adjustment, or manual update creates a snapshot. Use to track cost trends and identify price volatility."
+      },
+      {
+        title: "Cost History Log",
+        content: "Table of all cost snapshots: date, avg cost, total quantity, and source type (receipt, adjustment, manual, standard)."
+      }
+    ]
+  },
+  "/finance/pricing/simulator": {
+    title: "Pricing Simulator",
+    description: "What-if pricing tool: enter a product, cost, and proposed price to see margin analysis, rule checks, and price suggestions.",
+    sections: [
+      {
+        title: "How to Use",
+        content: "1) Enter the product UUID (from product detail page URL). 2) Enter the unit cost. 3) Optionally enter a proposed price and quantity. 4) Click Simulate."
+      },
+      {
+        title: "Results",
+        content: [
+          "Current Price vs Proposed: Shows existing price and margin alongside the simulated price.",
+          "Warnings: Alerts if proposed price violates margin floors or pricing rules.",
+          "Rules Applied: Lists any active pricing rules that affected the simulation (margin floor, markup target, volume discount).",
+          "Suggestions: Grid of pre-calculated prices at 15%, 20%, 25%, 30%, 40%, 50% markup with their resulting margins."
+        ]
+      },
+      {
+        title: "Pricing Rules",
+        content: "Rules are configured via API. Types: margin_floor (prevents pricing below minimum margin), markup_target (suggests target markup), volume_discount (price breaks at quantity thresholds), competitive_match (match competitor pricing)."
+      }
+    ]
+  },
+  "/finance/costing": {
+    title: "Product Costing List",
+    description: "View all products with cost metrics: MAC, standard cost, variance, and pricing targets in a single table.",
+    sections: [
+      {
+        title: "Summary Cards",
+        content: [
+          "Products: total number of active products with cost data",
+          "Inventory Value: sum of qty × avgCost across all product-bin combinations",
+          "Cost >5% Over Std: count of products where MAC exceeds standard cost by more than 5%",
+          "With Cost Data: products that have non-zero average cost"
+        ]
+      },
+      {
+        title: "Table Columns",
+        content: [
+          "Product: SKU code, name, and category badge. Click to navigate to Cost Detail.",
+          "Avg Cost (MAC): Moving Average Cost from inventory receipts",
+          "Std Cost: Manually-set reference cost for variance comparison",
+          "Variance: (MAC - Standard) / Standard × 100. Red if >5% over, green if <5% under.",
+          "Markup Target: Desired % above cost for pricing",
+          "Margin Floor: Minimum acceptable margin %",
+          "Qty On Hand: total stock across all bins",
+          "Inventory Value: total value at current avgCost"
+        ]
+      },
+      {
+        title: "Filters",
+        content: "Search by product name or SKU. Filter by category. Filter by variance type: Cost Over 5% Above Std, Cost Over 5% Below Std, or No Standard Cost."
+      },
+      {
+        title: "Navigation",
+        content: "Click any product row to navigate to its full cost detail page with cost history chart and pricing targets."
+      }
+    ]
+  },
+  "/finance/landed-costs": {
+    title: "Landed Costs Manager",
+    description: "Manage additional costs (freight, insurance, duties, handling, overhead) for purchase orders, allocated by value or quantity.",
+    sections: [
+      {
+        title: "Cost Type Cards",
+        content: "Five cards showing totals per cost type: Freight, Insurance, Duties, Handling, Overhead. A highlighted Total card shows the sum of all landed costs."
+      },
+      {
+        title: "Adding Costs",
+        content: "Click 'Add Landed Cost' to open the dialog. Select cost type, enter amount (in PO currency), and choose allocation method: By Line Value (proportional to line cost), By Quantity (proportional to line quantity), Equal Split (even across all lines), or By Weight."
+      },
+      {
+        title: "How Allocation Works",
+        content: "When landed costs are added, the total is automatically distributed across PO lines. For 'By Line Value' (default), each line gets a share proportional to (unit cost × quantity). The allocated amount is stored on each PO line and affects the effective unit cost used for MAC calculations when stock is received."
+      },
+      {
+        title: "Impact on Costing",
+        content: "The effective unit cost for each PO line = unit cost + (allocated landed cost / quantity). This combined cost is used when updating Moving Average Cost (MAC) during stock receipt."
+      }
+    ]
+  },
+  "/finance/pricing/rules": {
+    title: "Pricing Rules",
+    description: "Configure pricing rules for margin protection, markup targets, volume discounts, and competitive matching.",
+    sections: [
+      {
+        title: "Rule Types",
+        content: [
+          "Margin Floor: Prevents pricing below a minimum margin %. Orders falling below will trigger alerts.",
+          "Markup Target: Sets a target markup % above cost. Used to calculate suggested prices.",
+          "Competitive Match: Sets price to match competitor pricing.",
+          "Volume Discount: Price breaks based on quantity thresholds."
+        ]
+      },
+      {
+        title: "Scope",
+        content: "Global: applies to all products. Category: applies to all products in a specific category. Product: applies to a single product."
+      },
+      {
+        title: "Priority",
+        content: "Rules are evaluated in priority order (higher = first). If multiple rules apply, the highest priority rule's effect takes precedence. Use priority to create override hierarchies (e.g., product-level overrides category-level)."
+      },
+      {
+        title: "Actions",
+        content: "Toggle active/inactive via switch. Edit rule parameters. Duplicate to create a copy with incremented priority. Delete with confirmation."
+      }
+    ]
+  },
+  "/finance/margin/alerts": {
+    title: "Margin Alert Center",
+    description: "Monitor and acknowledge margin alerts. Alerts fire when orders have negative margins or fall below configured floors.",
+    sections: [
+      {
+        title: "Alert Summary",
+        content: "Four cards: Active Alerts (unacknowledged count), Critical (negative margin), Warning (below floor), Acknowledged (resolved count)."
+      },
+      {
+        title: "Alert Types",
+        content: [
+          "Negative Margin: Order or line has margin < 0%. Severity: critical.",
+          "Below Floor: Margin is positive but below the product's configured floor. Severity: warning.",
+          "Price Anomaly: Price deviates significantly from expected range. Severity: info."
+        ]
+      },
+      {
+        title: "Acknowledging Alerts",
+        content: "Click Acknowledge on any active alert to mark it reviewed. Acknowledged alerts move to the 'All' view. Use the Active Only / All toggle to filter."
+      },
+      {
+        title: "Auto-Refresh",
+        content: "Alert list refreshes every 30 seconds. New alerts from recently confirmed/shipped orders appear automatically."
+      }
+    ]
   }
 };
 
@@ -757,7 +952,22 @@ export function getHelpContent(pathname: string): HelpContent | undefined {
     return helpContent[pathname];
   }
   
-  // Try to match by prefix for dynamic routes
+  // For dynamic routes like /finance/costing/:id, try the pattern key
+  // Match last segment (UUID) and try /:id pattern on parent path
+  const dynamicMatch = pathname.match(/^(\/.+?)\/[^\/]+$/);
+  if (dynamicMatch) {
+    const parentPath = dynamicMatch[1];
+    const patternKey = parentPath + "/:id";
+    if (helpContent[patternKey]) {
+      return helpContent[patternKey];
+    }
+    // Fallback to parent path (for routes like /purchase-orders/:id)
+    if (helpContent[parentPath]) {
+      return helpContent[parentPath];
+    }
+  }
+  
+  // Legacy prefix matching fallback
   for (const [key, content] of Object.entries(helpContent)) {
     if (pathname.startsWith(key)) {
       return content;

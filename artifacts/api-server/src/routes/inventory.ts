@@ -11,6 +11,7 @@ import {
   purchaseOrdersTable,
   salesOrdersTable,
   salesOrderLinesTable,
+  laborAssignmentsTable,
 } from "@workspace/db/schema";
 import { eq, and, sql, gte, lte, count, max, type SQL } from "drizzle-orm";
 import { AdjustInventoryBody } from "@workspace/api-zod";

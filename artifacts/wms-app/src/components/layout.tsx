@@ -33,6 +33,7 @@ import {
   Layers,
   Users,
   TrendingUp,
+  DollarSign,
 } from "lucide-react";
 import {
   useGetLowStockAlerts,
@@ -78,6 +79,12 @@ const intelNavItems = [
   { href: "/labor-tracking", label: "Labor Tracking", icon: Users, roles: ["admin", "operator"] },
   { href: "/transfer-optimization", label: "Transfer Optimization", icon: ArrowLeftRight, roles: ["admin", "operator"] },
   { href: "/slotting", label: "Slotting", icon: TrendingUp, roles: ["admin", "operator"] },
+  { href: "/finance", label: "Finance", icon: DollarSign, roles: ["admin", "operator"] },
+  { href: "/finance/costing", label: "  Costing", icon: DollarSign, roles: ["admin", "operator"] },
+  { href: "/finance/reports", label: "  Reports", icon: BarChart3, roles: ["admin", "operator"] },
+  { href: "/finance/pricing/simulator", label: "  Pricing Sim", icon: DollarSign, roles: ["admin", "operator"] },
+  { href: "/finance/pricing/rules", label: "  Pricing Rules", icon: DollarSign, roles: ["admin", "operator"] },
+  { href: "/finance/margin/alerts", label: "  Margin Alerts", icon: DollarSign, roles: ["admin", "operator"] },
 ];
 
 const ROLE_COLORS: Record<string, string> = {
@@ -334,29 +341,49 @@ export function Layout({ children }: { children: React.ReactNode }) {
 export function PageHeader({
   title,
   subtitle,
+  description,
   action,
   helpKey,
+  breadcrumbs,
 }: {
   title: string;
   subtitle?: string;
+  description?: string;
   action?: React.ReactNode;
   helpKey?: string;
+  breadcrumbs?: { label: string; href?: string }[];
 }) {
   const [location] = useLocation();
   const helpContent = helpKey ? getHelpContent(helpKey) : getHelpContent(location);
-  
+
   return (
-    <div className="flex items-center justify-between px-6 py-5 border-b border-border bg-card/50">
-      <div className="flex items-center gap-3">
-        <h1 className="text-lg font-semibold text-foreground">{title}</h1>
-        {helpContent && (
-          <HelpTooltip content={helpContent} />
-        )}
-      </div>
-      {subtitle && !helpContent && (
-        <p className="text-sm text-muted-foreground mt-0.5">{subtitle}</p>
+    <div className="px-6 py-5 border-b border-border bg-card/50">
+      {breadcrumbs && breadcrumbs.length > 0 && (
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2">
+          {breadcrumbs.map((bc, i) => (
+            <span key={i} className="flex items-center gap-1.5">
+              {i > 0 && <span>/</span>}
+              {bc.href ? (
+                <a href={bc.href} className="hover:text-foreground transition-colors">{bc.label}</a>
+              ) : (
+                <span className="text-foreground font-medium">{bc.label}</span>
+              )}
+            </span>
+          ))}
+        </div>
       )}
-      {action && <div>{action}</div>}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <h1 className="text-lg font-semibold text-foreground">{title}</h1>
+          {helpContent && (
+            <HelpTooltip content={helpContent} />
+          )}
+        </div>
+        {action && <div>{action}</div>}
+      </div>
+      {(subtitle || description) && (
+        <p className="text-sm text-muted-foreground mt-1">{subtitle ?? description}</p>
+      )}
     </div>
   );
 }

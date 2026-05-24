@@ -68,12 +68,41 @@ export default function ReturnNewPage() {
     enabled: !orderId,
   });
 
-  // When SO data arrives, auto-fill customer + lines
+  const isFromSO = !!orderId;
+
+  // When SO data arrives, auto-fill customer
   useEffect(() => {
     if (soData) {
       setCustomerName(soData.customerName || "");
-      if (soData.lines?.length > 0) {
-        const soLines: ReturnLineInput[] = soData.lines.map((l: any) => ({
+      // Do NOT auto-add all lines — user selects which products to include
+    }
+  }, [soData]);
+
+  // Checkboxes for selecting which SO products to return
+  const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
+
+  // Populate selected product IDs from SO when data loads
+  useEffect(() => {
+    if (soData?.lines?.length) {
+      setSelectedProductIds(new Set(soData.lines.map((l: any) => l.productId)));
+    }
+  }, [soData]);
+
+  const toggleProductSelection = (productId: string) => {
+    setSelectedProductIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(productId)) next.delete(productId);
+      else next.add(productId);
+      return next;
+    });
+  };
+
+  // Build lines array from selected SO products
+  useEffect(() => {
+    if (isFromSO && soData?.lines?.length) {
+      const selectedLines: ReturnLineInput[] = soData.lines
+        .filter((l: any) => selectedProductIds.has(l.productId))
+        .map((l: any) => ({
           productId: l.productId,
           productName: l.productName || l.productId,
           maxQty: l.qtyShipped || l.qtyOrdered || 1,
@@ -81,14 +110,12 @@ export default function ReturnNewPage() {
           condition: "good",
           notes: "",
         }));
-        setLines(soLines);
-      }
+      setLines(selectedLines);
     }
-  }, [soData]);
+  }, [selectedProductIds, soData]);
 
   const products = productsData ?? [];
   const soLines = soData?.lines ?? [];
-  const isFromSO = !!orderId;
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -212,10 +239,58 @@ export default function ReturnNewPage() {
           </CardContent>
         </Card>
 
-        {/* Lines */}
+        {/* Product Selection (when from SO) */}
+        {isFromSO && soData?.lines?.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">Select Products to Return</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2 max-h-[280px] overflow-y-auto">
+                {soData.lines.map((l: any) => {
+                  const isSelected = selectedProductIds.has(l.productId);
+                  return (
+                    <label
+                      key={l.id}
+                      className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
+                        isSelected
+                          ? "border-primary/40 bg-primary/5"
+                          : "border-border/60 hover:border-border hover:bg-muted/30"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleProductSelection(l.productId)}
+                        className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm font-medium">{l.productName || l.productId}</span>
+                        {l.skuCode && (
+                          <span className="text-xs text-muted-foreground ml-2 font-mono">{l.skuCode}</span>
+                        )}
+                      </div>
+                      <div className="text-right text-sm text-muted-foreground">
+                        <span className="tabular-nums">{l.qtyShipped || l.qtyOrdered || 0}</span>
+                        <span className="text-xs ml-1">ordered</span>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+              {selectedProductIds.size === 0 && (
+                <p className="text-sm text-amber-600 mt-2">Select at least one product to continue</p>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Lines (read-only summary of selected products when from SO) */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-sm">Return Lines</CardTitle>
+            <CardTitle className="text-sm">
+              {isFromSO ? `Return Lines (${lines.length} selected)` : "Return Lines"}
+            </CardTitle>
             {!isFromSO && (
               <Button variant="outline" size="sm" onClick={addLine} className="h-7 text-xs">
                 <Plus className="w-3 h-3 mr-1" />
@@ -235,98 +310,108 @@ export default function ReturnNewPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {lines.map((line, idx) => (
-                  <TableRow key={idx}>
-                    <TableCell className="px-5 py-2">
-                      {isFromSO ? (
-                        <div className="text-xs">
-                          <span className="font-medium">{line.productName || line.productId}</span>
-                        </div>
-                      ) : (
-                        <Select
-                          value={line.productId}
-                          onValueChange={(v) => updateLine(idx, "productId", v)}
-                        >
-                          <SelectTrigger className="h-8 text-xs">
-                            <SelectValue placeholder="Select product" />
-                          </SelectTrigger>
-                          <SelectContent className="max-h-[200px] overflow-y-auto">
-                            {products.length === 0 ? (
-                              <SelectItem value="__none" disabled>
-                                Loading products...
-                              </SelectItem>
-                            ) : (
-                              products.map((p: any) => (
-                                <SelectItem key={p.id} value={p.id}>
-                                  {p.name} ({p.skuCode})
-                                </SelectItem>
-                              ))
-                            )}
-                          </SelectContent>
-                        </Select>
-                      )}
+                {lines.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center py-6 text-sm text-muted-foreground">
+                      {isFromSO
+                        ? "Select products above to add them to the return"
+                        : "Add a line item to this return"}
                     </TableCell>
-                    <TableCell className="px-5 py-2">
-                      {isFromSO ? (
-                        <Input
-                          type="number"
-                          min={1}
-                          max={line.maxQty}
-                          value={line.qtyReturned}
-                          onChange={(e) => updateLine(idx, "qtyReturned", Math.min(parseInt(e.target.value) || 1, line.maxQty))}
-                          className="w-20 h-8 text-xs text-right"
-                        />
-                      ) : (
-                        <Input
-                          type="number"
-                          min={1}
-                          value={line.qtyReturned}
-                          onChange={(e) => updateLine(idx, "qtyReturned", parseInt(e.target.value) || 1)}
-                          className="w-20 h-8 text-xs text-right"
-                        />
-                      )}
-                    </TableCell>
-                    <TableCell className="px-5 py-2">
-                      <Select
-                        value={line.condition}
-                        onValueChange={(v) => updateLine(idx, "condition", v)}
-                      >
-                        <SelectTrigger className="h-8 text-xs w-[120px]">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="new">New</SelectItem>
-                          <SelectItem value="good">Good</SelectItem>
-                          <SelectItem value="fair">Fair</SelectItem>
-                          <SelectItem value="damaged">Damaged</SelectItem>
-                          <SelectItem value="defective">Defective</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell className="px-5 py-2">
-                      <Input
-                        value={line.notes}
-                        onChange={(e) => updateLine(idx, "notes", e.target.value)}
-                        placeholder="Optional notes"
-                        className="h-8 text-xs"
-                      />
-                    </TableCell>
-                    {!isFromSO && (
+                  </TableRow>
+                ) : (
+                  lines.map((line, idx) => (
+                    <TableRow key={idx}>
                       <TableCell className="px-5 py-2">
-                        {lines.length > 1 && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-red-500 hover:text-red-600"
-                            onClick={() => removeLine(idx)}
+                        {isFromSO ? (
+                          <div className="text-xs">
+                            <span className="font-medium">{line.productName || line.productId}</span>
+                          </div>
+                        ) : (
+                          <Select
+                            value={line.productId}
+                            onValueChange={(v) => updateLine(idx, "productId", v)}
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue placeholder="Select product" />
+                            </SelectTrigger>
+                            <SelectContent className="max-h-[200px] overflow-y-auto">
+                              {products.length === 0 ? (
+                                <SelectItem value="__none" disabled>
+                                  Loading products...
+                                </SelectItem>
+                              ) : (
+                                products.map((p: any) => (
+                                  <SelectItem key={p.id} value={p.id}>
+                                    {p.name} ({p.skuCode})
+                                  </SelectItem>
+                                ))
+                              )}
+                            </SelectContent>
+                          </Select>
                         )}
                       </TableCell>
-                    )}
-                  </TableRow>
-                ))}
+                      <TableCell className="px-5 py-2">
+                        {isFromSO ? (
+                          <Input
+                            type="number"
+                            min={1}
+                            max={line.maxQty}
+                            value={line.qtyReturned}
+                            onChange={(e) => updateLine(idx, "qtyReturned", Math.min(parseInt(e.target.value) || 1, line.maxQty))}
+                            className="w-20 h-8 text-xs text-right"
+                          />
+                        ) : (
+                          <Input
+                            type="number"
+                            min={1}
+                            value={line.qtyReturned}
+                            onChange={(e) => updateLine(idx, "qtyReturned", parseInt(e.target.value) || 1)}
+                            className="w-20 h-8 text-xs text-right"
+                          />
+                        )}
+                      </TableCell>
+                      <TableCell className="px-5 py-2">
+                        <Select
+                          value={line.condition}
+                          onValueChange={(v) => updateLine(idx, "condition", v)}
+                        >
+                          <SelectTrigger className="h-8 text-xs w-[120px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="new">New</SelectItem>
+                            <SelectItem value="good">Good</SelectItem>
+                            <SelectItem value="fair">Fair</SelectItem>
+                            <SelectItem value="damaged">Damaged</SelectItem>
+                            <SelectItem value="defective">Defective</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell className="px-5 py-2">
+                        <Input
+                          value={line.notes}
+                          onChange={(e) => updateLine(idx, "notes", e.target.value)}
+                          placeholder="Optional notes"
+                          className="h-8 text-xs"
+                        />
+                      </TableCell>
+                      {!isFromSO && (
+                        <TableCell className="px-5 py-2">
+                          {lines.length > 1 && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-red-500 hover:text-red-600"
+                              onClick={() => removeLine(idx)}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </CardContent>

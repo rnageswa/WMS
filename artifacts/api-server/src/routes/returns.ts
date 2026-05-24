@@ -169,6 +169,11 @@ router.put("/returns/:id/status", async (req, res) => {
   // Set timestamp fields based on status
   if (parsed.data.status === "received") {
     updateData.receivedAt = new Date();
+    // Auto-capture qtyReceived = qtyReturned for all lines when received
+    await db
+      .update(returnLinesTable)
+      .set({ qtyReceived: sql`qty_returned` })
+      .where(eq(returnLinesTable.rmaId, req.params.id));
   } else if (parsed.data.status === "inspected") {
     updateData.inspectedAt = new Date();
   } else if (["restocked", "quarantined", "refunded", "rejected"].includes(parsed.data.status)) {

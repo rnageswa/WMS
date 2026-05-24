@@ -16,8 +16,11 @@ import {
   skuAlertOverridesTable,
   priceListsTable,
   priceListItemsTable,
+  productCostHistoryTable,
+  pricingRulesTable,
+  marginAlertsTable,
 } from "@workspace/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { seedCurrencies } from "../services/currency.service";
 
 const router = Router();
@@ -249,6 +252,101 @@ router.post("/seed", async (req, res) => {
       console.log("✓ Default Price List seeded with product prices");
     } else {
       console.log("✓ Price list already seeded, skipping");
+    }
+
+    // 17. Finance — Product Cost History snapshots
+    for (const inv of inventoryData) {
+      const product = insertedProducts.find((p) => p.id === inv.productId);
+      if (product) {
+        const cost = product.unitPrice ? parseFloat(product.unitPrice) * 0.6 : 5.00;
+        await db.insert(productCostHistoryTable).values({
+          productId: product.id,
+          avgCost: cost.toFixed(4),
+          totalQty: inv.qtyOnHand,
+          sourceType: "standard",
+        });
+      }
+    }
+    console.log("✓ Product cost history seeded");
+
+    // 18. Finance — Pricing Rules
+    const [existingRules] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(pricingRulesTable);
+    if (!existingRules || existingRules.count === 0) {
+      await db.insert(pricingRulesTable).values([
+        {
+          name: "Default Margin Floor",
+          ruleType: "margin_floor",
+          scope: "global",
+          actionJson: { type: "set_margin", value: 15 },
+          priority: 100,
+        },
+        {
+          name: "Default Markup Target",
+          ruleType: "markup_target",
+          scope: "global",
+          actionJson: { type: "set_markup", value: 30 },
+          priority: 50,
+        },
+        {
+          name: "Electronics Minimum Margin",
+          ruleType: "margin_floor",
+          scope: "category",
+          scopeId: "Electronics",
+          actionJson: { type: "set_margin", value: 25 },
+          priority: 200,
+        },
+        {
+          name: "Bulk Widget Discount",
+          ruleType: "volume_discount",
+          scope: "product",
+          scopeId: insertedProducts[0].id,
+          conditionJson: { minQty: 50 },
+          actionJson: { type: "set_price", value: 8.99 },
+          priority: 150,
+        },
+      ]);
+      console.log("✓ Pricing rules seeded");
+    } else {
+      console.log("✓ Pricing rules already exist, skipping");
+    }
+
+    // 19. Finance — Margin Alerts (for the received PO)
+    const [po2WithLines] = await db
+      .select()
+      .from(purchaseOrdersTable)
+      .where(eq(purchaseOrdersTable.id, po2.id))
+      .limit(1);
+    if (po2WithLines) {
+      const [existingAlerts] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(marginAlertsTable);
+      if (!existingAlerts || existingAlerts.count === 0) {
+        await db.insert(marginAlertsTable).values([
+          {
+            alertType: "negative_margin",
+            severity: "critical",
+            expectedMargin: "12.00",
+            actualMargin: "-3.50",
+          },
+          {
+            alertType: "below_floor",
+            severity: "warning",
+            expectedMargin: "20.00",
+            actualMargin: "12.40",
+          },
+          {
+            alertType: "price_anomaly",
+            severity: "info",
+            expectedMargin: null,
+            actualMargin: "5.00",
+          },
+        ]);
+        console.log("✓ Margin alerts seeded");
+      } else {
+        console.log("✓ Margin alerts already exist, skipping");
+      }
     }
 
     res.json({ success: true, message: "Seed completed successfully!" });

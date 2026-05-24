@@ -16,6 +16,7 @@ import { z } from "zod";
 import { getRate, convertCurrency, getBaseCurrency } from "../services/currency.service";
 import { recordOutboundCost } from "../services/costing.service";
 import { getDefaultPrice } from "../services/pricing.service";
+import { checkAndCreateMarginAlerts } from "../services/margin.service";
 
 const router = Router();
 
@@ -334,6 +335,13 @@ router.post("/sales-orders/:id/confirm", requireAuth, async (req, res) => {
 
   await addHistoryEvent(id, "confirmed", "Order confirmed and ready for picking");
 
+  // Check margin and create alerts if needed
+  try {
+    await checkAndCreateMarginAlerts(id);
+  } catch (e) {
+    console.error("Margin check error on confirm:", e);
+  }
+
   res.json(updated);
 });
 
@@ -550,11 +558,18 @@ router.post("/sales-orders/:id/ship", requireAuth, async (req: any, res) => {
     }
   }
 
+  // Calculate total revenue from shipped lines
+  const totalRevenue = lines.reduce((sum: number, line: any) => {
+    const price = line.unitPrice ? parseFloat(line.unitPrice) : 0;
+    return sum + line.qtyPacked * price;
+  }, 0);
+
   const [updated] = await db
     .update(salesOrdersTable)
     .set({
       status: "shipped",
       totalCogs: String(Math.round(totalCOGS * 100) / 100),
+      totalRevenue: String(Math.round(totalRevenue * 100) / 100),
       shippedAt: new Date(),
       updatedAt: new Date()
     })
@@ -566,6 +581,9 @@ router.post("/sales-orders/:id/ship", requireAuth, async (req: any, res) => {
     .update(salesOrderLinesTable)
     .set({ status: "shipped", qtyShipped: sql`qty_packed` })
     .where(eq(salesOrderLinesTable.orderId, id));
+
+  // Check margin after COGS is finalized at ship time
+  await checkAndCreateMarginAlerts(id);
 
   await addHistoryEvent(id, "shipped", trackingNumber ? `Shipped with tracking: ${trackingNumber}` : "Order shipped");
 
@@ -614,9 +632,16 @@ router.post("/sales-orders/bulk-ship", requireAuth, async (req: any, res) => {
         await db.update(inventoryItemsTable).set({ qtyOnHand: sql`qty_on_hand - ${line.qtyPacked}` }).where(eq(inventoryItemsTable.id, inventoryItem.id));
       }
 
-      await db.update(salesOrdersTable).set({ status: "shipped", totalCogs: String(Math.round(totalCOGS * 100) / 100), shippedAt: new Date(), updatedAt: new Date() }).where(eq(salesOrdersTable.id, id));
+      const bulkRevenue = lines.reduce((sum: number, line: any) => {
+        const price = line.unitPrice ? parseFloat(line.unitPrice) : 0;
+        return sum + line.qtyPacked * price;
+      }, 0);
+
+      await db.update(salesOrdersTable).set({ status: "shipped", totalCogs: String(Math.round(totalCOGS * 100) / 100), totalRevenue: String(Math.round(bulkRevenue * 100) / 100), shippedAt: new Date(), updatedAt: new Date() }).where(eq(salesOrdersTable.id, id));
       await db.update(salesOrderLinesTable).set({ status: "shipped", qtyShipped: sql`qty_packed` }).where(eq(salesOrderLinesTable.orderId, id));
       await addHistoryEvent(id, "shipped", "Bulk shipped");
+      // Check margin after COGS is finalized at ship time
+      await checkAndCreateMarginAlerts(id);
       shipped.push(id);
     } catch (err: any) {
       errors.push({ id, error: err.message ?? "Unknown error" });

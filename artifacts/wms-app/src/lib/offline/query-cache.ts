@@ -21,6 +21,14 @@ const TTL_MAP: Array<{ pattern: RegExp; ttl: number }> = [
   { pattern: /\/api\/picking-tasks(\?|$)/, ttl: TTL_TASKS },
   { pattern: /\/api\/purchase-orders(\?|$)/, ttl: TTL_PURCHASE_ORDERS },
   { pattern: /\/api\/suppliers(\?|$)/, ttl: TTL_SUPPLIERS },
+  // Finance endpoints
+  { pattern: /\/api\/finance\/dashboard/, ttl: 5 * 60 * 1000 },           // 5m — near real-time
+  { pattern: /\/api\/finance\/costing/, ttl: 10 * 60 * 1000 },             // 10m — moderate change
+  { pattern: /\/api\/finance\/reports/, ttl: 30 * 60 * 1000 },             // 30m — periodic reporting
+  { pattern: /\/api\/finance\/pricing\/rules/, ttl: 60 * 60 * 1000 },      // 1h — rarely change
+  { pattern: /\/api\/finance\/pricing\/simulate/, ttl: 5 * 60 * 1000 },   // 5m — transient
+  { pattern: /\/api\/finance\/margin/, ttl: 5 * 60 * 1000 },               // 5m — near real-time
+  { pattern: /\/api\/finance\/landed-costs/, ttl: 15 * 60 * 1000 },        // 15m — per PO
 ];
 
 export function getTTLForUrl(url: string): number {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
 import {
   useCommitReceipt,
@@ -14,7 +14,7 @@ import {
   getListZonesQueryKey,
   getListBinsQueryKey,
 } from "@workspace/api-client-react";
-import { useQueryClient, useQuery } from "@tanstack/react-query";
+import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { Layout, PageHeader } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -159,12 +159,34 @@ export default function ReceivingPage() {
   const { data: products = [] } = useListProducts();
   const { data: warehouses = [] } = useListWarehouses();
 
-  // Labor entries for worker assignment
-  const { data: laborEntries = [] } = useQuery({
-    queryKey: ["labor", "entries"],
+  // Workers for worker assignment
+  const { data: workers = [] } = useQuery({
+    queryKey: ["labor", "workers"],
     queryFn: async () => {
-      const res = await fetch("/api/labor/entries", { credentials: "include" });
+      const res = await fetch("/api/labor/workers", { credentials: "include" });
       if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  // Create a labor entry for a selected worker
+  const createLaborEntry = useMutation({
+    mutationFn: async (workerId: string) => {
+      const today = new Date().toISOString().slice(0, 10);
+      // Try to find existing entry for this worker today
+      const existingRes = await fetch(`/api/labor/entries?workerId=${encodeURIComponent(workerId)}&shiftDate=${today}`, { credentials: "include" });
+      if (existingRes.ok) {
+        const existing = await existingRes.json();
+        if (existing.length > 0) return existing[0];
+      }
+      // Create a new entry for today
+      const res = await fetch("/api/labor/entries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workerId, shiftDate: today }),
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to create labor entry");
       return res.json();
     },
   });
@@ -244,8 +266,17 @@ export default function ReceivingPage() {
         qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
       }
     },
-    onError: () => {
-      toast({ title: "Commit failed", description: "Please check the form and try again.", variant: "destructive" });
+    onError: async (err: any) => {
+      let detail = err?.message || "Please check the form and try again.";
+      // Try to extract the server response body for a more descriptive error
+      if (err?.response) {
+        try {
+          const body = await err.response.clone().json();
+          if (body?.message) detail = body.message;
+          if (body?.error) detail = body.error;
+        } catch { /* ignore */ }
+      }
+      toast({ title: "Commit failed", description: detail, variant: "destructive" });
     },
   });
 
@@ -282,11 +313,23 @@ export default function ReceivingPage() {
   const getProductSku = (id: string) => products.find((p) => p.id === id)?.skuCode ?? "—";
   const getWarehouseName = (id: string) => warehouses.find((w) => w.id === id)?.name ?? "—";
 
-  const handleCommit = () => {
+  const getOrCreateLaborEntry = useCallback(async () => {
+    if (!selectedLaborEntryId) return undefined;
+    if (createLaborEntry.isPending) return undefined;
+    try {
+      const entry = await createLaborEntry.mutateAsync(selectedLaborEntryId);
+      return entry.id;
+    } catch {
+      return undefined;
+    }
+  }, [selectedLaborEntryId, createLaborEntry]);
+
+  const handleCommit = async () => {
+    const laborEntryId = await getOrCreateLaborEntry();
     commit({
       data: {
         reference: reference.trim() || undefined,
-        laborEntryId: selectedLaborEntryId || undefined,
+        laborEntryId,
         lines: lines.map(({ productId, binId, qty }) => ({ productId, binId, qty })),
       } as any,
     });
@@ -647,11 +690,16 @@ export default function ReceivingPage() {
                       <SelectValue placeholder="Select worker…" />
                     </SelectTrigger>
                     <SelectContent>
-                      {laborEntries.map((e: any) => (
-                        <SelectItem key={e.id} value={e.id}>
-                          {e.workerId} — {e.shiftDate}
+                      {workers.map((w: any) => (
+                        <SelectItem key={w.id} value={w.workerId}>
+                          {w.workerName || w.workerId}
                         </SelectItem>
                       ))}
+                      {workers.length === 0 && (
+                        <SelectItem value="__none__" disabled>
+                          No workers found
+                        </SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>

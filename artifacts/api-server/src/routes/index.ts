@@ -22,6 +22,7 @@ import wavesRouter from "./waves";
 import laborRouter from "./labor";
 import transferOptimizationRouter from "./transfer-optimization";
 import slottingRouter from "./slotting";
+import { financeRouter } from "./finance";
 
 const router: IRouter = Router();
 
@@ -55,5 +56,6 @@ router.use(wavesRouter);
 router.use(laborRouter);
 router.use(transferOptimizationRouter);
 router.use(slottingRouter);
+router.use(financeRouter);
 
 export default router;

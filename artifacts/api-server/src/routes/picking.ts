@@ -164,7 +164,7 @@ router.post("/picking-tasks", requireAuth, async (req: any, res) => {
       orderId,
       assignedTo: assignedTo || null,
       status: assignedTo ? "assigned" : "pending",
-      laborAssignmentId: parsed.laborAssignmentId || null,
+      laborAssignmentId: parsed.data.laborAssignmentId || null,
     })
     .returning();
 

@@ -8,7 +8,7 @@ const router = Router();
 
 // ── GET /labor/workers ─────────────────────────────────────────────────────────
 
-router.get("/workers", async (req, res) => {
+router.get("/labor/workers", async (req, res) => {
   const { startDate, endDate, workerId } = req.query;
 
   const conditions = [];
@@ -27,7 +27,7 @@ router.get("/workers", async (req, res) => {
 
 // ── GET /labor/workers/:workerId ───────────────────────────────────────────────
 
-router.get("/workers/:workerId", async (req, res) => {
+router.get("/labor/workers/:workerId", async (req, res) => {
   const { workerId } = req.params;
   const { period } = req.query;
 
@@ -57,7 +57,7 @@ router.get("/workers/:workerId", async (req, res) => {
 
 // ── GET /labor/entries ───────────────────────────────────────────────────────
 
-router.get("/entries", async (req, res) => {
+router.get("/labor/entries", async (req, res) => {
   const { workerId, shiftDate } = req.query;
   const conditions = [];
   if (workerId) conditions.push(eq(laborEntriesTable.workerId, workerId as string));
@@ -82,7 +82,7 @@ const assignmentSchema = z.object({
   taskType: z.enum(["stock_movement", "picking", "cycle_count", "replenishment"]),
 });
 
-router.post("/assignments", async (req, res) => {
+router.post("/labor/assignments", async (req, res) => {
   const parsed = assignmentSchema.parse(req.body);
   try {
     const [created] = await db
@@ -108,7 +108,7 @@ const entrySchema = z.object({
   notes: z.string().optional(),
 });
 
-router.post("/entries", async (req, res) => {
+router.post("/labor/entries", async (req, res) => {
   const parsed = entrySchema.parse(req.body);
   try {
     const [created] = await db
@@ -140,7 +140,7 @@ const upsertSchema = z.object({
   accuracyRate: z.number().min(0).max(1).optional().nullable(),
 });
 
-router.post("/workers", async (req, res) => {
+router.post("/labor/workers", async (req, res) => {
   const parsed = upsertSchema.parse(req.body);
 
   const existing = await db
@@ -193,7 +193,7 @@ router.post("/workers", async (req, res) => {
 
 // ── GET /labor/metrics ──────────────────────────────────────────────────────────
 
-router.get("/metrics", async (req, res) => {
+router.get("/labor/metrics", async (req, res) => {
   const { workerId, metricType, days = "7" } = req.query;
 
   const conditions = [];

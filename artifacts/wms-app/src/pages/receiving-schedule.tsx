@@ -299,6 +299,7 @@ export default function ReceivingSchedulePage() {
         }
       />
 
+      <div className="p-6 max-w-6xl space-y-6">
       {/* Summary strip */}
       {!isLoading && totalActive > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
@@ -378,6 +379,7 @@ export default function ReceivingSchedulePage() {
           })}
         </div>
       )}
+      </div>
     </Layout>
   );
 }

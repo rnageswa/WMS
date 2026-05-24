@@ -101,6 +101,40 @@ export default function LaborTrackingPage() {
     },
   });
 
+  // Fallback: fetch labor entries when primary workers query returns empty
+  const { data: laborEntries = [] } = useQuery({
+    queryKey: ["labor", "entries"],
+    queryFn: async () => {
+      const res = await fetch("/api/labor/entries", { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !isLoading && (workers ?? []).length === 0,
+  });
+
+  // Combine workers + entries for dropdown — deduplicate by workerId
+  const allWorkerOptions = (() => {
+    const map = new Map<string, { id: string; label: string; value: string }>();
+    for (const w of workers ?? []) {
+      const key = w.workerId;
+      if (!map.has(key)) {
+        map.set(key, { id: w.id, label: w.workerName ?? w.workerId, value: key });
+      }
+    }
+    // Fall back to labor entries if no performance data
+    if (map.size === 0) {
+      for (const e of laborEntries as any[]) {
+        const key = e.workerId;
+        if (!map.has(key)) {
+          map.set(key, { id: e.id, label: `${e.workerId} (${e.shiftDate})`, value: e.id });
+        }
+      }
+    }
+    return Array.from(map.values());
+  })();
+
+  const workerOptions = allWorkerOptions;
+
   const createEntry = useMutation({
     mutationFn: async (body: Record<string, unknown>) => {
       const res = await fetch("/api/labor/entries", {
@@ -330,11 +364,17 @@ export default function LaborTrackingPage() {
                   <SelectValue placeholder="Select a worker…" />
                 </SelectTrigger>
                 <SelectContent>
-                  {workers?.map((w) => (
-                    <SelectItem key={w.id} value={w.workerId}>
-                      {w.workerName ?? w.workerId}
-                    </SelectItem>
-                  ))}
+                  {workerOptions.length > 0 ? (
+                    workerOptions.map((opt) => (
+                      <SelectItem key={opt.id} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <div className="px-2 py-3 text-xs text-muted-foreground text-center">
+                      No workers found.
+                    </div>
+                  )}
                 </SelectContent>
               </Select>
               {selectedWorkerId && (

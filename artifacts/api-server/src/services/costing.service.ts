@@ -3,6 +3,9 @@ import {
   inventoryItemsTable,
   inventoryMovementsTable,
   inventoryValuationLogTable,
+  productCostHistoryTable,
+  poLandedCostsTable,
+  purchaseOrderLinesTable,
 } from "@workspace/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 
@@ -131,4 +134,143 @@ export async function recordOutboundCost(
   }
 
   return cogs;
+}
+
+// ── Landed Cost Functions ──────────────────────────────────────────────────────
+
+export interface LandedCostInput {
+  costType: "freight" | "insurance" | "duties" | "handling" | "overhead";
+  amount: number;
+  allocationMethod?: "value" | "weight" | "quantity" | "equal";
+  currency?: string;
+}
+
+/**
+ * Add landed costs to a PO and allocate to lines by value ratio.
+ */
+export async function addLandedCosts(poId: string, costs: LandedCostInput[]): Promise<void> {
+  for (const cost of costs) {
+    await db.insert(poLandedCostsTable).values({
+      poId,
+      costType: cost.costType,
+      amount: String(cost.amount),
+      allocationMethod: cost.allocationMethod ?? "value",
+      currency: cost.currency ?? "USD",
+    });
+  }
+
+  // Allocate to lines
+  const totalLanded = costs.reduce((s, c) => s + c.amount, 0);
+  if (totalLanded <= 0) return;
+
+  const lines = await db
+    .select()
+    .from(purchaseOrderLinesTable)
+    .where(eq(purchaseOrderLinesTable.poId, poId));
+
+  const totalLineValue = lines.reduce((s, l) => {
+    const cost = l.unitCost ? parseFloat(l.unitCost) : 0;
+    return s + l.qtyOrdered * cost;
+  }, 0);
+
+  for (const line of lines) {
+    const lineValue = (line.unitCost ? parseFloat(line.unitCost) : 0) * line.qtyOrdered;
+    const ratio = totalLineValue > 0 ? lineValue / totalLineValue : 1 / lines.length;
+    const allocated = Math.round(totalLanded * ratio * 10000) / 10000;
+    const existing = line.allocatedLandedCost ? parseFloat(line.allocatedLandedCost) : 0;
+    await db
+      .update(purchaseOrderLinesTable)
+      .set({ allocatedLandedCost: String(existing + allocated) })
+      .where(eq(purchaseOrderLinesTable.id, line.id));
+  }
+}
+
+/**
+ * Get landed costs for a PO.
+ */
+export async function getLandedCosts(poId: string) {
+  const costs = await db
+    .select()
+    .from(poLandedCostsTable)
+    .where(eq(poLandedCostsTable.poId, poId));
+  return costs.map((c) => ({
+    ...c,
+    amount: parseFloat(c.amount),
+  }));
+}
+
+/**
+ * Calculate effective unit cost including allocated landed cost.
+ */
+export function effectiveUnitCost(unitCost: number, allocatedLandedCost: number, qtyOrdered: number): number {
+  if (qtyOrdered <= 0) return unitCost;
+  const perUnitLanded = allocatedLandedCost / qtyOrdered;
+  return Math.round((unitCost + perUnitLanded) * 10000) / 10000;
+}
+
+// ── Copy Landed Costs ────────────────────────────────────────────────────────
+
+/**
+ * Copy landed costs from one PO to another.
+ */
+export async function copyLandedCostsFromPO(fromPoId: string, toPoId: string): Promise<number> {
+  const sourceCosts = await getLandedCosts(fromPoId);
+  if (sourceCosts.length === 0) return 0;
+
+  for (const cost of sourceCosts) {
+    await db.insert(poLandedCostsTable).values({
+      poId: toPoId,
+      costType: cost.costType,
+      amount: String(cost.amount),
+      allocationMethod: cost.allocationMethod,
+      currency: cost.currency,
+    });
+  }
+
+  // Re-allocate to target PO lines
+  const totalLanded = sourceCosts.reduce((s, c) => s + c.amount, 0);
+  const lines = await db
+    .select()
+    .from(purchaseOrderLinesTable)
+    .where(eq(purchaseOrderLinesTable.poId, toPoId));
+
+  const totalLineValue = lines.reduce((s, l) => {
+    const cost = l.unitCost ? parseFloat(l.unitCost) : 0;
+    return s + l.qtyOrdered * cost;
+  }, 0);
+
+  for (const line of lines) {
+    const lineValue = (line.unitCost ? parseFloat(line.unitCost) : 0) * line.qtyOrdered;
+    const ratio = totalLineValue > 0 ? lineValue / totalLineValue : 1 / lines.length;
+    const allocated = Math.round(totalLanded * ratio * 10000) / 10000;
+    await db
+      .update(purchaseOrderLinesTable)
+      .set({ allocatedLandedCost: String(allocated) })
+      .where(eq(purchaseOrderLinesTable.id, line.id));
+  }
+
+  return sourceCosts.length;
+}
+
+// ── Cost History Functions ────────────────────────────────────────────────────
+
+/**
+ * Record a cost history snapshot.
+ */
+export async function recordCostHistory(
+  productId: string,
+  avgCost: number,
+  totalQty: number,
+  sourceType: "receipt" | "adjustment" | "manual" | "standard",
+  sourceId?: string,
+  standardCost?: number
+): Promise<void> {
+  await db.insert(productCostHistoryTable).values({
+    productId,
+    avgCost: String(avgCost),
+    standardCost: standardCost !== undefined ? String(standardCost) : null,
+    totalQty,
+    sourceType,
+    sourceId: sourceId ?? null,
+  });
 }

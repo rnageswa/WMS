@@ -146,7 +146,17 @@ export default function PickerPage() {
   // Warehouses for location selectors
   const { data: warehouses = [] } = useListWarehouses();
 
-  // Labor entries for worker assignment
+  // Workers for display names
+  const { data: workers = [] } = useQuery({
+    queryKey: ["labor", "workers"],
+    queryFn: async () => {
+      const res = await fetch("/api/labor/workers", { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  // Labor entries for assignment IDs (backend expects laborEntryId as UUID)
   const { data: laborEntries = [] } = useQuery({
     queryKey: ["labor", "entries"],
     queryFn: async () => {
@@ -155,6 +165,19 @@ export default function PickerPage() {
       return res.json();
     },
   });
+
+  // Build a lookup: workerId → workerName
+  const workerNameMap = Object.fromEntries(
+    (workers as any[]).map((w: any) => [w.workerId, w.workerName])
+  );
+
+  // Build dropdown options from labor entries, decorated with worker names
+  const workerOptions = (laborEntries as any[]).map((e: any) => ({
+    id: e.id,
+    label: workerNameMap[e.workerId] ?? e.workerId,
+    value: e.id, // UUID — same as laborEntryId expected by backend
+    shiftDate: e.shiftDate,
+  }));
 
   // Base mutations (hooks must be called at top level)
   const baseCreateTask = useCreatePickingTask();
@@ -428,6 +451,65 @@ export default function PickerPage() {
           </CardContent>
         </Card>
 
+        {/* ── Worker Assignment Section ───────────────────────────────── */}
+        {selectedOrderId && !selectedTaskId && createTaskMutation.isPending && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground p-4 bg-amber-50 border border-amber-200 rounded-lg">
+            <Loader2 className="w-4 h-4 animate-spin" />Creating picking task...
+          </div>
+        )}
+
+        {selectedTaskId && (
+          <Card className="border-blue-200/60 bg-blue-50/10">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+                <Users className="w-4 h-5 text-blue-600" />
+                Worker Assignment
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center gap-3 max-w-xl">
+                <div className="flex-1">
+                  <Select
+                    value={selectedLaborEntryId}
+                    onValueChange={(value) => setSelectedLaborEntryId(value)}
+                  >
+                    <SelectTrigger className="h-9 text-sm">
+                      <SelectValue placeholder="Select a worker to assign…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {workerOptions.length > 0 ? (
+                        workerOptions.map((opt) => (
+                          <SelectItem key={opt.id} value={opt.value}>
+                            {opt.label}
+                            <span className="ml-2 text-xs text-muted-foreground">
+                              ({opt.shiftDate})
+                            </span>
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <div className="px-2 py-3 text-xs text-muted-foreground text-center">
+                          No workers found. Create a labor entry first.
+                        </div>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {selectedLaborEntryId && (
+                  <button
+                    onClick={() => setSelectedLaborEntryId("")}
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2 shrink-0"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Assign a worker to track labor hours and productivity against this picking task.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
         {/* ── Scan Section ─────────────────────────────────────────────── */}
         {selectedTaskId && (
           <Card>
@@ -454,34 +536,6 @@ export default function PickerPage() {
                   </>
                 )}
                 <div className="ml-auto"><Badge className={taskStatusColors[taskStatus] || ""}>{taskStatus}</Badge></div>
-              </div>
-
-              {/* Worker assignment */}
-              <div className="flex items-center gap-3 p-3 bg-blue-50/40 border border-blue-200/60 rounded-lg">
-                <Users className="w-4 h-4 text-blue-600 shrink-0" />
-                <div className="flex-1 min-w-[200px] max-w-xs">
-                  <Label className="text-xs text-blue-600 mb-1 block">Assign Worker (optional)</Label>
-                  <Select value={selectedLaborEntryId} onValueChange={setSelectedLaborEntryId}>
-                    <SelectTrigger className="h-8 text-sm bg-white">
-                      <SelectValue placeholder="Select worker…" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {laborEntries.map((e: any) => (
-                        <SelectItem key={e.id} value={e.id}>
-                          {e.workerId} — {e.shiftDate}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                {selectedLaborEntryId && (
-                  <button
-                    onClick={() => setSelectedLaborEntryId("")}
-                    className="text-xs text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
-                  >
-                    Clear
-                  </button>
-                )}
               </div>
 
               {createTaskMutation.isPending && (

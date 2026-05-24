@@ -62,6 +62,7 @@ export const purchaseOrderLinesTable = pgTable(
     qtyOrdered: integer("qty_ordered").notNull(),
     qtyReceived: integer("qty_received").notNull().default(0),
     unitCost: numeric("unit_cost", { precision: 12, scale: 4 }),
+    allocatedLandedCost: numeric("allocated_landed_cost", { precision: 14, scale: 4 }).default("0"),
     status: text("status")
       .$type<(typeof poLineStatusEnum)[number]>()
       .notNull()

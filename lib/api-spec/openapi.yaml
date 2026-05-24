@@ -3730,6 +3730,14 @@ components:
         reference:
           type: string
           nullable: true
+        laborEntryId:
+          type: string
+          format: uuid
+          nullable: true
+        laborAssignmentId:
+          type: string
+          format: uuid
+          nullable: true
         lines:
           type: array
           items:

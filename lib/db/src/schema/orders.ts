@@ -53,6 +53,7 @@ export const salesOrdersTable = pgTable("sales_orders", {
   notes: text("notes"),
   expectedShipDate: date("expected_ship_date"),
   totalCogs: numeric("total_cogs", { precision: 14, scale: 2 }),
+  totalRevenue: numeric("total_revenue", { precision: 14, scale: 2 }),
   shippedAt: timestamp("shipped_at", { withTimezone: true }),
   deliveredAt: timestamp("delivered_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

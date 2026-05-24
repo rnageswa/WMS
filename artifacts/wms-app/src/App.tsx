@@ -61,6 +61,14 @@ import ReturnsPage from "@/pages/returns";
 import LaborTrackingPage from "@/pages/labor-tracking";
 import TransferOptimizationPage from "@/pages/transfer-optimization";
 import SlottingPage from "@/pages/slotting";
+import FinanceDashboardPage from "@/pages/finance-dashboard";
+import FinanceCostingDetailPage from "@/pages/finance-costing-detail";
+import FinancePricingSimulatorPage from "@/pages/finance-pricing-simulator";
+import FinanceMarginAlertsPage from "@/pages/finance-margin-alerts";
+import FinanceCostingPage from "@/pages/finance-costing";
+import FinanceLandedCostsPage from "@/pages/finance-landed-costs";
+import FinancePricingRulesPage from "@/pages/finance-pricing-rules";
+import FinanceReportsPage from "@/pages/finance-reports";
 import ReturnNewPage from "@/pages/return-new";
 import ReturnDetailPage from "@/pages/return-detail";
 import SignInPage from "@/pages/sign-in";
@@ -254,6 +262,14 @@ function AppRouter() {
             <Route path="/labor-tracking"><AuthGuard><LaborTrackingPage /></AuthGuard></Route>
             <Route path="/transfer-optimization"><AuthGuard><TransferOptimizationPage /></AuthGuard></Route>
             <Route path="/slotting"><AuthGuard><SlottingPage /></AuthGuard></Route>
+            <Route path="/finance"><AuthGuard><FinanceDashboardPage /></AuthGuard></Route>
+            <Route path="/finance/costing"><AuthGuard><FinanceCostingPage /></AuthGuard></Route>
+            <Route path="/finance/costing/:id"><AuthGuard><FinanceCostingDetailPage /></AuthGuard></Route>
+            <Route path="/finance/landed-costs/:poId"><AuthGuard><FinanceLandedCostsPage /></AuthGuard></Route>
+            <Route path="/finance/pricing/rules"><AuthGuard><FinancePricingRulesPage /></AuthGuard></Route>
+            <Route path="/finance/pricing/simulator"><AuthGuard><FinancePricingSimulatorPage /></AuthGuard></Route>
+            <Route path="/finance/reports"><AuthGuard><FinanceReportsPage /></AuthGuard></Route>
+            <Route path="/finance/margin/alerts"><AuthGuard><FinanceMarginAlertsPage /></AuthGuard></Route>
             <Route path="/returns/new"><AuthGuard><ReturnNewPage /></AuthGuard></Route>
             <Route path="/returns/:id"><AuthGuard><ReturnDetailPage /></AuthGuard></Route>
             <Route path="/returns"><AuthGuard><ReturnsPage /></AuthGuard></Route>

@@ -913,6 +913,10 @@ The Admin Console (`/admin`) is the central system administration hub, accessibl
 | 2026-05-18 | Waves API 500 on Netlify | `pick_waves`, `pick_wave_orders`, `pick_wave_zone_stops` tables not pushed to Neon DB. | Ran `drizzle-kit push` to create tables. |
 | 2026-05-18 | `waves.ts` TS errors: `inArray` type mismatch | `.filter(Boolean)` on nullable `taskId` array returns `(string | null)[]` — TS can't narrow. | Changed to `.filter((t): t is string => !!t)` for proper type guard. |
 | 2026-05-18 | `waves.ts` schema not exported | `waves.ts` schema file created but not re-exported from `schema/index.ts`. | Added `export * from "./waves"` to `schema/index.ts`. |
+| 2026-05-24 | Labor Tracking 404: POST /api/labor/workers returns 404 on first worker create | Labor GET routes missing `/labor/` prefix. Mounted at `/api`, route paths `/workers`, `/workers/:workerId`, `/entries` resolved to `/api/workers`, `/api/workers/:workerId`, `/api/entries` — no such routes existed. | Added `/labor/` prefix to all GET routes: `/labor/workers`, `/labor/workers/:workerId`, `/labor/entries`. |
+| 2026-05-24 | Full page refresh on finance/reports navigation from costing & margin-alerts | `<a href="/finance/reports">` tags used native anchor navigation → full browser reload, destroying React state and Query cache. | Replaced all `<a>` tags with wouter's `<Link>` or `setLocation()` in `finance-costing.tsx`, `finance-margin-alerts.tsx`, `finance-dashboard.tsx` (alert banners), and `finance-pricing-rules.tsx` (Test Rule button). |
+| 2026-05-24 | Pricing simulator fetched all products on mount | `useListProducts()` called with `undefined` params on page load, triggering `/api/products` (no search param) returning all products unnecessarily. | Changed to `useQuery` + `listProducts` with `enabled: debouncedSearch.length >= 3` — only queries when user has typed 3+ characters. |
+| 2026-05-24 | Missing layout margins on finance pages | Several finance pages lacked `p-6 max-w-6xl` wrappers creating inconsistent spacing vs finance-reports.tsx. | Added `<div className="p-6 max-w-6xl">` wrapper to `finance-dashboard.tsx`, `finance-costing.tsx`, `finance-costing-detail.tsx`, `finance-pricing-simulator.tsx`, `finance-pricing-rules.tsx`, `finance-margin-alerts.tsx`. |
 
 ---
 
@@ -1655,3 +1659,220 @@ artifacts/api-server/src/
 | Modified | `artifacts/wms-app/src/App.tsx` (3 new routes) |
 | Modified | `artifacts/wms-app/src/components/layout.tsx` (3 new nav items in Intelligence) |
 | Modified | `artifacts/wms-app/src/lib/help-content.ts` (help text for all 3 pages) |
+
+---
+
+## Sprint 7 — Finance Module (2026-05-23) ✅ COMPLETE
+
+### Phase 6.2A: Enhanced Costing
+
+**Landed Cost Tracking:**
+- `po_landed_costs` table: freight, insurance, duties, handling, overhead costs per PO
+- `allocatedLandedCost` on `purchase_order_lines`: auto-allocated by value ratio
+- `effectiveUnitCost()`: PO unit cost + allocated landed cost per unit
+- PO receive flow now uses effective unit cost for MAC calculation
+- `GET/POST /api/finance/landed-costs/:poId` endpoints
+
+**Cost History:**
+- `product_cost_history` table: snapshots of MAC on every receipt/adjustment
+- Auto-snapshot on every PO receipt via `recordCostHistory()`
+- `GET /api/finance/reports/cost-trend/:productId` endpoint
+
+**Product Cost Fields:**
+- `standard_cost`, `markup_target`, `margin_floor` added to `products` table
+- `GET/PUT /api/finance/costing/:productId` — cost breakdown + update targets
+- Frontend: Product Cost Detail page at `/finance/costing/:id`
+
+### Phase 6.2B: Pricing Intelligence
+
+**Pricing Rules Engine:**
+- `pricing_rules` table: margin_floor, markup_target, competitive_match, volume_discount
+- Scope: global, category, or product-level
+- Priority-based rule evaluation
+- Full CRUD via `GET/POST/PUT/DELETE /api/finance/pricing/rules`
+
+**Pricing Simulator:**
+- `GET/POST /api/finance/pricing/simulate` — what-if pricing calculator
+- Shows current vs proposed margin, markup %, rules applied, warnings
+- Auto-suggests prices at 15/20/25/30/40/50% markup tiers
+- Frontend: Pricing Simulator page at `/finance/pricing/simulator`
+
+### Phase 6.2C: Margin Protection
+
+**Margin Alerts:**
+- `margin_alerts` table: negative_margin, below_floor, price_anomaly
+- Severity: critical, warning, info
+- Auto-check on SO confirm (negative margin detection)
+- Acknowledge workflow with user tracking
+- `GET /api/finance/margin/alerts` + `POST /:id/acknowledge`
+- Frontend: Margin Alert Center at `/finance/margin/alerts`
+
+### Phase 6.2D: Finance Dashboard & Reports
+
+**Finance Dashboard:**
+- `GET /api/finance/dashboard` — KPI summary
+- Metrics: gross margin %, total revenue, COGS, avg markup, negative margin orders, products below floor
+- Charts: revenue by category (bar), margin trend (line)
+- Frontend: Finance Dashboard at `/finance`
+
+**Reports:**
+- `GET /api/finance/reports/profitability` — per-product margin analysis
+- `GET /api/finance/reports/cost-trend/:productId` — MAC history
+- `GET /api/finance/reports/price-effectiveness` — price list coverage
+
+### Sprint 7 Files Summary
+
+| Action | File |
+|--------|------|
+| Created | `lib/db/src/schema/finance.ts` (po_landed_costs, product_cost_history, pricing_rules, margin_alerts) |
+| Modified | `lib/db/src/schema/products.ts` (added standardCost, markupTarget, marginFloor) |
+| Modified | `lib/db/src/schema/purchasing.ts` (added allocatedLandedCost to PO lines) |
+| Modified | `lib/db/src/schema/orders.ts` (added totalRevenue to sales_orders) |
+| Modified | `lib/db/src/schema/index.ts` (export finance) |
+| Created | `artifacts/api-server/src/services/margin.service.ts` |
+| Created | `artifacts/api-server/src/routes/finance.ts` |
+| Modified | `artifacts/api-server/src/services/costing.service.ts` (landed cost, cost history) |
+| Modified | `artifacts/api-server/src/services/pricing.service.ts` (rules engine, simulator) |
+| Modified | `artifacts/api-server/src/routes/index.ts` (mount financeRouter) |
+| Modified | `artifacts/api-server/src/routes/purchasing.ts` (landed cost integration) |
+| Modified | `artifacts/api-server/src/routes/orders.ts` (margin check on confirm) |
+| Created | `artifacts/wms-app/src/pages/finance-dashboard.tsx` |
+| Created | `artifacts/wms-app/src/pages/finance-costing-detail.tsx` |
+| Created | `artifacts/wms-app/src/pages/finance-pricing-simulator.tsx` |
+| Created | `artifacts/wms-app/src/pages/finance-margin-alerts.tsx` |
+| Modified | `artifacts/wms-app/src/App.tsx` (4 new routes) |
+| Modified | `artifacts/wms-app/src/components/layout.tsx` (Finance nav item, PageHeader extensions) |
+| Modified | `artifacts/wms-app/src/lib/help-content.ts` (help text for 4 pages) |
+
+---
+
+## Phase 7 Sprint 1 — Costing & Landed Costs (2026-05-23) ✅ COMPLETE
+
+### Product Costing List (`/finance/costing`)
+- Backend: `GET /api/finance/costing` endpoint via `getProductCostingList()` in `margin.service.ts`
+- Summary cards (products, inventory value, products over 5% variance, with cost data)
+- Filterable/searchable table: SKU, name, category badge, avg cost (MAC), std cost, variance %, markup target %, margin floor %, qty, inventory value
+- Variance indicators: red/green arrows for >5% over/under standard cost
+- Links to product cost detail page
+
+### Product Cost Detail (`/finance/costing/:id`)
+- Per-product cost breakdown: MAC, standard cost, cost variance, total inventory value, suggested price
+- Pricing targets section: markup target, margin floor with edit dialog
+- Cost History Chart: line chart of last 30 MAC snapshots using recharts
+- Cost History Log: table of all snapshots with date, avg cost, qty, source type (receipt/adjustment/manual/standard)
+
+### Landed Costs Manager (`/finance/landed-costs/:poId`)
+- Cost type breakdown cards: Freight, Insurance, Duties, Handling, Overhead + total
+- Add landed cost dialog with type selector, amount input, allocation method (value/quantity/equal/weight)
+- Table of all landed cost entries with type, amount, allocation badge, currency, date
+- Info section explaining how landed cost allocation works
+- Uses existing `POST /GET /api/finance/landed-costs/:poId` endpoints
+
+### Shared Components
+- `CurrencyInput` — number input with currency suffix
+- `PercentInput` — number input with % suffix
+- `CostHistoryChart` — reusable line chart for MAC history
+
+---
+
+## Phase 7 Sprint 2 — Pricing Rules & Simulator (2026-05-23) ✅ COMPLETE
+
+### Pricing Rules Manager (`/finance/pricing/rules`)
+- CRUD for pricing rules: margin floor, markup target, competitive match, volume discount
+- Create/Edit dialog: name, rule type, scope (global/category/product), scope ID, action value, priority, valid dates
+- Summary cards: total rules, active, global, category/product
+- Rule cards with type badges (color-coded), scope icon, priority, action description, valid date range
+- Active toggle per rule, duplicate, edit, delete with confirm, inline status switch
+- Backend: 4 endpoints (GET/POST/PUT/DELETE `/api/finance/pricing/rules`)
+
+### Pricing Simulator (`/finance/pricing/simulator`)
+- Input panel: product ID, unit cost, proposed price (optional), quantity (optional)
+- Results: product info, current vs proposed price comparison, markup %
+- Warning cards for rules violations (below margin floor, etc.)
+- Rules applied section showing which rules triggered
+- Price suggestions at 15/20/25/30/40/50% markup tiers with margin %
+- Backend: `POST /api/finance/pricing/simulate` with full rules engine evaluation
+
+### Routing Fix
+- Static `/finance/costing` registered before dynamic `/finance/costing/:id` to prevent wouter matching `costing` as `:id`
+- `getHelpContent()` updated with regex pattern matching for `/:id` dynamic routes
+
+---
+
+## Phase 7 Sprint 3 — Margin Alerts, Bulk Costing, Reports (2026-05-23) ✅ COMPLETE
+
+### Enhanced Margin Alert Center (`/finance/margin/alerts`)
+- Expandable detail panel: click any alert to see full order line breakdown (SKU, product, qty, unit price, revenue, cost, margin, margin %)
+- Auto-acknowledge toggle: per-order preference stored in localStorage, future alerts auto-dismissed
+- Root cause actions: Adjust Pricing, Review Costs, Pricing Rules quick links
+- Summary cards: Active, Critical, Warning, Acknowledged counts with severity badges
+- Dedicated order margin detail endpoint: `GET /api/finance/margin/alerts/order/:orderId` using `calculateOrderMargin()`
+
+### Bulk Operations on Costing List
+- Checkbox selection: per-row and select-all with highlighted rows
+- Floating action bar: fixed bottom bar with Set Std Cost, Set Markup %, Set Floor % buttons
+- Bulk update dialog: shows selected products with current values, input for new value, confirmation
+- Backend: `POST /api/finance/costing/bulk-update` validates and applies updates in batch
+- Excel export of filtered costing data
+
+### Finance Reports (`/finance/reports`)
+- Profitability tab: per-product margin analysis, bar chart (top 15), KPI cards (total revenue, COGS, gross margin, avg margin %)
+- Negative margin alert banner linking to Margin Alert Center
+- Filter buttons (all/positive/negative margin), search by name/SKU, export to Excel
+- Price Effectiveness tab: total orders/revenue/margin KPI cards, price coverage stacked bar chart
+- Priced vs unpriced product summary cards, link to set prices
+- Route: `/finance/reports` added to App.tsx and layout.tsx nav (BarChart3 icon)
+
+---
+
+## Phase 7 Sprint 4 — Integration, Polish & Docs (2026-05-23) ✅ COMPLETE
+
+### Finance Seed Data
+- Added to `POST /api/seed` endpoint:
+  - **Product Cost History** — one initial snapshot per product (sourceType: "standard")
+  - **Pricing Rules** — 4 demo rules: global margin floor (15%), global markup target (30%), electronics category margin (25%), bulk widget discount (50+ qty → $8.99)
+  - **Margin Alerts** — 3 sample alerts: negative_margin (critical), below_floor (warning), price_anomaly (info)
+- All sections skip if data already exists (idempotent re-seeding)
+
+### RBAC — Role-Based Access Control
+- All 8 finance pages wrapped with `<RoleGate roles={["admin", "operator"]}>`:
+  - Finance Dashboard, Product Costing, Cost Detail, Landed Costs, Pricing Rules, Pricing Simulator, Margin Alerts, Finance Reports
+- Pattern: default export wraps component with RoleGate
+- Prevents viewer-role users from accessing financial data
+
+### Finance Dashboard Enhancements
+- Quick link cards at bottom: Finance Reports, Product Costing, Pricing Simulator, Margin Alerts (with active alert count)
+- Navigation uses wouter `setLocation()` (not `window.location.href`) to prevent full page reloads
+- Refresh button with last-updated timestamp
+- Alert banners for negative margin orders and products below floor
+
+### Offline Mode Support
+- Query cache TTLs added for 7 finance API endpoint patterns:
+  - `/api/finance/dashboard` — 5 min (near real-time)
+  - `/api/finance/costing` — 10 min (moderate change)
+  - `/api/finance/reports` — 30 min (periodic reporting)
+  - `/api/finance/pricing/rules` — 1 hour (rarely change)
+  - `/api/finance/pricing/simulate` — 5 min (transient)
+  - `/api/finance/margin` — 5 min (near real-time)
+  - `/api/finance/landed-costs` — 15 min (per PO)
+
+### Responsive Polish
+- All finance tables use `overflow-x-auto` for horizontal scroll on mobile
+- KPI cards use responsive grid: 2 cols mobile, 3/4/6 cols at larger breakpoints
+- Filters use `flex-wrap` to stack on small screens
+
+### Sprint 4 Files Summary
+
+| Action | File |
+|--------|------|
+| Modified | `artifacts/api-server/src/routes/seed.ts` (finance seed data) |
+| Modified | `artifacts/wms-app/src/pages/finance-dashboard.tsx` (quick links, setLocation, RoleGate) |
+| Modified | `artifacts/wms-app/src/pages/finance-costing.tsx` (RoleGate) |
+| Modified | `artifacts/wms-app/src/pages/finance-costing-detail.tsx` (RoleGate) |
+| Modified | `artifacts/wms-app/src/pages/finance-landed-costs.tsx` (RoleGate) |
+| Modified | `artifacts/wms-app/src/pages/finance-pricing-rules.tsx` (RoleGate) |
+| Modified | `artifacts/wms-app/src/pages/finance-pricing-simulator.tsx` (RoleGate) |
+| Modified | `artifacts/wms-app/src/pages/finance-reports.tsx` (RoleGate) |
+| Modified | `artifacts/wms-app/src/pages/finance-margin-alerts.tsx` (RoleGate) |
+| Modified | `artifacts/wms-app/src/lib/offline/query-cache.ts` (finance TTLs) |
+| Modified | `APPLICATION_CONTEXT.md` (this section) |

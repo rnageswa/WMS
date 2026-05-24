@@ -18,7 +18,7 @@ import { eq, inArray, sql, ne, and, or, ilike, desc } from "drizzle-orm";
 import { z } from "zod";
 import { sendPoEmail } from "../lib/email";
 import { getRate, getBaseCurrency } from "../services/currency.service";
-import { updateInventoryCostAfterReceipt, recordValuation } from "../services/costing.service";
+import { updateInventoryCostAfterReceipt, recordValuation, effectiveUnitCost, recordCostHistory } from "../services/costing.service";
 
 const router: IRouter = Router();
 
@@ -1207,7 +1207,10 @@ router.post("/purchase-orders/:id/receive", async (req, res) => {
       });
       movementsCreated++;
 
-      receivedLineCosts.push({ productId: line.productId, binId: rl.binId, qty: actualQty, unitCost: poUnitCost });
+      // Include allocated landed cost in effective unit cost
+      const allocatedLanded = line.allocatedLandedCost ? parseFloat(line.allocatedLandedCost) : 0;
+      const effectiveCost = effectiveUnitCost(poUnitCost, allocatedLanded, line.qtyOrdered);
+      receivedLineCosts.push({ productId: line.productId, binId: rl.binId, qty: actualQty, unitCost: effectiveCost });
 
       // Update line received qty and status
       const newReceived = line.qtyReceived + actualQty;
@@ -1239,11 +1242,15 @@ router.post("/purchase-orders/:id/receive", async (req, res) => {
       .where(eq(purchaseOrdersTable.id, po.id));
   });
 
-  // Update avgCost via MAC and record valuation log for each received line
+  // Update avgCost via MAC, record valuation log, and snapshot cost history for each received line
   for (const rc of receivedLineCosts) {
     if (rc.unitCost > 0) {
-      await updateInventoryCostAfterReceipt(rc.productId, rc.binId, rc.qty, rc.unitCost);
+      const newAvgCost = await updateInventoryCostAfterReceipt(rc.productId, rc.binId, rc.qty, rc.unitCost);
       await recordValuation(rc.productId, null, rc.qty, rc.unitCost);
+      // Cost history snapshot
+      const [item] = await db.select().from(inventoryItemsTable).where(and(eq(inventoryItemsTable.productId, rc.productId), eq(inventoryItemsTable.binId, rc.binId))).limit(1);
+      const totalQty = item?.qtyOnHand ?? rc.qty;
+      await recordCostHistory(rc.productId, newAvgCost, totalQty, "receipt", po.id);
     }
   }
 
